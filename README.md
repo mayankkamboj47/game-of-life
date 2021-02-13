@@ -6,3 +6,5 @@ This is a cellular simulation, with the following rules
 4. If there is space which is surrounded by exactly 3 living cell, it gets populated by a living cell
 
 Initially you'll only see empty space. To populate the grid, pause the simulation and click the space using your mouse. 
+
+See this project at https://game-of-life-mayankkamboj47.herokuapp.com/
