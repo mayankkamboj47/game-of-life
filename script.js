@@ -5,19 +5,29 @@ const gridSize = 100;
 const cellSize = canvas.width / gridSize;
 let frameRate = 10;
 let pause = false;
-
+let theme = "dark";
+let generation = 0;
 let grid = [];
 
-function randomiseGrid(){
+function randomiseGrid(seed){
+    // create a random grid of 1s and 0s of size gridSize x gridSize
+    // We essentially use a linear congruential generator (LCG) to generate a random number
+    // See a simpler example on : https://www.github.com/mayankkamboj47/numtheory
+    if(seed === undefined) seed = Math.floor(Math.random() * (1 << 48));
+    const multiplier = 0x5DEECE66D;
+    const mask = (1 << 48) - 1;
+    let random = seed;
     for(let i=0; i<gridSize; i++) {
         grid[i] = [];
         for(let j=0; j<gridSize; j++) {
-            grid[i][j] = Math.random() < 0.5 ? 0 : 1;
+            random = (multiplier * random + 0xB) & mask;
+            grid[i][j] = Math.floor(random / (1 << (48 - 1))) % 2;
         }
     }
 }
 
 function gameLoop(){
+    generation++;
     updateGrid();
     drawGrid();
     if(!pause) setTimeout(gameLoop, 1000 / frameRate);
@@ -51,6 +61,20 @@ canvas.addEventListener("click", function(e) {
     drawGrid();
 });
 
+canvas.addEventListener("mousedown", function(e) {
+    const onMove = (e)=>{
+        const rect = canvas.getBoundingClientRect();
+        const coefficient = canvas.width / rect.width;
+        const x = Math.floor((e.clientX - rect.left) * coefficient / cellSize);
+        const y = Math.floor((e.clientY - rect.top) * coefficient / cellSize);
+        grid[x][y] = 1;
+        drawGrid();
+    };
+    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mouseup", function() {
+        canvas.removeEventListener("mousemove", onMove);
+    });
+});
 
 function countNeighbours(x, y) {
     let neighbours = 0;
@@ -66,13 +90,17 @@ function countNeighbours(x, y) {
     return neighbours;
 }
 
-function drawGrid(){
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+function drawGrid() {
+    if(theme === "light") ctx.fillStyle = "white";
+    else ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     for(let i=0; i<gridSize; i++) {
         for(let j=0; j<gridSize; j++) {
             const cell = grid[i][j];
             if(cell === 1) {
-                ctx.fillStyle = "black";
+                if(theme === "light") ctx.fillStyle = "black";
+                else ctx.fillStyle = "white";
                 ctx.fillRect(i * cellSize, j * cellSize, cellSize, cellSize);
             }
         }
@@ -104,13 +132,10 @@ function elt(name, attributes, children) {
     function () {
         const label = elt("label", null, elt("span", null, "Frame Rate"));
         const slider = elt("input", {type: "range", min: 1, max: 60, value: 10, step: 1});
-        const span = elt("span", null, slider.value);
         label.appendChild(slider);
-        label.appendChild(span);
         document.body.appendChild(label);
         slider.addEventListener("change", function(e) {
             frameRate = e.target.value;  
-            span.textContent = frameRate;
         });
     }
 )();
@@ -152,11 +177,68 @@ function elt(name, attributes, children) {
     function () {
         const label = elt("label", null, elt("span", null, "Randomise"));
         const button = elt("button", null, "Random");
+        const seed   = elt("input", {type: "text", value: "1331", placeholder: "seed" });
+        label.appendChild(seed);
         label.appendChild(button);
         document.body.appendChild(label);
         button.addEventListener("click", function(e) {
-            randomiseGrid();
+            randomiseGrid(seed.value);
+            seed.value = Math.floor(Math.random() * 10000);
             drawGrid();
+        }
+        );
+    }
+)();
+
+(
+    function () {
+        const label = elt("label", null, elt("span", null, "Theme"));
+        const button = elt("button", null, "Toggle");
+        label.appendChild(button);
+        document.body.appendChild(label);
+        button.addEventListener("click", function(e) {
+            if(theme === "light") theme = "dark";
+            else theme = "light";
+            drawGrid();
+            document.querySelector("body").classList.toggle("dark");
         });
     }
 )();
+
+(
+    function () {
+        const label = elt("label", null, elt("span", null, "Download the grid"));
+        const button = elt("button", null, "Download");
+        label.appendChild(button);
+        document.body.appendChild(label);
+        button.addEventListener("click", function(e) {
+            // download the grid as a json file
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(grid));
+            const dlAnchorElem = elt('a', { href : dataStr, download: 'grid.json'});
+            document.body.appendChild(dlAnchorElem);
+            dlAnchorElem.click();
+            dlAnchorElem.remove();
+        });
+    }
+)();
+
+(
+    function () {
+        const label = elt("label", {class : "upload"}, elt("span", null, "Upload a grid"));
+        const input = elt("input", {type: "file"});
+        label.appendChild(input);
+        document.body.appendChild(label);
+        input.addEventListener("change", function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const contents = e.target.result;
+                grid = JSON.parse(contents);
+                drawGrid();
+            };
+            reader.readAsText(file);
+        }
+        );
+    }
+)();
+

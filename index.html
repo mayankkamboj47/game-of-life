@@ -5,19 +5,19 @@
         <title>Game of Life</title>
         <link rel="stylesheet" href="./styles.css" />
     </head>
-    <body>
+    <body class="dark">
         <h1>Game of Life</h1>
-        <p>This is a Javascript implementation of Conway's Game of Life, which is a cellular simulation with these rules : 
+        <p>This is a vanilla Javascript implementation of <a href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life">Conway's Game of Life</a>, which is a cellular simulation with these rules : 
         </p> 
         <ul>
-                <li>A cell with less than 2 cell in its neighbourhood dies, as if by solitude</li>
-                <li>A cell with 2 cells in its neighbourhood survives</li>
-                <li>A cell with 3 or more cells in its neighbourhood dies, as if by food scarcity</li>
-                <li>An empty cell with just one cell in its neighbourhood gets populated, as if by reproduction</li>
+                <li class="death">A cell with less than 2 cell in its neighbourhood dies, as if by solitude</li>
+                <li class="survival">A cell with 2 cells in its neighbourhood survives</li>
+                <li class="death">A cell with 3 or more cells in its neighbourhood dies, as if by food scarcity</li>
+                <li class="reproduction">An empty cell with just one cell in its neighbourhood gets populated, as if by reproduction</li>
         </ul>
-        <p>Click on the canvas to add or remove cells, and use the controls below to play with the simulation.</p>
+        <p>Click or drag on the canvas to add or remove cells, and use the controls below to play with the simulation.</p>
 
-        <canvas id="canvas"></canvas>
+        <canvas id="canvas" width="1200" height="600"></canvas>
         <script src="./script.js"></script>
     </body>
 </html>
