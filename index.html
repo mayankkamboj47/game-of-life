@@ -198,7 +198,7 @@
             answer = answer.replace(/\n/g, '<br>');
             
             // Split by spaces but keep the spaces
-            const tokens = answer.split(/(\s+)/);
+            const tokens = answer.split(/(\s+|\(|\))/);
             
             return tokens.map(token => {
                 if (token.trim() === '') {
