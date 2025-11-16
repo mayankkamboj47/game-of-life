@@ -1,23 +1,245 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <title>Game of Life</title>
-        <link rel="stylesheet" href="./styles.css" />
-    </head>
-    <body class="dark">
-        <h1>Game of Life</h1>
-        <p>This is a vanilla Javascript implementation of <a href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life">Conway's Game of Life</a>, which is a cellular simulation with these rules : 
-        </p> 
-        <ul>
-                <li class="death">A cell with less than 2 cell in its neighbourhood dies, as if by solitude</li>
-                <li class="survival">A cell with 2 cells in its neighbourhood survives</li>
-                <li class="death">A cell with 3 or more cells in its neighbourhood dies, as if by food scarcity</li>
-                <li class="reproduction">An empty cell with just one cell in its neighbourhood gets populated, as if by reproduction</li>
-        </ul>
-        <p>Click or drag on the canvas to add or remove cells, and use the controls below to play with the simulation.</p>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Translation Quiz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-        <canvas id="canvas" width="1200" height="600"></canvas>
-        <script src="./script.js"></script>
-    </body>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 2em;
+        }
+
+        .quiz-card {
+            background: #fafafa;
+            border-radius: 4px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 3px solid #666;
+        }
+
+        .question-number {
+            color: #666;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        .question {
+            font-size: 1.2em;
+            color: #dc3545;
+            margin-bottom: 15px;
+            line-height: 1.5;
+            font-weight: 600;
+        }
+
+        .answer {
+            background: white;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .answer-text {
+            color: #333;
+            font-size: 1.1em;
+            font-weight: 500;
+            line-height: 1.8;
+        }
+
+        .question-token {
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        .answer-token {
+            color: #333;
+        }
+
+        .show-answer-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .show-answer-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .show-answer-btn:active {
+            transform: translateY(0);
+        }
+
+        .show-answer-btn.hide {
+            background: #6c757d;
+        }
+
+        .show-answer-btn.hide:hover {
+            background: #5a6268;
+        }
+
+        .progress {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 Translation Quiz</h1>
+        <div id="quiz-container"></div>
+        <div class="progress" id="progress"></div>
+    </div>
+
+    <script>
+        // QUIZ DATA - Modify this object to change the quiz questions and answers
+        const quizData = [
+            {
+                question: 'Translate "I am well" to French',
+                answer: '*I (Je) *am (vais) *well (bien)'
+            },
+            {
+                question: 'Translate "Good morning" to Spanish',
+                answer: 'Buenos días\n\nBuenos *good días *morning'
+            },
+            {
+                question: 'Translate "Thank you" to German',
+                answer: '*Thank *you (Danke)'
+            },
+            {
+                question: 'Translate "Goodbye" to Italian',
+                answer: '*Goodbye (Arrivederci)'
+            },
+            {
+                question: 'Translate "How are you?" to Portuguese',
+                answer: '*How (Como) *are (você) *you (está)?'
+            },
+            {
+                question: 'Test newline rendering\nThis should be on a new line',
+                answer: 'First line\nSecond line\nThird line'
+            }
+        ];
+
+        // Generate quiz HTML
+        function generateQuiz() {
+            const container = document.getElementById('quiz-container');
+            
+            quizData.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = 'quiz-card';
+                card.innerHTML = `
+                    <div class="question-number">Question ${index + 1} of ${quizData.length}</div>
+                    <div class="question">${item.question.replace(/\n/g, '<br>')}</div>
+                    <button class="show-answer-btn" onclick="toggleAnswer(${index})">Show Answer</button>
+                    <div class="answer" id="answer-${index}">
+                        <div class="answer-text">${formatAnswer(item.answer)}</div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            updateProgress();
+        }
+
+        // Format answer with color coding
+        function formatAnswer(answer) {
+            // First replace \n with <br> tags
+            answer = answer.replace(/\n/g, '<br>');
+            
+            // Split by spaces but keep the spaces
+            const tokens = answer.split(/(\s+)/);
+            
+            return tokens.map(token => {
+                if (token.trim() === '') {
+                    return token; // Keep whitespace as-is
+                }
+                
+                if (token.startsWith('*')) {
+                    // Remove the star and color red (question token)
+                    const cleanToken = token.substring(1);
+                    return `<span class="question-token">${cleanToken}</span>`;
+                } else {
+                    // Color black (answer token)
+                    return `<span class="answer-token">${token}</span>`;
+                }
+            }).join('');
+        }
+
+        // Toggle answer visibility
+        function toggleAnswer(index) {
+            const answerDiv = document.getElementById(`answer-${index}`);
+            const btn = event.target;
+            
+            if (answerDiv.style.display === 'none' || answerDiv.style.display === '') {
+                answerDiv.style.display = 'block';
+                btn.textContent = 'Hide Answer';
+                btn.classList.add('hide');
+            } else {
+                answerDiv.style.display = 'none';
+                btn.textContent = 'Show Answer';
+                btn.classList.remove('hide');
+            }
+        }
+
+        // Update progress indicator
+        function updateProgress() {
+            const progress = document.getElementById('progress');
+            progress.textContent = `Total Questions: ${quizData.length}`;
+        }
+
+        // Initialize quiz on page load
+        generateQuiz();
+    </script>
+</body>
 </html>
