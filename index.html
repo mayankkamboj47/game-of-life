@@ -137,7 +137,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Test 1</h1>
+        <h1 id="title"></h1>
         <div id="quiz-container"></div>
         <div class="progress" id="progress"></div>
     </div>
@@ -145,7 +145,7 @@
     <script>
         // QUIZ DATA - Modify this object to change the quiz questions and answers
       
-const quizData = [
+const quizData = [[
     {
         question: 'Translate वह खाता है',
         answer: 'He eats\nHe (*वह *पुल्लिंग) eats (*खाता *है)'
@@ -210,17 +210,17 @@ const quizData = [
         question: 'Translate "Her cat drinks"',
         answer: 'उसकी बिल्ली पीती है\nHer (*उस *स्त्रीलिंग *की) cat (*बिल्ली) drinks (*पीती *है)'
     }
-];
+]];
 
         // Generate quiz HTML
-        function generateQuiz() {
+        function generateQuiz(i) {
             const container = document.getElementById('quiz-container');
             
-            quizData.forEach((item, index) => {
+            quizData[i].forEach((item, index) => {
                 const card = document.createElement('div');
                 card.className = 'quiz-card';
                 card.innerHTML = `
-                    <div class="question-number">Question ${index + 1} of ${quizData.length}</div>
+                    <div class="question-number">Question ${index + 1} of ${quizData[i].length}</div>
                     <div class="question">${item.question.replace(/\n/g, '<br>')}</div>
                     <button class="show-answer-btn" onclick="toggleAnswer(${index})">Show Answer</button>
                     <div class="answer" id="answer-${index}">
@@ -230,7 +230,8 @@ const quizData = [
                 container.appendChild(card);
             });
 
-            updateProgress();
+            updateProgress(i);
+            document.querySelector('h1#title').textContent = "test "+i;
         }
 
         // Format answer with color coding
@@ -274,13 +275,13 @@ const quizData = [
         }
 
         // Update progress indicator
-        function updateProgress() {
+        function updateProgress(i) {
             const progress = document.getElementById('progress');
-            progress.textContent = `Total Questions: ${quizData.length}`;
+            progress.textContent = `Total Questions: ${quizData[i].length}`;
         }
 
         // Initialize quiz on page load
-        generateQuiz();
+        generateQuiz(0);
     </script>
 </body>
 </html>
