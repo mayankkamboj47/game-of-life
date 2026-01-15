@@ -3,64 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BODMAS ke question</title>
+    <title>BODMAS Practice</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #0f172a;
-            color: #f1f5f9;
+            background-color: #ffffff;
+            color: #1a1a1a;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             height: 100vh;
         }
 
-        .mono { font-family: 'JetBrains Mono', monospace; }
-
-        /* Custom Scrollbar */
+        /* Minimal Scrollbar */
         .tree-viewport::-webkit-scrollbar {
-            height: 10px;
-            width: 10px;
-        }
-        .tree-viewport::-webkit-scrollbar-track {
-            background: #0f172a;
+            height: 6px;
+            width: 6px;
         }
         .tree-viewport::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 10px;
-            border: 2px solid #0f172a;
+            background: #d1d5db;
+            border-radius: 3px;
         }
 
         .node {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.2s ease, background-color 0.2s ease;
             z-index: 20;
+            background: white;
         }
 
+        /* Interactive Node - Subtle Highlight */
         .node-operator.can-evaluate {
             cursor: pointer;
-            box-shadow: 0 0 25px rgba(99, 102, 241, 0.4);
-            animation: pulse-border 2s infinite;
+            border-color: #2563eb;
+            color: #2563eb;
+            background-color: #eff6ff;
         }
 
         .node-operator.can-evaluate:hover {
-            transform: scale(1.1);
-            background-color: #4f46e5;
-        }
-
-        @keyframes pulse-border {
-            0% { border-color: #818cf8; }
-            50% { border-color: #c7d2fe; }
-            100% { border-color: #818cf8; }
+            background-color: #2563eb;
+            color: #ffffff;
         }
 
         .connector {
-            stroke: #334155;
-            stroke-width: 3;
+            stroke: #94a3b8;
+            stroke-width: 1.5;
             fill: none;
-            stroke-linecap: round;
         }
 
         .frac {
@@ -68,44 +58,36 @@
             flex-direction: column;
             vertical-align: middle;
             text-align: center;
-            line-height: 1;
+            line-height: 1.1;
+            font-size: 0.9em;
         }
         .frac span.top {
             border-bottom: 1px solid currentColor;
-            padding: 0 2px 1px 2px;
-        }
-        .frac span.bottom {
-            padding: 1px 2px 0 2px;
+            padding: 0 2px;
         }
 
-        /* Large Canvas Styling */
         #treeContainer {
-            /* Force a very large area so branches have room to expand infinitely */
-            min-width: 3000px; 
+            min-width: 2500px; 
             min-height: 2000px;
             display: grid;
             place-items: center;
-            padding: 500px; /* Massive internal padding */
-            background-image: 
-                radial-gradient(#1e293b 1px, transparent 1px),
-                radial-gradient(#1e293b 1px, transparent 1px);
-            background-size: 40px 40px;
-            background-position: 0 0, 20px 20px;
+            padding: 400px;
+            /* Plain grid background */
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 30px 30px;
         }
     </style>
 </head>
-<body class="min-h-screen">
+<body>
 
-    <!-- Header -->
-    <header class="fixed top-0 left-0 right-0 p-6 flex justify-between items-center z-50 pointer-events-none">
-        <button id="regenerateBtn" class="pointer-events-auto bg-slate-800/90 backdrop-blur hover:bg-slate-700 border border-slate-700 px-6 py-3 rounded-2xl font-bold transition-all flex items-center gap-2 shadow-2xl">
-            <span>New Question</span>
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+    <header class="fixed top-0 left-0 right-0 p-4 border-b bg-white/80 backdrop-blur-md z-50 flex justify-between items-center">
+        <h1 class="text-sm font-bold tracking-tight text-gray-500 uppercase">Arithmetic Tree</h1>
+        <button id="regenerateBtn" class="bg-gray-900 text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-700 transition-colors">
+            New Question
         </button>
     </header>
 
-    <!-- Scrollable Viewport -->
-    <main class="flex-grow relative overflow-hidden flex flex-col pt-20">
+    <main class="flex-grow relative overflow-hidden flex flex-col pt-16">
         <div id="treeViewport" class="tree-viewport flex-grow overflow-auto relative w-full cursor-grab active:cursor-grabbing">
             <div id="treeContainer" class="relative">
                 <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
@@ -114,11 +96,10 @@
         </div>
     </main>
 
-    <!-- Expression Viewer -->
-    <footer class="fixed bottom-0 left-0 right-0 p-8 flex justify-center z-50 pointer-events-none">
-        <div class="pointer-events-auto bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 p-6 rounded-3xl max-w-4xl w-full text-center shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
-            <div class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-2">Math Expression</div>
-            <div id="expressionText" class="text-xl md:text-2xl mono text-indigo-300 break-all leading-relaxed tracking-wide font-medium"></div>
+    <footer class="fixed bottom-0 left-0 right-0 p-6 flex justify-center z-50 pointer-events-none">
+        <div class="pointer-events-auto bg-white border border-gray-200 p-4 rounded-lg shadow-sm max-w-2xl w-full text-center">
+            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1">Current Expression</div>
+            <div id="expressionText" class="text-lg font-medium text-gray-700 font-mono"></div>
         </div>
     </footer>
 
@@ -146,7 +127,7 @@
             const id = 'node-' + Math.random().toString(36).substr(2, 9);
             const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
             if (isLeaf) {
-                return { id, type: 'operand', value: { n: Math.floor(Math.random() * 9) + 1, d: 1 } };
+                return { id, type: 'operand', value: { n: Math.floor(Math.random() * 12) + 1, d: 1 } };
             } else {
                 const symbols = Object.keys(fracOps);
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
@@ -155,6 +136,7 @@
         }
 
         function formatFractionText(f) { return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`; }
+        
         function getExpressionString(node) {
             if (node.type === 'operand') return formatFractionText(node.value);
             return `(${getExpressionString(node.left)} ${node.value} ${getExpressionString(node.right)})`;
@@ -182,11 +164,11 @@
 
             if (treeData.type === 'operand') {
                 container.innerHTML = `
-                    <div class="flex flex-col items-center gap-8 animate-in zoom-in duration-700">
-                        <div class="text-9xl font-black text-emerald-400 drop-shadow-[0_0_40px_rgba(52,211,153,0.4)]">
+                    <div class="flex flex-col items-center gap-4">
+                        <div class="text-7xl font-bold text-gray-900">
                             ${treeData.value.d === 1 ? treeData.value.n : `<div class="frac"><span class="top">${treeData.value.n}</span><span class="bottom">${treeData.value.d}</span></div>`}
                         </div>
-                        <div class="px-8 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold tracking-widest uppercase text-sm">Solved</div>
+                        <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">Result</div>
                     </div>
                 `;
                 return;
@@ -204,7 +186,14 @@
 
             const nodeCircle = document.createElement('div');
             nodeCircle.id = node.id;
-            nodeCircle.className = `node w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shrink-0 border-4 text-sm md:text-lg font-bold mono shadow-xl ${isLeaf ? 'bg-slate-800 border-emerald-500 text-emerald-400' : canEvaluate ? 'bg-indigo-600 border-indigo-300 text-white can-evaluate node-operator' : 'bg-slate-700 border-slate-600 text-slate-500 node-operator'}`;
+            
+            // Plainer Styles
+            const baseClass = "node w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center shrink-0 border-2 font-medium transition-all shadow-sm";
+            const stateClass = isLeaf ? 'border-gray-300 text-gray-700' : 
+                               canEvaluate ? 'node-operator can-evaluate' : 
+                               'border-gray-200 text-gray-300 bg-gray-50 node-operator';
+            
+            nodeCircle.className = `${baseClass} ${stateClass}`;
             
             if (isLeaf) {
                 const f = node.value;
@@ -223,7 +212,7 @@
 
             if (!isLeaf) {
                 const childrenWrapper = document.createElement('div');
-                childrenWrapper.className = "flex gap-16 md:gap-32 mt-20 md:mt-24";
+                childrenWrapper.className = "flex gap-12 md:gap-24 mt-16 md:mt-20";
                 childrenWrapper.appendChild(buildNodeElement(node.left));
                 childrenWrapper.appendChild(buildNodeElement(node.right));
                 div.appendChild(childrenWrapper);
@@ -243,14 +232,14 @@
             const r1 = el1.getBoundingClientRect(), r2 = el2.getBoundingClientRect();
             const x1 = r1.left + r1.width / 2 - containerRect.left, y1 = r1.top + r1.height / 2 - containerRect.top;
             const x2 = r2.left + r2.width / 2 - containerRect.left, y2 = r2.top + r2.height / 2 - containerRect.top;
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            const cpY = y1 + (y2 - y1) * 0.5;
-            line.setAttribute('d', `M ${x1} ${y1} C ${x1} ${cpY}, ${x2} ${cpY}, ${x2} ${y2}`);
+            
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+            line.setAttribute('x2', x2); line.setAttribute('y2', y2);
             line.setAttribute('class', 'connector');
             svg.appendChild(line);
         }
 
-        // Center the viewport initially
         function centerView() {
             const vp = document.getElementById('treeViewport');
             const content = document.getElementById('treeContainer');
@@ -267,4 +256,4 @@
         };
     </script>
 </body>
-                                                                </html>
+</html>
