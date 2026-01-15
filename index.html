@@ -3,285 +3,274 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz</title>
+    <title>Fraction Tree Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap');
+        
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f1f5f9;
+            overflow: hidden;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+            flex-direction: column;
+            height: 100vh;
         }
 
-        .container {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
-            width: 100%;
-            padding: 40px;
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Custom Scrollbar */
+        .tree-viewport::-webkit-scrollbar {
+            height: 10px;
+            width: 10px;
+        }
+        .tree-viewport::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .tree-viewport::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+            border: 2px solid #0f172a;
         }
 
-        h1 {
-            color: #333;
-            margin-bottom: 30px;
-            text-align: center;
-            font-size: 2em;
+        .node {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 20;
         }
 
-        .quiz-card {
-            background: #fafafa;
-            border-radius: 4px;
-            padding: 25px;
-            margin-bottom: 20px;
-            border-left: 3px solid #666;
-        }
-
-        .question-number {
-            color: #666;
-            font-weight: bold;
-            font-size: 0.9em;
-            margin-bottom: 10px;
-        }
-
-        .question {
-            font-size: 1.2em;
-            color: #dc3545;
-            margin-bottom: 15px;
-            line-height: 1.5;
-            font-weight: 600;
-        }
-
-        .answer {
-            background: white;
-            border-radius: 4px;
-            padding: 15px;
-            margin-top: 15px;
-            border: 1px solid #ddd;
-            display: none;
-            animation: slideDown 0.3s ease;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .answer-text {
-            color: #333;
-            font-size: 1.1em;
-            font-weight: 500;
-            line-height: 1.8;
-        }
-
-        .question-token {
-            color: #dc3545;
-            font-weight: 600;
-        }
-
-        .answer-token {
-            color: #333;
-        }
-
-        .show-answer-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
+        .node-operator.can-evaluate {
             cursor: pointer;
-            font-size: 1em;
-            font-weight: 500;
-            transition: all 0.3s ease;
+            box-shadow: 0 0 25px rgba(99, 102, 241, 0.4);
+            animation: pulse-border 2s infinite;
         }
 
-        .show-answer-btn:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        .node-operator.can-evaluate:hover {
+            transform: scale(1.1);
+            background-color: #4f46e5;
         }
 
-        .show-answer-btn:active {
-            transform: translateY(0);
+        @keyframes pulse-border {
+            0% { border-color: #818cf8; }
+            50% { border-color: #c7d2fe; }
+            100% { border-color: #818cf8; }
         }
 
-        .show-answer-btn.hide {
-            background: #6c757d;
+        .connector {
+            stroke: #334155;
+            stroke-width: 3;
+            fill: none;
+            stroke-linecap: round;
         }
 
-        .show-answer-btn.hide:hover {
-            background: #5a6268;
-        }
-
-        .progress {
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            vertical-align: middle;
             text-align: center;
-            color: #666;
-            font-size: 0.9em;
-            margin-top: 20px;
+            line-height: 1;
+        }
+        .frac span.top {
+            border-bottom: 1px solid currentColor;
+            padding: 0 2px 1px 2px;
+        }
+        .frac span.bottom {
+            padding: 1px 2px 0 2px;
+        }
+
+        /* Large Canvas Styling */
+        #treeContainer {
+            /* Force a very large area so branches have room to expand infinitely */
+            min-width: 3000px; 
+            min-height: 2000px;
+            display: grid;
+            place-items: center;
+            padding: 500px; /* Massive internal padding */
+            background-image: 
+                radial-gradient(#1e293b 1px, transparent 1px),
+                radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1 id="title"></h1>
-        <div id="quiz-container"></div>
-        <div class="progress" id="progress"></div>
-    </div>
+<body class="min-h-screen">
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 p-6 flex justify-between items-center z-50 pointer-events-none">
+        <div class="pointer-events-auto">
+            <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm">
+                FractionTree
+            </h1>
+            <p class="text-slate-400 text-sm">Interactive Logic Canvas</p>
+        </div>
+        <button id="regenerateBtn" class="pointer-events-auto bg-slate-800/90 backdrop-blur hover:bg-slate-700 border border-slate-700 px-6 py-3 rounded-2xl font-bold transition-all flex items-center gap-2 shadow-2xl">
+            <span>New Tree</span>
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+        </button>
+    </header>
+
+    <!-- Scrollable Viewport -->
+    <main class="flex-grow relative overflow-hidden flex flex-col pt-20">
+        <div id="treeViewport" class="tree-viewport flex-grow overflow-auto relative w-full cursor-grab active:cursor-grabbing">
+            <div id="treeContainer" class="relative">
+                <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+                <div id="treeContent" class="relative z-10"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Expression Viewer -->
+    <footer class="fixed bottom-0 left-0 right-0 p-8 flex justify-center z-50 pointer-events-none">
+        <div class="pointer-events-auto bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 p-6 rounded-3xl max-w-4xl w-full text-center shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
+            <div class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-2">Math Expression</div>
+            <div id="expressionText" class="text-xl md:text-2xl mono text-indigo-300 break-all leading-relaxed tracking-wide font-medium"></div>
+        </div>
+    </footer>
 
     <script>
-        // QUIZ DATA - Modify this object to change the quiz questions and answers
-      
-const quizData = [[
-    {
-        question: 'Translate वह खाता है',
-        answer: 'He eats\nHe (*वह *पुल्लिंग) eats (*खाता *है)'
-    },
-    {
-        question: 'Translate "वो खाती है "',
-        answer: 'She eats\nShe (*वो *स्त्रीलिंग) eats (*खाती *है)'
-    },
-    {
-        question: 'Translate "their houses are big"',
-        answer: 'उनके घर बड़े हैं\nTheir (*उनके) houses (*घर) are (*हैं) big (*बड़े)'
-    },
-    {
-        question: 'Translate "उनके दिल छोटे है"',
-        answer: 'Their hearts are small\nTheir (*उनके) hearts (*दिल) are (*हैं) small (*छोटे)'
-    },
-    {
-        question: 'Translate "Hmara kutta sota h"',
-        answer: 'Our dog sleeps\nOur (*हमारा) dog (*कुत्ता) sleeps (*सोता *है)'
-    },
-    {
-        question: 'Translate "मेरा घर तुम्हारा घर है"',
-        answer: 'My house is your house\nMy (*मेरा) house (*घर) is (*है) your (*तुम्हारा) house (*घर)'
-    },
-    {
-        question: 'Translate "मेरी बिल्ली सोती है"',
-        answer: 'My cat sleeps\nMy (*मेरी) cat (*बिल्ली) sleeps (*सोती *है)'
-    },
-    {
-        question: 'Translate "Your dog plays"',
-        answer: 'तुम्हारा कुत्ता खेलता है\nYour (*तुम्हारा) dog (*कुत्ता) plays (*खेलता *है)'
-    },
-    {
-        question: 'Translate "हमारी बिल्ली खेलती है"',
-        answer: 'Our cat plays\nOur (*हमारी) cat (*बिल्ली) plays (*खेलती *है)'
-    },
-    {
-        question: 'Translate "His house is small"',
-        answer: 'उसका घर छोटा है\nHis (*उस *पुल्लिंग *का) house (*घर) is (*है) small (*छोटा)'
-    },
-    {
-        question: 'Translate "उसकी बहन पढ़ती है"',
-        answer: 'His/Her sister studies/reads\nHer (*उस *स्त्रीलिंग *की)/His(*उस *पुल्लिंग *की) sister (*बहन) studies (*पढ़ती *है)'
-    },
-    {
-        question: 'Translate "My brother eats"',
-        answer: 'मेरा भाई खाता है\nMy (*मेरा) brother (*भाई) eats (*खाता *है)'
-    },
-    {
-        question: 'Translate "तुम्हारी बहन गाती है"',
-        answer: 'Your sister sings\nYour (*तुम्हारी) sister (*बहन) sings (*गाती *है)'
-    },
-    {
-        question: 'Translate "Their dog runs"',
-        answer: 'उनका कुत्ता दौड़ता है\nTheir (*उनका) dog (*कुत्ता) runs (*दौड़ता *है)'
-    },
-    {
-        question: 'Translate "हमारा बेटा खेलता है"',
-        answer: 'Our son plays\nOur (*हमारा) son (*बेटा) plays (*खेलता *है)'
-    },
-    {
-        question: 'Translate "Her cat drinks"',
-        answer: 'उसकी बिल्ली पीती है\nHer (*उस *स्त्रीलिंग *की) cat (*बिल्ली) drinks (*पीती *है)'
-    }
-]];
+        const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { a %= b; [a, b] = [b, a]; } return a; };
+        const simplify = (n, d) => {
+            if (d === 0) return { n, d };
+            const common = gcd(n, d);
+            let finalN = n / common;
+            let finalD = d / common;
+            if (finalD < 0) { finalN = -finalN; finalD = -finalD; }
+            return { n: finalN, d: finalD };
+        };
 
-        // Generate quiz HTML
-        function generateQuiz(i) {
-            const container = document.getElementById('quiz-container');
-            
-            quizData[i].forEach((item, index) => {
-                const card = document.createElement('div');
-                card.className = 'quiz-card';
-                card.innerHTML = `
-                    <div class="question-number">Question ${index + 1} of ${quizData[i].length}</div>
-                    <div class="question">${item.question.replace(/\n/g, '<br>')}</div>
-                    <button class="show-answer-btn" onclick="toggleAnswer(${index})">Show Answer</button>
-                    <div class="answer" id="answer-${index}">
-                        <div class="answer-text">${formatAnswer(item.answer)}</div>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
+        const fracOps = {
+            '+': (a, b) => simplify(a.n * b.d + b.n * a.d, a.d * b.d),
+            '-': (a, b) => simplify(a.n * b.d - b.n * a.d, a.d * b.d),
+            '×': (a, b) => simplify(a.n * b.n, a.d * b.d),
+            '÷': (a, b) => simplify(a.n * b.d, a.d * b.n)
+        };
 
-            updateProgress(i);
-            document.querySelector('h1#title').textContent = "test "+i;
-        }
+        let treeData = null;
 
-        // Format answer with color coding
-        function formatAnswer(answer) {
-            // First replace \n with <br> tags
-            answer = answer.replace(/\n/g, '<br>');
-            
-            // Split by spaces but keep the spaces
-            const tokens = answer.split(/(\s+|\(|\))/);
-            
-            return tokens.map(token => {
-                if (token.trim() === '') {
-                    return token; // Keep whitespace as-is
-                }
-                
-                if (token.startsWith('*')) {
-                    // Remove the star and color red (question token)
-                    const cleanToken = token.substring(1);
-                    return `<span class="question-token">${cleanToken}</span>`;
-                } else {
-                    // Color black (answer token)
-                    return `<span class="answer-token">${token}</span>`;
-                }
-            }).join('');
-        }
-
-        // Toggle answer visibility
-        function toggleAnswer(index) {
-            const answerDiv = document.getElementById(`answer-${index}`);
-            const btn = event.target;
-            
-            if (answerDiv.style.display === 'none' || answerDiv.style.display === '') {
-                answerDiv.style.display = 'block';
-                btn.textContent = 'Hide Answer';
-                btn.classList.add('hide');
+        function generateRandomTree(depth = 0, maxDepth = 3) {
+            const id = 'node-' + Math.random().toString(36).substr(2, 9);
+            const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
+            if (isLeaf) {
+                return { id, type: 'operand', value: { n: Math.floor(Math.random() * 9) + 1, d: 1 } };
             } else {
-                answerDiv.style.display = 'none';
-                btn.textContent = 'Show Answer';
-                btn.classList.remove('hide');
+                const symbols = Object.keys(fracOps);
+                const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+                return { id, type: 'operator', value: symbol, left: generateRandomTree(depth + 1, maxDepth), right: generateRandomTree(depth + 1, maxDepth) };
             }
         }
 
-        // Update progress indicator
-        function updateProgress(i) {
-            const progress = document.getElementById('progress');
-            progress.textContent = `Total Questions: ${quizData[i].length}`;
+        function formatFractionText(f) { return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`; }
+        function getExpressionString(node) {
+            if (node.type === 'operand') return formatFractionText(node.value);
+            return `(${getExpressionString(node.left)} ${node.value} ${getExpressionString(node.right)})`;
         }
 
-        // Initialize quiz on page load
-        generateQuiz(0);
+        function evaluateAtNode(node, targetId) {
+            if (node.id === targetId) {
+                const result = fracOps[node.value](node.left.value, node.right.value);
+                return { id: 'node-' + Math.random().toString(36).substr(2, 9), type: 'operand', value: result };
+            }
+            if (node.type === 'operator') {
+                return { ...node, left: evaluateAtNode(node.left, targetId), right: evaluateAtNode(node.right, targetId) };
+            }
+            return node;
+        }
+
+        function renderTree() {
+            const container = document.getElementById('treeContent');
+            const svg = document.getElementById('svgConnectors');
+            const expressionText = document.getElementById('expressionText');
+            
+            container.innerHTML = '';
+            svg.innerHTML = '';
+            expressionText.textContent = getExpressionString(treeData);
+
+            if (treeData.type === 'operand') {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center gap-8 animate-in zoom-in duration-700">
+                        <div class="text-9xl font-black text-emerald-400 drop-shadow-[0_0_40px_rgba(52,211,153,0.4)]">
+                            ${treeData.value.d === 1 ? treeData.value.n : `<div class="frac"><span class="top">${treeData.value.n}</span><span class="bottom">${treeData.value.d}</span></div>`}
+                        </div>
+                        <div class="px-8 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold tracking-widest uppercase text-sm">Solved</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.appendChild(buildNodeElement(treeData));
+            requestAnimationFrame(() => drawConnectors(treeData));
+        }
+
+        function buildNodeElement(node) {
+            const div = document.createElement('div');
+            div.className = "flex flex-col items-center";
+            const isLeaf = node.type === 'operand';
+            const canEvaluate = !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
+
+            const nodeCircle = document.createElement('div');
+            nodeCircle.id = node.id;
+            nodeCircle.className = `node w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shrink-0 border-4 text-sm md:text-lg font-bold mono shadow-xl ${isLeaf ? 'bg-slate-800 border-emerald-500 text-emerald-400' : canEvaluate ? 'bg-indigo-600 border-indigo-300 text-white can-evaluate node-operator' : 'bg-slate-700 border-slate-600 text-slate-500 node-operator'}`;
+            
+            if (isLeaf) {
+                const f = node.value;
+                nodeCircle.innerHTML = f.d === 1 ? `<span>${f.n}</span>` : `<div class="frac"><span class="top">${f.n}</span><span class="bottom">${f.d}</span></div>`;
+            } else {
+                nodeCircle.textContent = node.value;
+            }
+
+            if (canEvaluate) {
+                nodeCircle.onclick = () => {
+                    treeData = evaluateAtNode(treeData, node.id);
+                    renderTree();
+                };
+            }
+            div.appendChild(nodeCircle);
+
+            if (!isLeaf) {
+                const childrenWrapper = document.createElement('div');
+                childrenWrapper.className = "flex gap-16 md:gap-32 mt-20 md:mt-24";
+                childrenWrapper.appendChild(buildNodeElement(node.left));
+                childrenWrapper.appendChild(buildNodeElement(node.right));
+                div.appendChild(childrenWrapper);
+            }
+            return div;
+        }
+
+        function drawConnectors(node) {
+            if (node.type === 'operand') return;
+            const p = document.getElementById(node.id), l = document.getElementById(node.left.id), r = document.getElementById(node.right.id);
+            if (p && l && r) { drawLine(p, l); drawLine(p, r); }
+            drawConnectors(node.left); drawConnectors(node.right);
+        }
+
+        function drawLine(el1, el2) {
+            const svg = document.getElementById('svgConnectors'), containerRect = document.getElementById('treeContainer').getBoundingClientRect();
+            const r1 = el1.getBoundingClientRect(), r2 = el2.getBoundingClientRect();
+            const x1 = r1.left + r1.width / 2 - containerRect.left, y1 = r1.top + r1.height / 2 - containerRect.top;
+            const x2 = r2.left + r2.width / 2 - containerRect.left, y2 = r2.top + r2.height / 2 - containerRect.top;
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const cpY = y1 + (y2 - y1) * 0.5;
+            line.setAttribute('d', `M ${x1} ${y1} C ${x1} ${cpY}, ${x2} ${cpY}, ${x2} ${y2}`);
+            line.setAttribute('class', 'connector');
+            svg.appendChild(line);
+        }
+
+        // Center the viewport initially
+        function centerView() {
+            const vp = document.getElementById('treeViewport');
+            const content = document.getElementById('treeContainer');
+            vp.scrollLeft = (content.offsetWidth - vp.offsetWidth) / 2;
+            vp.scrollTop = (content.offsetHeight - vp.offsetHeight) / 2 - 100;
+        }
+
+        window.onload = () => {
+            treeData = generateRandomTree(0, 3);
+            renderTree();
+            centerView();
+            document.getElementById('regenerateBtn').onclick = () => { treeData = generateRandomTree(0, 3); renderTree(); centerView(); };
+            window.addEventListener('resize', renderTree);
+        };
     </script>
 </body>
-</html>
+                                                                </html>
