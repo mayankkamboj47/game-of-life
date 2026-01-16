@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BODMAS Practice - Transform Mode</title>
+    <title>BODMAS Practice - With Undo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -18,51 +18,25 @@
             height: 100vh;
         }
 
-        /* --- Node Styles --- */
+        /* --- Shared Node Styles --- */
         .node {
             transition: all 0.2s ease;
             background: white;
             user-select: none;
-            z-index: 10; 
-            position: relative;
         }
 
-        /* Evaluate Mode Styles */
-        body[data-mode="evaluate"] .node-operator.can-evaluate {
+        .node-operator.can-evaluate {
             cursor: pointer;
             border-color: #2563eb;
             color: #2563eb;
             background-color: #eff6ff;
         }
-        body[data-mode="evaluate"] .node-operator.can-evaluate:hover {
+
+        .node-operator.can-evaluate:hover {
             background-color: #2563eb;
             color: #ffffff;
             transform: translateY(-2px);
             box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
-        }
-
-        /* Transform Mode Styles */
-        body[data-mode="transform"] .node-operator {
-            cursor: pointer;
-            border-color: #7c3aed; /* Purple */
-            color: #7c3aed;
-            background-color: #f5f3ff;
-        }
-        body[data-mode="transform"] .node-operator:hover {
-            background-color: #7c3aed;
-            color: white;
-            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.2);
-        }
-        body[data-mode="transform"] .node-operand {
-            opacity: 0.5; 
-        }
-
-        /* Selected State */
-        .node.selected {
-            box-shadow: 0 0 0 4px #f59e0b; /* Amber Halo */
-            transform: scale(1.05);
-            z-index: 20;
-            border-color: #f59e0b;
         }
 
         .frac {
@@ -75,8 +49,11 @@
         }
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
-        /* --- Canvas --- */
-        .tree-viewport { overflow: auto; }
+        /* --- Common Large Canvas --- */
+        .tree-viewport {
+            overflow: auto; 
+        }
+
         #treeContainer {
             min-width: 2500px; 
             min-height: 2000px;
@@ -85,7 +62,7 @@
             padding: 400px;
         }
 
-        /* Background Grid */
+        /* --- Tree View Specifics --- */
         .tree-view-active #treeContainer {
             background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
             background-size: 30px 30px;
@@ -95,97 +72,61 @@
             stroke: #94a3b8;
             stroke-width: 1.5;
             fill: none;
-            transition: d 0.3s ease;
         }
 
-        /* Expression View */
-        .expression-view-active #treeViewport { display: block; background-color: #f8fafc; }
-        .expression-view-active #treeContainer { background: none; }
+        /* --- Expression View Specifics --- */
+        .expression-view-active #treeViewport {
+            display: block; 
+            background-color: #f8fafc;
+        }
+
+        .expression-view-active #treeContainer {
+            background: none; 
+        }
+
         .expression-view-active #treeContent {
-            display: flex; flex-wrap: nowrap; gap: 12px; align-items: center; justify-content: center;
-        }
-        .expression-bracket { font-size: 2.5rem; color: #94a3b8; font-weight: 300; }
-
-        /* --- Context Menu --- */
-        #actionMenu {
-            position: absolute;
-            z-index: 100;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 4px;
-            display: none;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            animation: fadeIn 0.15s ease-out;
-            flex-direction: row;
-            gap: 4px;
-        }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .action-btn {
-            padding: 6px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
             display: flex;
+            flex-wrap: nowrap; 
+            gap: 12px;
             align-items: center;
-            gap: 4px;
-            color: #374151;
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            transition: all 0.1s;
-            white-space: nowrap;
+            justify-content: center;
         }
-        .action-btn:hover { background: #eff6ff; color: #2563eb; border-color: #2563eb; }
-        .action-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+        .expression-bracket {
+            font-size: 2.5rem;
+            color: #94a3b8;
+            font-weight: 300;
+        }
+
     </style>
 </head>
-<body data-mode="evaluate">
+<body>
 
     <header class="fixed top-0 left-0 right-0 p-4 border-b bg-white/80 backdrop-blur-md z-50 flex justify-between items-center">
-        <div class="flex items-center bg-gray-100 p-1 rounded-lg">
-            <button id="modeEvalBtn" class="px-4 py-1.5 rounded-md text-sm font-medium shadow-sm bg-white text-blue-600 transition-all">
-                Evaluate
-            </button>
-            <button id="modeTransBtn" class="px-4 py-1.5 rounded-md text-sm font-medium text-gray-500 hover:text-purple-600 transition-all">
-                Transform
-            </button>
-        </div>
-        
-        <div class="flex items-center gap-2">
-            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium mr-4">
+        <div class="flex items-center gap-4">
+            <h1 class="text-sm font-bold tracking-tight text-gray-500 uppercase hidden md:block">Arithmetic Engine</h1>
+            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium">
                 <button id="viewTreeBtn" class="px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all">Tree</button>
                 <button id="viewExprBtn" class="px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all">Expression</button>
             </div>
-
+        </div>
+        
+        <div class="flex items-center gap-2">
             <button id="undoBtn" disabled class="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
                 Undo
             </button>
             <button id="regenerateBtn" class="bg-gray-900 text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-700 transition-colors">
-                New
+                New Question
             </button>
         </div>
     </header>
 
-    <main class="flex-grow relative overflow-hidden flex flex-col pt-16" id="mainArea">
+    <main class="flex-grow relative overflow-hidden flex flex-col pt-16">
         <div id="treeViewport" class="tree-viewport flex-grow overflow-auto relative w-full cursor-grab active:cursor-grabbing">
             <div id="treeContainer" class="relative">
                 <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
                 <div id="treeContent" class="relative z-10"></div>
-                
-                <div id="actionMenu">
-                    <button class="action-btn" id="actSwap" title="Commutativity">
-                        Swap ⇄
-                    </button>
-                    <button class="action-btn" id="actRotLeft" title="Associativity (Right -> Up)">
-                        Rotate Left ↶
-                    </button>
-                    <button class="action-btn" id="actRotRight" title="Associativity (Left -> Up)">
-                        Rotate Right ↷
-                    </button>
-                </div>
             </div>
         </div>
     </main>
@@ -218,10 +159,8 @@
 
         // --- State ---
         let treeData = null;
-        let historyStack = [];
-        let currentView = 'tree';
-        let currentMode = 'evaluate'; 
-        let selectedNodeId = null;
+        let historyStack = []; // Stores deep copies of previous tree states
+        let currentView = 'tree'; 
 
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = 'node-' + Math.random().toString(36).substr(2, 9);
@@ -235,84 +174,15 @@
             }
         }
 
-        // --- Tree Utilities ---
-        function findNode(root, id) {
-            if (!root) return null;
-            if (root.id === id) return root;
-            return findNode(root.left, id) || findNode(root.right, id);
-        }
-
-        function findParent(root, targetId) {
-            if (!root || root.id === targetId) return null;
-            if (root.left && root.left.id === targetId) return { parent: root, node: root.left, side: 'left' };
-            if (root.right && root.right.id === targetId) return { parent: root, node: root.right, side: 'right' };
-            return findParent(root.left, targetId) || findParent(root.right, targetId);
-        }
-
-        function deepCopy(obj) {
-            return JSON.parse(JSON.stringify(obj));
-        }
-
-        // --- Logic: Evaluate ---
-        function evaluateAtNode(root, targetId) {
-            if (root.id === targetId) {
-                const result = fracOps[root.value](root.left.value, root.right.value);
-                return { id: 'node-' + Math.random().toString(36).substr(2, 9), type: 'operand', value: result };
-            }
-            if (root.type === 'operator') {
-                return { ...root, left: evaluateAtNode(root.left, targetId), right: evaluateAtNode(root.right, targetId) };
-            }
-            return root;
-        }
-
-        // --- Logic: Transform ---
-        function performSwap(root, targetId) {
-            const newRoot = deepCopy(root);
-            const target = findNode(newRoot, targetId);
-            if (target && (target.value === '+' || target.value === '×')) {
-                const temp = target.left;
-                target.left = target.right;
-                target.right = temp;
-            }
-            return newRoot;
-        }
-
-        function performRotateLeft(root, targetId) {
-            let newRoot = deepCopy(root);
-            if (newRoot.id === targetId) return rotateNodeLeft(newRoot);
-            const pInfo = findParent(newRoot, targetId);
-            if (pInfo) pInfo.parent[pInfo.side] = rotateNodeLeft(pInfo.node);
-            return newRoot;
-        }
-        function rotateNodeLeft(node) {
-            const rightChild = node.right;
-            node.right = rightChild.left;
-            rightChild.left = node;
-            return rightChild;
-        }
-
-        function performRotateRight(root, targetId) {
-            let newRoot = deepCopy(root);
-            if (newRoot.id === targetId) return rotateNodeRight(newRoot);
-            const pInfo = findParent(newRoot, targetId);
-            if (pInfo) pInfo.parent[pInfo.side] = rotateNodeRight(pInfo.node);
-            return newRoot;
-        }
-        function rotateNodeRight(node) {
-            const leftChild = node.left;
-            node.left = leftChild.right;
-            leftChild.right = node;
-            return leftChild;
-        }
-
-        // --- View Logic ---
         function formatFractionText(f) { return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`; }
+        
         function getPrecedence(op) {
             if (op === '×' || op === '÷') return 2;
             if (op === '+' || op === '-') return 1;
             return 0;
         }
 
+        // --- String Generator ---
         function getExpressionString(node) {
             if (node.type === 'operand') return formatFractionText(node.value);
             const currentPrec = getPrecedence(node.value);
@@ -331,8 +201,10 @@
             return `${leftExpr} ${node.value} ${rightExpr}`;
         }
 
+        // --- Node Array Generator ---
         function getExpressionNodes(node) {
             if (node.type === 'operand') return [{ type: 'operand', source: node }];
+
             const currentPrec = getPrecedence(node.value);
             let leftNodes = getExpressionNodes(node.left);
             let rightNodes = getExpressionNodes(node.right);
@@ -342,6 +214,7 @@
                     leftNodes = [{type: 'bracket', value: '('}, ...leftNodes, {type: 'bracket', value: ')'}];
                 }
             }
+
             if (node.right.type === 'operator') {
                 const rightPrec = getPrecedence(node.right.value);
                 const isNonAssociative = (node.value === '-' || node.value === '÷') && rightPrec === currentPrec;
@@ -352,27 +225,54 @@
             return [...leftNodes, { type: 'operator', source: node }, ...rightNodes];
         }
 
-        // --- UI Rendering ---
-        function createNodeDOM(node) {
+        function evaluateAtNode(node, targetId) {
+            if (node.id === targetId) {
+                const result = fracOps[node.value](node.left.value, node.right.value);
+                return { id: 'node-' + Math.random().toString(36).substr(2, 9), type: 'operand', value: result };
+            }
+            if (node.type === 'operator') {
+                return { ...node, left: evaluateAtNode(node.left, targetId), right: evaluateAtNode(node.right, targetId) };
+            }
+            return node;
+        }
+
+        // --- History / Undo Logic ---
+        function saveToHistory() {
+            // Push deep copy of current tree
+            historyStack.push(JSON.parse(JSON.stringify(treeData)));
+            updateUndoBtn();
+        }
+
+        function undo() {
+            if (historyStack.length === 0) return;
+            // Restore last state
+            treeData = historyStack.pop();
+            updateUndoBtn();
+            render();
+            // No need to recenter, keeps user context
+        }
+
+        function updateUndoBtn() {
+            const btn = document.getElementById('undoBtn');
+            btn.disabled = historyStack.length === 0;
+        }
+
+        // --- DOM Builders ---
+
+        function createNodeDOM(node, isInteractive = true) {
             const div = document.createElement('div');
             const isLeaf = node.type === 'operand';
-            const canEvaluate = currentMode === 'evaluate' && !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
-            const isSelectable = currentMode === 'transform' && !isLeaf;
-            const isSelected = selectedNodeId === node.id;
+            const canEvaluate = isInteractive && !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
 
-            div.id = node.id;
+            div.id = node.id; 
             
-            let baseClass = "node rounded-full flex items-center justify-center shrink-0 border-2 font-medium shadow-sm relative transition-all duration-200";
-            let sizeClass = "w-12 h-12 md:w-14 md:h-14 text-lg";
-            let stateClass = isLeaf ? "border-gray-300 text-gray-700 node-operand" : "node-operator";
+            const baseClass = "node rounded-full flex items-center justify-center shrink-0 border-2 font-medium shadow-sm relative";
+            const sizeClass = "w-12 h-12 md:w-14 md:h-14 text-lg"; 
 
-            if (!isLeaf) {
-                if (canEvaluate) stateClass += " can-evaluate";
-                else if (isSelectable) stateClass += " hover:border-purple-400";
-                else stateClass += " border-gray-200 text-gray-300 bg-gray-50";
-            }
-            if (isSelected) stateClass += " selected";
-
+            const stateClass = isLeaf ? 'border-gray-300 text-gray-700' : 
+                               canEvaluate ? 'node-operator can-evaluate' : 
+                               'border-gray-200 text-gray-300 bg-gray-50 node-operator';
+            
             div.className = `${baseClass} ${sizeClass} ${stateClass}`;
             
             if (isLeaf) {
@@ -382,65 +282,24 @@
                 div.textContent = node.value;
             }
 
-            div.onclick = (e) => {
-                e.stopPropagation();
-                if (currentMode === 'evaluate' && canEvaluate) {
-                    saveToHistory();
+            if (canEvaluate) {
+                div.onclick = (e) => {
+                    e.stopPropagation();
+                    saveToHistory(); // <--- Save State before changing
                     treeData = evaluateAtNode(treeData, node.id);
                     render();
-                } else if (currentMode === 'transform' && !isLeaf) {
-                    selectedNodeId = node.id;
-                    render();
-                    showActionMenu(node);
-                }
-            };
+                };
+            }
             return div;
         }
 
-        function showActionMenu(node) {
-            const menu = document.getElementById('actionMenu');
-            const targetEl = document.getElementById(node.id);
-            if (!targetEl) return;
-
-            const canSwap = (node.value === '+' || node.value === '×');
-            const canRotLeft = canSwap && node.right && node.right.type === 'operator' && node.right.value === node.value;
-            const canRotRight = canSwap && node.left && node.left.type === 'operator' && node.left.value === node.value;
-
-            document.getElementById('actSwap').className = canSwap ? 'action-btn' : 'action-btn disabled';
-            document.getElementById('actRotLeft').className = canRotLeft ? 'action-btn' : 'action-btn disabled';
-            document.getElementById('actRotRight').className = canRotRight ? 'action-btn' : 'action-btn disabled';
-
-            document.getElementById('actSwap').onclick = (e) => { e.stopPropagation(); executeAction('swap', node.id); };
-            document.getElementById('actRotLeft').onclick = (e) => { e.stopPropagation(); executeAction('left', node.id); };
-            document.getElementById('actRotRight').onclick = (e) => { e.stopPropagation(); executeAction('right', node.id); };
-
-            menu.style.display = 'flex';
-            const rect = targetEl.getBoundingClientRect();
-            // Position above the node (relative to container logic in render)
-            // But since container is relative, we use offset
-            menu.style.top = (targetEl.offsetTop - 50) + 'px';
-            menu.style.left = (targetEl.offsetLeft + targetEl.offsetWidth/2 - 100) + 'px'; // approx center
-            
-            // Adjust after render
-            requestAnimationFrame(() => {
-                menu.style.left = (targetEl.offsetLeft + targetEl.offsetWidth/2 - menu.offsetWidth/2) + 'px';
-            });
-        }
-
-        function executeAction(action, nodeId) {
-            saveToHistory();
-            if (action === 'swap') treeData = performSwap(treeData, nodeId);
-            if (action === 'left') treeData = performRotateLeft(treeData, nodeId);
-            if (action === 'right') treeData = performRotateRight(treeData, nodeId);
-            selectedNodeId = null;
-            document.getElementById('actionMenu').style.display = 'none';
-            render();
-        }
-
+        // Tree View Builder
         function buildTreeDOM(node) {
             const wrapper = document.createElement('div');
             wrapper.className = "flex flex-col items-center";
+            
             wrapper.appendChild(createNodeDOM(node));
+
             if (node.type !== 'operand') {
                 const childrenWrapper = document.createElement('div');
                 childrenWrapper.className = "flex gap-12 md:gap-24 mt-16 md:mt-20";
@@ -449,6 +308,20 @@
                 wrapper.appendChild(childrenWrapper);
             }
             return wrapper;
+        }
+
+        function drawConnectors(node) {
+            if (node.type === 'operand') return;
+            const p = document.getElementById(node.id);
+            const l = document.getElementById(node.left.id);
+            const r = document.getElementById(node.right.id);
+            
+            if (p && l && r) { 
+                drawLine(p, l); 
+                drawLine(p, r); 
+            }
+            drawConnectors(node.left); 
+            drawConnectors(node.right);
         }
 
         function drawLine(el1, el2) {
@@ -566,4 +439,4 @@
         };
     </script>
 </body>
-    </html>
+                </html>
