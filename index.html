@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BODMAS Practice - With Undo</title>
+    <title>BODMAS Practice - With Hints Mode</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -25,14 +25,26 @@
             user-select: none;
         }
 
-        .node-operator.can-evaluate {
+        /* Base Operator Style (Hints OFF or Not Evaluatable) 
+           This makes all operators look uniformly gray/inactive by default
+        */
+        .node-operator {
+            border-color: #e5e7eb; /* gray-200 */
+            color: #9ca3af;       /* gray-400 */
+            background-color: #f9fafb; /* gray-50 */
+        }
+
+        /* Hints ON Styling
+           Only applies when body has 'hints-active' AND node is 'can-evaluate' 
+        */
+        body.hints-active .node-operator.can-evaluate {
             cursor: pointer;
             border-color: #2563eb;
             color: #2563eb;
             background-color: #eff6ff;
         }
 
-        .node-operator.can-evaluate:hover {
+        body.hints-active .node-operator.can-evaluate:hover {
             background-color: #2563eb;
             color: #ffffff;
             transform: translateY(-2px);
@@ -109,6 +121,11 @@
                 <button id="viewTreeBtn" class="px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all">Tree</button>
                 <button id="viewExprBtn" class="px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all">Expression</button>
             </div>
+            
+            <button id="hintsBtn" class="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 transition-colors text-gray-600 hover:bg-gray-50">
+                <svg id="bulbIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.9.52-1.73 1-2.43 1.2-1.74 1.48-3.95.54-5.91a8.04 8.04 0 0 0-11.26 0c-.94 1.96-.66 4.17.54 5.91.48.7 .82 1.53 1 2.43"/><path d="M9 18h6"/></svg>
+                <span id="hintsLabel">Hints: Off</span>
+            </button>
         </div>
         
         <div class="flex items-center gap-2">
@@ -160,8 +177,9 @@
 
         // --- State ---
         let treeData = null;
-        let historyStack = []; // Stores deep copies of previous tree states
+        let historyStack = []; 
         let currentView = 'tree'; 
+        let hintsEnabled = false; // Toggle State
 
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = 'node-' + Math.random().toString(36).substr(2, 9);
@@ -237,18 +255,15 @@
 
         // --- History / Undo Logic ---
         function saveToHistory() {
-            // Push deep copy of current tree
             historyStack.push(JSON.parse(JSON.stringify(treeData)));
             updateUndoBtn();
         }
 
         function undo() {
             if (historyStack.length === 0) return;
-            // Restore last state
             treeData = historyStack.pop();
             updateUndoBtn();
             render();
-            // No need to recenter, keeps user context
         }
 
         function updateUndoBtn() {
@@ -265,14 +280,20 @@
 
             div.id = node.id; 
             
+            // Note: Colors for operators are now handled by CSS classes based on hint state
             const baseClass = "node rounded-full flex items-center justify-center shrink-0 border-2 font-medium shadow-sm relative";
             const sizeClass = "w-12 h-12 md:w-14 md:h-14 text-lg"; 
-
-            const stateClass = isLeaf ? 'border-gray-300 text-gray-700' : 
-                               canEvaluate ? 'node-operator can-evaluate' : 
-                               'border-gray-200 text-gray-300 bg-gray-50 node-operator';
             
-            div.className = `${baseClass} ${sizeClass} ${stateClass}`;
+            // Only add base structural classes here. Colors are handled in CSS.
+            let typeClass = "";
+            if (isLeaf) {
+                typeClass = "border-gray-300 text-gray-700";
+            } else {
+                typeClass = "node-operator"; // Applies default gray, overrides to blue if .can-evaluate AND body.hints-active
+                if (canEvaluate) typeClass += " can-evaluate";
+            }
+
+            div.className = `${baseClass} ${sizeClass} ${typeClass}`;
             
             if (isLeaf) {
                 const f = node.value;
@@ -284,7 +305,7 @@
             if (canEvaluate) {
                 div.onclick = (e) => {
                     e.stopPropagation();
-                    saveToHistory(); // <--- Save State before changing
+                    saveToHistory(); 
                     treeData = evaluateAtNode(treeData, node.id);
                     render();
                 };
@@ -351,7 +372,7 @@
             svg.innerHTML = '';
             expressionText.textContent = getExpressionString(treeData);
 
-            document.body.className = currentView === 'tree' ? 'tree-view-active' : 'expression-view-active';
+            document.body.className = `${currentView === 'tree' ? 'tree-view-active' : 'expression-view-active'} ${hintsEnabled ? 'hints-active' : ''}`;
 
             if (treeData.type === 'operand') {
                 // Victory
@@ -402,7 +423,7 @@
 
             // New Question
             document.getElementById('regenerateBtn').onclick = () => { 
-                historyStack = []; // Reset history
+                historyStack = []; 
                 updateUndoBtn();
                 treeData = generateRandomTree(0, 3); 
                 render(); 
@@ -412,10 +433,11 @@
             // Undo Button Event
             document.getElementById('undoBtn').onclick = undo;
 
+            // View Toggle Logic
             const btnTree = document.getElementById('viewTreeBtn');
             const btnExpr = document.getElementById('viewExprBtn');
             
-            const updateToggleUI = () => {
+            const updateViewUI = () => {
                 if (currentView === 'tree') {
                     btnTree.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
                     btnExpr.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
@@ -425,8 +447,27 @@
                 }
             };
 
-            btnTree.onclick = () => { currentView = 'tree'; updateToggleUI(); render(); centerView(); };
-            btnExpr.onclick = () => { currentView = 'expression'; updateToggleUI(); render(); centerView(); };
+            btnTree.onclick = () => { currentView = 'tree'; updateViewUI(); render(); centerView(); };
+            btnExpr.onclick = () => { currentView = 'expression'; updateViewUI(); render(); centerView(); };
+
+            // Hints Toggle Logic
+            const hintsBtn = document.getElementById('hintsBtn');
+            const hintsLabel = document.getElementById('hintsLabel');
+            const bulbIcon = document.getElementById('bulbIcon');
+
+            hintsBtn.onclick = () => {
+                hintsEnabled = !hintsEnabled;
+                if(hintsEnabled) {
+                    hintsBtn.className = "flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-md border border-amber-200 bg-amber-50 text-amber-700 transition-colors";
+                    bulbIcon.setAttribute('fill', 'currentColor');
+                    hintsLabel.textContent = "Hints: On";
+                } else {
+                    hintsBtn.className = "flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors";
+                    bulbIcon.setAttribute('fill', 'none');
+                    hintsLabel.textContent = "Hints: Off";
+                }
+                render(); // Re-render to apply class to body
+            };
 
             window.addEventListener('resize', () => {
                 if (currentView === 'tree') {
@@ -438,4 +479,4 @@
         };
     </script>
 </body>
-                </html>
+</html>
