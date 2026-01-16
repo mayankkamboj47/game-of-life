@@ -167,7 +167,7 @@
             const id = 'node-' + Math.random().toString(36).substr(2, 9);
             const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
             if (isLeaf) {
-                return { id, type: 'operand', value: { n: !fractionsMode ? 1 : Math.floor(Math.random() * 12) + 1, d: Math.random() < 0.5 ? 1 : [1,2,3,4,5,6,7,8,9][Math.floor(Math.random()*9)] } };
+                return { id, type: 'operand', value: { n: 1 : Math.floor(Math.random() * 12) + 1, d: !fractionsMode ? 1 : (Math.random() < 0.5 ? 1 : [1,2,3,4,5,6,7,8,9][Math.floor(Math.random()*9)]) } };
             } else {
                 const symbols = Object.keys(fracOps);
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
