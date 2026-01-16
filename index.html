@@ -23,6 +23,7 @@
             transition: all 0.2s ease;
             background: white;
             user-select: none;
+            z-index: 20;
         }
 
         .node-operator.can-evaluate {
@@ -36,7 +37,6 @@
             background-color: #2563eb;
             color: #ffffff;
             transform: translateY(-2px);
-            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
         }
 
         .frac {
@@ -49,7 +49,7 @@
         }
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
-        /* --- Tree View Specifics --- */
+        /* --- Tree View Layout --- */
         .tree-view-active #treeContainer {
             min-width: 2500px; 
             min-height: 2000px;
@@ -66,27 +66,29 @@
             fill: none;
         }
 
-        /* --- Expression View Specifics --- */
+        /* --- Expression View Layout (The horizontal toggle) --- */
         .expression-view-active #treeViewport {
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: #f8fafc;
+            background-color: #fcfcfc;
         }
 
         .expression-view-active #treeContainer {
-            /* Reset Grid styles */
-            display: flex;
+            /* This overrides the grid and forces horizontal layout */
+            display: flex !important;
+            flex-direction: row !important;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 8px; /* Spacing between nodes and brackets */
             align-items: center;
             justify-content: center;
-            padding: 40px;
-            max-width: 1200px;
-            width: 100%;
-            height: auto;
+            
+            /* Reset dimensions so it doesn't scroll infinitely */
+            padding: 2rem;
             min-width: auto;
             min-height: auto;
+            width: auto;
+            height: auto;
             background: none;
         }
 
@@ -94,15 +96,16 @@
             font-size: 2.5rem;
             color: #94a3b8;
             font-weight: 300;
+            padding: 0 4px;
+            line-height: 1;
         }
-
     </style>
 </head>
-<body>
+<body class="tree-view-active">
 
     <header class="fixed top-0 left-0 right-0 p-4 border-b bg-white/80 backdrop-blur-md z-50 flex justify-between items-center">
         <div class="flex items-center gap-4">
-            <h1 class="text-sm font-bold tracking-tight text-gray-500 uppercase">Arithmetic Engine</h1>
+            <h1 class="text-sm font-bold tracking-tight text-gray-500 uppercase">Math Solver</h1>
             <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium">
                 <button id="viewTreeBtn" class="px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all">Tree</button>
                 <button id="viewExprBtn" class="px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all">Expression</button>
@@ -114,8 +117,8 @@
     </header>
 
     <main class="flex-grow relative overflow-hidden flex flex-col pt-16">
-        <div id="treeViewport" class="tree-viewport flex-grow overflow-auto relative w-full cursor-grab active:cursor-grabbing">
-            <div id="treeContainer" class="relative">
+        <div id="treeViewport" class="tree-viewport flex-grow overflow-auto relative w-full">
+            <div id="treeContainer">
                 <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
                 <div id="treeContent" class="relative z-10"></div>
             </div>
@@ -124,38 +127,23 @@
 
     <footer class="fixed bottom-0 left-0 right-0 p-6 flex justify-center z-50 pointer-events-none">
         <div class="pointer-events-auto bg-white border border-gray-200 p-4 rounded-lg shadow-sm max-w-2xl w-full text-center">
-            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1">Current String</div>
             <div id="expressionText" class="text-lg font-medium text-gray-700 font-mono"></div>
         </div>
     </footer>
 
     <script>
-        // --- Math Logic ---
+        // ... (gcd, simplify, fracOps, generateRandomTree, getPrecedence, getExpressionString - same as before) ...
         const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { a %= b; [a, b] = [b, a]; } return a; };
-        const simplify = (n, d) => {
-            if (d === 0) return { n, d };
-            const common = gcd(n, d);
-            let finalN = n / common;
-            let finalD = d / common;
-            if (finalD < 0) { finalN = -finalN; finalD = -finalD; }
-            return { n: finalN, d: finalD };
-        };
-
-        const fracOps = {
-            '+': (a, b) => simplify(a.n * b.d + b.n * a.d, a.d * b.d),
-            '-': (a, b) => simplify(a.n * b.d - b.n * a.d, a.d * b.d),
-            '×': (a, b) => simplify(a.n * b.n, a.d * b.d),
-            '÷': (a, b) => simplify(a.n * b.d, a.d * b.n)
-        };
-
-        // --- State ---
+        const simplify = (n, d) => { if (d === 0) return { n, d }; const common = gcd(n, d); let finalN = n / common; let finalD = d / common; if (finalD < 0) { finalN = -finalN; finalD = -finalD; } return { n: finalN, d: finalD }; };
+        const fracOps = { '+': (a, b) => simplify(a.n * b.d + b.n * a.d, a.d * b.d), '-': (a, b) => simplify(a.n * b.d - b.n * a.d, a.d * b.d), '×': (a, b) => simplify(a.n * b.n, a.d * b.d), '÷': (a, b) => simplify(a.n * b.d, a.d * b.n) };
+        function getPrecedence(op) { if (op === '×' || op === '÷') return 2; if (op === '+' || op === '-') return 1; return 0; }
+        
         let treeData = null;
-        let currentView = 'tree'; // 'tree' or 'expression'
+        let currentView = 'tree';
 
-        function generateRandomTree(depth = 0, maxDepth = 3) {
+        function generateRandomTree(depth = 0, maxDepth = 2) {
             const id = 'node-' + Math.random().toString(36).substr(2, 9);
-            const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
-            if (isLeaf) {
+            if (depth >= maxDepth || (depth > 0 && Math.random() > 0.6)) {
                 return { id, type: 'operand', value: { n: Math.floor(Math.random() * 12) + 1, d: 1 } };
             } else {
                 const symbols = Object.keys(fracOps);
@@ -164,101 +152,53 @@
             }
         }
 
-        function formatFractionText(f) { return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`; }
-        
-        function getPrecedence(op) {
-            if (op === '×' || op === '÷') return 2;
-            if (op === '+' || op === '-') return 1;
-            return 0;
-        }
-
-        // --- String Generator (for footer) ---
         function getExpressionString(node) {
-            if (node.type === 'operand') return formatFractionText(node.value);
+            if (node.type === 'operand') return (node.value.d === 1 ? node.value.n : `${node.value.n}/${node.value.d}`);
             const currentPrec = getPrecedence(node.value);
             let leftExpr = getExpressionString(node.left);
             let rightExpr = getExpressionString(node.right);
-
-            if (node.left.type === 'operator') {
-                if (getPrecedence(node.left.value) < currentPrec) leftExpr = `(${leftExpr})`;
-            }
-
+            if (node.left.type === 'operator' && getPrecedence(node.left.value) < currentPrec) leftExpr = `(${leftExpr})`;
             if (node.right.type === 'operator') {
                 const rightPrec = getPrecedence(node.right.value);
-                const isNonAssociative = (node.value === '-' || node.value === '÷') && rightPrec === currentPrec;
-                if (rightPrec < currentPrec || isNonAssociative) rightExpr = `(${rightExpr})`;
+                if (rightPrec < currentPrec || ((node.value === '-' || node.value === '÷') && rightPrec === currentPrec)) rightExpr = `(${rightExpr})`;
             }
             return `${leftExpr} ${node.value} ${rightExpr}`;
         }
 
-        // --- Node Array Generator (For Expression View) ---
+        // Logic to flatten tree for the horizontal view
         function getExpressionNodes(node) {
             if (node.type === 'operand') return [{ type: 'operand', source: node }];
-
             const currentPrec = getPrecedence(node.value);
             let leftNodes = getExpressionNodes(node.left);
             let rightNodes = getExpressionNodes(node.right);
 
-            if (node.left.type === 'operator') {
-                if (getPrecedence(node.left.value) < currentPrec) {
-                    leftNodes = [{type: 'bracket', value: '('}, ...leftNodes, {type: 'bracket', value: ')'}];
-                }
+            if (node.left.type === 'operator' && getPrecedence(node.left.value) < currentPrec) {
+                leftNodes = [{type: 'bracket', value: '('}, ...leftNodes, {type: 'bracket', value: ')'}];
             }
-
             if (node.right.type === 'operator') {
                 const rightPrec = getPrecedence(node.right.value);
-                const isNonAssociative = (node.value === '-' || node.value === '÷') && rightPrec === currentPrec;
-                if (rightPrec < currentPrec || isNonAssociative) {
+                if (rightPrec < currentPrec || ((node.value === '-' || node.value === '÷') && rightPrec === currentPrec)) {
                     rightNodes = [{type: 'bracket', value: '('}, ...rightNodes, {type: 'bracket', value: ')'}];
                 }
             }
-            // Use current node as the operator
             return [...leftNodes, { type: 'operator', source: node }, ...rightNodes];
         }
 
-        function evaluateAtNode(node, targetId) {
-            if (node.id === targetId) {
-                const result = fracOps[node.value](node.left.value, node.right.value);
-                return { id: 'node-' + Math.random().toString(36).substr(2, 9), type: 'operand', value: result };
-            }
-            if (node.type === 'operator') {
-                return { ...node, left: evaluateAtNode(node.left, targetId), right: evaluateAtNode(node.right, targetId) };
-            }
-            return node;
-        }
-
-        // --- DOM Builders ---
-
-        // Creates the circular node element (used in both views)
-        function createNodeDOM(node, isInteractive = true) {
+        function createNodeDOM(node) {
             const div = document.createElement('div');
             const isLeaf = node.type === 'operand';
-            // Logic to check if we can click (only operands as children)
-            const canEvaluate = isInteractive && !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
-
-            div.id = node.id; // ID attached to the bubble
-            
-            const baseClass = "node rounded-full flex items-center justify-center shrink-0 border-2 font-medium shadow-sm relative";
-            // Different sizing for Expression View vs Tree View? 
-            // Let's keep them similar, maybe slightly smaller in expression view via CSS if needed.
-            const sizeClass = "w-12 h-12 md:w-14 md:h-14 text-lg"; 
-
-            const stateClass = isLeaf ? 'border-gray-300 text-gray-700' : 
-                               canEvaluate ? 'node-operator can-evaluate' : 
-                               'border-gray-200 text-gray-300 bg-gray-50 node-operator';
-            
-            div.className = `${baseClass} ${sizeClass} ${stateClass}`;
+            const canEvaluate = !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
+            div.id = node.id;
+            div.className = `node w-14 h-14 rounded-full flex items-center justify-center border-2 font-medium shadow-sm ${isLeaf ? 'border-gray-300' : canEvaluate ? 'node-operator can-evaluate' : 'border-gray-100 text-gray-300'}`;
             
             if (isLeaf) {
-                const f = node.value;
-                div.innerHTML = f.d === 1 ? `<span>${f.n}</span>` : `<div class="frac"><span class="top">${f.n}</span><span class="bottom">${f.d}</span></div>`;
+                div.innerHTML = node.value.d === 1 ? node.value.n : `<div class="frac"><span class="top">${node.value.n}</span><span class="bottom">${node.value.d}</span></div>`;
             } else {
                 div.textContent = node.value;
             }
 
             if (canEvaluate) {
-                div.onclick = (e) => {
-                    e.stopPropagation(); // Prevent container clicks
+                div.onclick = () => {
                     treeData = evaluateAtNode(treeData, node.id);
                     render();
                 };
@@ -266,148 +206,78 @@
             return div;
         }
 
-        // Recursive builder for Tree View
         function buildTreeDOM(node) {
             const wrapper = document.createElement('div');
             wrapper.className = "flex flex-col items-center";
-            
             wrapper.appendChild(createNodeDOM(node));
-
             if (node.type !== 'operand') {
-                const childrenWrapper = document.createElement('div');
-                childrenWrapper.className = "flex gap-12 md:gap-24 mt-16 md:mt-20";
-                childrenWrapper.appendChild(buildTreeDOM(node.left));
-                childrenWrapper.appendChild(buildTreeDOM(node.right));
-                wrapper.appendChild(childrenWrapper);
+                const children = document.createElement('div');
+                children.className = "flex gap-20 mt-16";
+                children.appendChild(buildTreeDOM(node.left));
+                children.appendChild(buildTreeDOM(node.right));
+                wrapper.appendChild(children);
             }
             return wrapper;
         }
 
-        function drawConnectors(node) {
-            if (node.type === 'operand') return;
-            const p = document.getElementById(node.id);
-            const l = document.getElementById(node.left.id);
-            const r = document.getElementById(node.right.id);
-            
-            if (p && l && r) { 
-                drawLine(p, l); 
-                drawLine(p, r); 
+        function evaluateAtNode(node, targetId) {
+            if (node.id === targetId) {
+                const res = fracOps[node.value](node.left.value, node.right.value);
+                return { id: 'node-' + Math.random().toString(36).substr(2, 9), type: 'operand', value: res };
             }
-            drawConnectors(node.left); 
-            drawConnectors(node.right);
+            return node.type === 'operator' ? { ...node, left: evaluateAtNode(node.left, targetId), right: evaluateAtNode(node.right, targetId) } : node;
         }
 
-        function drawLine(el1, el2) {
-            const svg = document.getElementById('svgConnectors');
-            const containerRect = document.getElementById('treeContainer').getBoundingClientRect();
-            const r1 = el1.getBoundingClientRect();
-            const r2 = el2.getBoundingClientRect();
-            const x1 = r1.left + r1.width / 2 - containerRect.left; 
-            const y1 = r1.top + r1.height / 2 - containerRect.top;
-            const x2 = r2.left + r2.width / 2 - containerRect.left; 
-            const y2 = r2.top + r2.height / 2 - containerRect.top;
-            
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-            line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-            line.setAttribute('class', 'connector');
-            svg.appendChild(line);
-        }
-
-        // --- Main Render Function ---
         function render() {
             const container = document.getElementById('treeContent');
             const svg = document.getElementById('svgConnectors');
-            const expressionText = document.getElementById('expressionText');
-            const treeContainer = document.getElementById('treeContainer');
-            
-            // Clear previous
             container.innerHTML = '';
             svg.innerHTML = '';
-            expressionText.textContent = getExpressionString(treeData);
-
-            // Toggle Classes based on View Mode
+            document.getElementById('expressionText').textContent = getExpressionString(treeData);
             document.body.className = currentView === 'tree' ? 'tree-view-active' : 'expression-view-active';
 
-            if (treeData.type === 'operand') {
-                // Victory/Final result state
-                container.innerHTML = `
-                    <div class="flex flex-col items-center gap-4">
-                        <div class="text-7xl font-bold text-gray-900">
-                            ${treeData.value.d === 1 ? treeData.value.n : `<div class="frac"><span class="top">${treeData.value.n}</span><span class="bottom">${treeData.value.d}</span></div>`}
-                        </div>
-                        <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">Result</div>
-                    </div>
-                `;
-                return;
-            }
-
             if (currentView === 'tree') {
-                // Render Tree
-                svg.style.display = 'block';
                 container.appendChild(buildTreeDOM(treeData));
-                requestAnimationFrame(() => drawConnectors(treeData));
+                setTimeout(() => drawConnectors(treeData), 10);
             } else {
-                // Render Expression
-                svg.style.display = 'none'; // Hide lines
-                
-                // Use the new Flattener
-                const flatNodes = getExpressionNodes(treeData);
-                
-                flatNodes.forEach(item => {
-                    if (item.type === 'bracket') {
-                        const span = document.createElement('span');
-                        span.textContent = item.value;
-                        span.className = 'expression-bracket';
-                        container.appendChild(span);
+                const flat = getExpressionNodes(treeData);
+                const row = document.createElement('div');
+                row.className = "flex flex-row items-center gap-2";
+                flat.forEach(n => {
+                    if (n.type === 'bracket') {
+                        const b = document.createElement('span');
+                        b.className = 'expression-bracket';
+                        b.textContent = n.value;
+                        container.appendChild(b);
                     } else {
-                        // Render standard node (operator or operand)
-                        // Note: item.source is the actual tree node reference
-                        const nodeEl = createNodeDOM(item.source);
-                        container.appendChild(nodeEl);
+                        container.appendChild(createNodeDOM(n.source));
                     }
                 });
             }
         }
 
-        function centerView() {
-            if (currentView !== 'tree') return; // Only scroll center for tree
-            const vp = document.getElementById('treeViewport');
-            const content = document.getElementById('treeContainer');
-            vp.scrollLeft = (content.offsetWidth - vp.offsetWidth) / 2;
-            vp.scrollTop = (content.offsetHeight - vp.offsetHeight) / 2 - 100;
+        // ... (drawConnectors, drawLine, centerView, init - similar to previous) ...
+        function drawConnectors(node) {
+            if (node.type === 'operand') return;
+            const p = document.getElementById(node.id), l = document.getElementById(node.left.id), r = document.getElementById(node.right.id);
+            if (p && l && r) { drawLine(p, l); drawLine(p, r); }
+            drawConnectors(node.left); drawConnectors(node.right);
+        }
+        function drawLine(el1, el2) {
+            const svg = document.getElementById('svgConnectors'), rect = document.getElementById('treeContainer').getBoundingClientRect();
+            const r1 = el1.getBoundingClientRect(), r2 = el2.getBoundingClientRect();
+            const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            l.setAttribute('x1', r1.left + r1.width/2 - rect.left); l.setAttribute('y1', r1.top + r1.height/2 - rect.top);
+            l.setAttribute('x2', r2.left + r2.width/2 - rect.left); l.setAttribute('y2', r2.top + r2.height/2 - rect.top);
+            l.setAttribute('class', 'connector'); svg.appendChild(l);
         }
 
-        // --- Initialization & Events ---
         window.onload = () => {
-            treeData = generateRandomTree(0, 3);
+            treeData = generateRandomTree();
             render();
-            centerView();
-
-            document.getElementById('regenerateBtn').onclick = () => { 
-                treeData = generateRandomTree(0, 3); 
-                render(); 
-                centerView(); 
-            };
-
-            // View Toggles
-            const btnTree = document.getElementById('viewTreeBtn');
-            const btnExpr = document.getElementById('viewExprBtn');
-            
-            const updateToggleUI = () => {
-                if (currentView === 'tree') {
-                    btnTree.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
-                    btnExpr.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
-                } else {
-                    btnTree.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
-                    btnExpr.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
-                }
-            };
-
-            btnTree.onclick = () => { currentView = 'tree'; updateToggleUI(); render(); centerView(); };
-            btnExpr.onclick = () => { currentView = 'expression'; updateToggleUI(); render(); };
-
-            window.addEventListener('resize', render);
+            document.getElementById('viewTreeBtn').onclick = () => { currentView = 'tree'; render(); };
+            document.getElementById('viewExprBtn').onclick = () => { currentView = 'expression'; render(); };
+            document.getElementById('regenerateBtn').onclick = () => { treeData = generateRandomTree(); render(); };
         };
     </script>
 </body>
