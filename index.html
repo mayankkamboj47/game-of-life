@@ -137,9 +137,47 @@
 
         function formatFractionText(f) { return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`; }
         
+        // 1. Add this helper function to define BODMAS/PEMDAS levels
+        function getPrecedence(op) {
+            if (op === '×' || op === '÷') return 2; // High precedence
+            if (op === '+' || op === '-') return 1; // Low precedence
+            return 0;
+        }
+
+        // 2. Replace the existing getExpressionString with this updated version
         function getExpressionString(node) {
+            // Base case: if it's a number, just return the text
             if (node.type === 'operand') return formatFractionText(node.value);
-            return `(${getExpressionString(node.left)} ${node.value} ${getExpressionString(node.right)})`;
+
+            const currentPrec = getPrecedence(node.value);
+            
+            let leftExpr = getExpressionString(node.left);
+            let rightExpr = getExpressionString(node.right);
+
+            // Logic for Left Child
+            // If left is an operator with LOWER precedence, it needs brackets.
+            // Example: (1 + 2) * 3
+            if (node.left.type === 'operator') {
+                const leftPrec = getPrecedence(node.left.value);
+                if (leftPrec < currentPrec) {
+                    leftExpr = `(${leftExpr})`;
+                }
+            }
+
+            // Logic for Right Child
+            // Needs brackets if lower precedence OR same precedence for non-associative operators (- and ÷).
+            // Example 1: 3 * (1 + 2) -> Brackets needed (Lower Precedence)
+            // Example 2: 1 - (2 - 3) -> Brackets needed (Same Precedence, but order matters)
+            if (node.right.type === 'operator') {
+                const rightPrec = getPrecedence(node.right.value);
+                const isNonAssociative = (node.value === '-' || node.value === '÷') && rightPrec === currentPrec;
+                
+                if (rightPrec < currentPrec || isNonAssociative) {
+                    rightExpr = `(${rightExpr})`;
+                }
+            }
+
+            return `${leftExpr} ${node.value} ${rightExpr}`;
         }
 
         function evaluateAtNode(node, targetId) {
