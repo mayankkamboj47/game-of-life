@@ -453,4 +453,117 @@
 
         function drawLine(el1, el2) {
             const svg = document.getElementById('svgConnectors');
-            const containerRect = document.getElementById('treeContainer')
+            const containerRect = document.getElementById('treeContainer').getBoundingClientRect();
+            const r1 = el1.getBoundingClientRect();
+            const r2 = el2.getBoundingClientRect();
+            const x1 = r1.left + r1.width / 2 - containerRect.left; 
+            const y1 = r1.top + r1.height / 2 - containerRect.top;
+            const x2 = r2.left + r2.width / 2 - containerRect.left; 
+            const y2 = r2.top + r2.height / 2 - containerRect.top;
+            
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+            line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+            line.setAttribute('class', 'connector');
+            svg.appendChild(line);
+        }
+
+        // --- Main Render Function ---
+        function render() {
+            const container = document.getElementById('treeContent');
+            const svg = document.getElementById('svgConnectors');
+            const expressionText = document.getElementById('expressionText');
+            
+            // Clear previous
+            container.innerHTML = '';
+            svg.innerHTML = '';
+            expressionText.textContent = getExpressionString(treeData);
+
+            document.body.className = currentView === 'tree' ? 'tree-view-active' : 'expression-view-active';
+
+            if (treeData.type === 'operand') {
+                // Victory
+                container.innerHTML = `
+                    <div class="flex flex-col items-center gap-4">
+                        <div class="text-7xl font-bold text-gray-900">
+                            ${treeData.value.d === 1 ? treeData.value.n : `<div class="frac"><span class="top">${treeData.value.n}</span><span class="bottom">${treeData.value.d}</span></div>`}
+                        </div>
+                        <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">Result</div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (currentView === 'tree') {
+                svg.style.display = 'block';
+                container.appendChild(buildTreeDOM(treeData));
+                requestAnimationFrame(() => drawConnectors(treeData));
+            } else {
+                svg.style.display = 'none';
+                const flatNodes = getExpressionNodes(treeData);
+                flatNodes.forEach(item => {
+                    if (item.type === 'bracket') {
+                        const span = document.createElement('span');
+                        span.textContent = item.value;
+                        span.className = 'expression-bracket';
+                        container.appendChild(span);
+                    } else {
+                        const nodeEl = createNodeDOM(item.source);
+                        container.appendChild(nodeEl);
+                    }
+                });
+            }
+        }
+
+        function centerView() {
+            const vp = document.getElementById('treeViewport');
+            const content = document.getElementById('treeContainer');
+            vp.scrollLeft = (content.offsetWidth - vp.offsetWidth) / 2;
+            vp.scrollTop = (content.offsetHeight - vp.offsetHeight) / 2; 
+        }
+
+        // --- Initialization & Events ---
+        window.onload = () => {
+            treeData = generateRandomTree(0, 3);
+            render();
+            setTimeout(centerView, 0);
+
+            // New Question
+            document.getElementById('regenerateBtn').onclick = () => { 
+                historyStack = []; // Reset history
+                updateUndoBtn();
+                treeData = generateRandomTree(0, 3); 
+                render(); 
+                centerView(); 
+            };
+
+            // Undo Button Event
+            document.getElementById('undoBtn').onclick = undo;
+
+            const btnTree = document.getElementById('viewTreeBtn');
+            const btnExpr = document.getElementById('viewExprBtn');
+            
+            const updateToggleUI = () => {
+                if (currentView === 'tree') {
+                    btnTree.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
+                    btnExpr.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
+                } else {
+                    btnTree.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
+                    btnExpr.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
+                }
+            };
+
+            btnTree.onclick = () => { currentView = 'tree'; updateToggleUI(); render(); centerView(); };
+            btnExpr.onclick = () => { currentView = 'expression'; updateToggleUI(); render(); centerView(); };
+
+            window.addEventListener('resize', () => {
+                if (currentView === 'tree') {
+                    const svg = document.getElementById('svgConnectors');
+                    svg.innerHTML = '';
+                    drawConnectors(treeData);
+                }
+            });
+        };
+    </script>
+</body>
+    </html>
