@@ -217,8 +217,7 @@
 
             if (node.right.type === 'operator') {
                 const rightPrec = getPrecedence(node.right.value);
-                const isNonAssociative = (node.value === '-' || node.value === '÷') && rightPrec === currentPrec;
-                if (rightPrec < currentPrec || isNonAssociative) {
+                if (rightPrec <= currentPrec) {
                     rightNodes = [{type: 'bracket', value: '('}, ...rightNodes, {type: 'bracket', value: ')'}];
                 }
             }
