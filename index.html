@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BODMAS Practice - With Undo</title>
+    <title>BODMAS Engine - Smart Associativity</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -30,6 +30,7 @@
             border-color: #2563eb;
             color: #2563eb;
             background-color: #eff6ff;
+            font-weight: 700;
         }
 
         .node-operator.can-evaluate:hover {
@@ -49,10 +50,8 @@
         }
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
-        /* --- Common Large Canvas --- */
-        .tree-viewport {
-            overflow: auto; 
-        }
+        /* --- Viewport & Canvas --- */
+        .tree-viewport { overflow: auto; }
 
         #treeContainer {
             min-width: 2500px; 
@@ -62,7 +61,7 @@
             padding: 400px;
         }
 
-        /* --- Tree View Specifics --- */
+        /* --- Tree View --- */
         .tree-view-active #treeContainer {
             background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
             background-size: 30px 30px;
@@ -72,18 +71,15 @@
             stroke: #94a3b8;
             stroke-width: 1.5;
             fill: none;
+            transition: d 0.3s ease;
         }
 
-        /* --- Expression View Specifics --- */
+        /* --- Expression View --- */
         .expression-view-active #treeViewport {
             display: block; 
             background-color: #f8fafc;
         }
-
-        .expression-view-active #treeContainer {
-            background: none; 
-        }
-
+        .expression-view-active #treeContainer { background: none; }
         .expression-view-active #treeContent {
             display: flex;
             flex-wrap: nowrap; 
@@ -91,13 +87,11 @@
             align-items: center;
             justify-content: center;
         }
-
         .expression-bracket {
             font-size: 2.5rem;
             color: #94a3b8;
             font-weight: 300;
         }
-
     </style>
 </head>
 <body>
@@ -157,9 +151,17 @@
             '÷': (a, b) => simplify(a.n * b.d, a.d * b.n)
         };
 
+        // Standard JS Math for the "Fake Tree" evaluation
+        const simpleOps = {
+            '+': (a, b) => a + b,
+            '-': (a, b) => a - b,
+            '×': (a, b) => a * b,
+            '÷': (a, b) => b === 0 ? Infinity : a / b
+        };
+
         // --- State ---
         let treeData = null;
-        let historyStack = []; // Stores deep copies of previous tree states
+        let historyStack = [];
         let currentView = 'tree'; 
 
         function generateRandomTree(depth = 0, maxDepth = 3) {
@@ -174,6 +176,246 @@
             }
         }
 
+        // --- Core: Smart Evaluation Logic ---
+
+        // 1. Create a map of random values for every Leaf Node ID to use in simulation
+        function createRandomValueMap(node, map = {}) {
+            if (node.type === 'operand') {
+                map[node.id] = Math.random() * 100; // Use floats to avoid accidental integer division matches
+            } else {
+                createRandomValueMap(node.left, map);
+                createRandomValueMap(node.right, map);
+            }
+            return map;
+        }
+
+        // 2. Evaluate a tree using the random map instead of real fractions
+        function evaluateFakeTree(node, valueMap) {
+            if (node.type === 'operand') return valueMap[node.id];
+            const l = evaluateFakeTree(node.left, valueMap);
+            const r = evaluateFakeTree(node.right, valueMap);
+            return simpleOps[node.value](l, r);
+        }
+
+        // 3. Deep copy helper
+        function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+        // 4. Try to rotate/evaluate a specific node
+        // Returns the NEW tree if valid, or null if invalid
+        function trySmartEvaluate(fullTree, targetNodeId) {
+            // Helper to traverse and find/replace the target node
+            // This is complex: we might need to modify the PARENT of the target node,
+            // or the Node itself might become the child of a rotated parent.
+            
+            // Strategy: We will try 3 transformations on the specific node:
+            // A. Standard Evaluate (Left and Right are leaves)
+            // B. Rotate Left (Node is Op1, Right child is Op2 -> become Op2(Op1(..), ..))
+            // C. Rotate Right (Node is Op1, Left child is Op2 -> become Op2(.., Op1(..)))
+            
+            // For B and C, we generate a candidate tree structure, 
+            // run the Random Number check, and if Equivalent, we return the candidate.
+
+            // First, generate the random map for the CURRENT full tree.
+            const valueMap = createRandomValueMap(fullTree);
+            const originalResult = evaluateFakeTree(fullTree, valueMap);
+
+            // We need a function that traverses, finds the target, and returns a modified tree
+            const transform = (node) => {
+                if (node.id === targetNodeId) {
+                    
+                    // Case A: Standard
+                    if (node.left.type === 'operand' && node.right.type === 'operand') {
+                        const res = fracOps[node.value](node.left.value, node.right.value);
+                        return { id: 'node-' + Math.random().toString(36).substr(2, 9), type: 'operand', value: res };
+                    }
+
+                    // Case B: Right Child is Operator ( e.g. A + (B + C) -> try (A + B) )
+                    if (node.right.type === 'operator' && node.left.type === 'operand') {
+                        // We want to transform: Op1(A, Op2(B, C)) -> Op2( Op1(A, B), C )
+                        // But wait, we want to EVALUATE Op1(A, B) immediately.
+                        // So the structure becomes: Op2( Evaluated_Result, C )
+                        
+                        const op1 = node.value;
+                        const A = node.left.value;
+                        const B = node.right.left.value; // "Steal" the left child of the right operator
+
+                        // Construct the "Hypothetical" result of the operation
+                        const resVal = fracOps[op1](A, B);
+                        const resNode = { id: 'temp-res', type: 'operand', value: resVal };
+
+                        // Construct Candidate Node: Op2( Result, C )
+                        const candidateNode = {
+                            ...node.right, // Takes ID and Value of Op2
+                            left: resNode,
+                            right: node.right.right
+                        };
+                        return { candidate: candidateNode, type: 'smart' };
+                    }
+
+                    // Case C: Left Child is Operator ( e.g. (A + B) + C -> try B + C )
+                    if (node.left.type === 'operator' && node.right.type === 'operand') {
+                        // We want to transform: Op1( Op2(A, B), C ) -> Op2( A, Op1(B, C) )
+                        // Evaluate Op1(B, C) immediately.
+                        // Structure becomes: Op2( A, Evaluated_Result )
+
+                        const op1 = node.value;
+                        const C = node.right.value;
+                        const B = node.left.right.value; // "Steal" right child of left operator
+
+                        const resVal = fracOps[op1](B, C);
+                        const resNode = { id: 'temp-res', type: 'operand', value: resVal };
+
+                        const candidateNode = {
+                            ...node.left, // Takes ID and Value of Op2
+                            left: node.left.left,
+                            right: resNode
+                        };
+                        return { candidate: candidateNode, type: 'smart' };
+                    }
+                }
+
+                // Recursive Traversal
+                if (node.type === 'operator') {
+                    const newLeft = transform(node.left);
+                    const newRight = transform(node.right);
+
+                    // If a change happened below
+                    if (newLeft !== node.left || newRight !== node.right) {
+                        
+                        // If one of the children returned a "Smart Candidate" wrapper
+                        if (newLeft && newLeft.type === 'smart') return { ...node, left: newLeft.candidate };
+                        if (newRight && newRight.type === 'smart') return { ...node, right: newRight.candidate };
+                        
+                        // Standard reconstruction
+                        return { ...node, left: newLeft, right: newRight };
+                    }
+                }
+                return node;
+            };
+
+            const newTree = transform(deepClone(fullTree));
+
+            // If no transformation happened
+            if (newTree === fullTree) return null;
+            
+            // If transformation happened, VALIDATE with Fake Tree
+            // We must handle the case where 'transform' returned the wrapped candidate at the root
+            let finalTreeCandidate = newTree;
+            if (newTree.type === 'smart') finalTreeCandidate = newTree.candidate;
+
+            // Note: The 'temp-res' node in candidate doesn't have an ID in the ValueMap.
+            // But we already calculated the math result.
+            // We need to inject the values into the map OR handle the fact that the structure changed.
+            
+            // Actually, simpler validation:
+            // The transform function ALREADY performed the math operation using the Real Fractions.
+            // We just need to know if that Math was legal.
+            // So we need to build a "Test Tree" that has the ROTATED structure but NOT the evaluated values yet,
+            // to check associativity.
+            
+            // Let's do the validation slightly differently to be robust:
+            // 1. Build a "Rotated Tree" (pure structure change, no math).
+            // 2. Compare Fake Results.
+            // 3. If Valid, perform the math on the Real Tree.
+
+            // RETRY Logic for robustness:
+            // Just check the Math on the Specific Rotation.
+            // If Op1(A, Op2(B, C)) -> Check if Fake(Op1(A, Op2(B,C))) == Fake(Op2(Op1(A,B), C))
+            
+            // Since we already generated the "Evaluated" tree in 'newTree', let's just 
+            // check if the numeric result of the ENTIRE new tree matches the ENTIRE old tree
+            // using floating point logic.
+            // BUT: The new tree has collapsed nodes. We can't use the old ID map for the collapsed part.
+            // This is tricky.
+            
+            // Alternative:
+            // Trust the `fracOps` logic (it's correct math). 
+            // We just need to know if the Rotation is valid.
+            // (A + B) + C == A + (B + C) ? True.
+            // (A - B) - C == A - (B - C) ? False.
+            
+            // Let's implement the specific rotation check locally at the node.
+            // ID lookup is passed recursively.
+            return validateAndExecute(fullTree, targetNodeId, valueMap, originalResult);
+        }
+
+        function validateAndExecute(fullTree, targetId, valueMap, originalTotal) {
+            
+            const traverse = (node) => {
+                if (node.id === targetId) {
+                    // Case A: Standard
+                    if (node.left.type === 'operand' && node.right.type === 'operand') {
+                        const res = fracOps[node.value](node.left.value, node.right.value);
+                        return { id: 'node-' + Math.random(), type: 'operand', value: res };
+                    }
+
+                    // Case B: Right Rotation Check
+                    if (node.right.type === 'operator' && node.left.type === 'operand') {
+                        // Check: Op1(a, Op2(b, c)) == Op2(Op1(a, b), c)
+                        const a = valueMap[node.left.id];
+                        const b = valueMap[node.right.left.id];
+                        const c = evaluateFakeTree(node.right.right, valueMap); // Recursive for rest of subtree
+                        
+                        const val1 = simpleOps[node.value](a, simpleOps[node.right.value](b, c));
+                        const val2 = simpleOps[node.right.value](simpleOps[node.value](a, b), c);
+                        
+                        if (Math.abs(val1 - val2) < 0.0001) {
+                            // Valid! Return evaluated node structure
+                            const res = fracOps[node.value](node.left.value, node.right.left.value);
+                            return { 
+                                ...node.right, 
+                                left: { id: 'new-'+Math.random(), type: 'operand', value: res }
+                            };
+                        }
+                    }
+
+                    // Case C: Left Rotation Check
+                    if (node.left.type === 'operator' && node.right.type === 'operand') {
+                        // Check: Op1(Op2(a, b), c) == Op2(a, Op1(b, c))
+                        const a = evaluateFakeTree(node.left.left, valueMap);
+                        const b = valueMap[node.left.right.id];
+                        const c = valueMap[node.right.id];
+
+                        const val1 = simpleOps[node.value](simpleOps[node.left.value](a, b), c);
+                        const val2 = simpleOps[node.left.value](a, simpleOps[node.value](b, c));
+
+                        if (Math.abs(val1 - val2) < 0.0001) {
+                             // Valid!
+                             const res = fracOps[node.value](node.left.right.value, node.right.value);
+                             return {
+                                 ...node.left,
+                                 right: { id: 'new-'+Math.random(), type: 'operand', value: res }
+                             };
+                        }
+                    }
+                }
+
+                // Recursion
+                if (node.type === 'operator') {
+                    const l = traverse(node.left);
+                    const r = traverse(node.right);
+                    if (l !== node.left || r !== node.right) {
+                        return { ...node, left: l, right: r };
+                    }
+                }
+                return node;
+            };
+
+            const result = traverse(deepClone(fullTree));
+            return result === fullTree ? null : result;
+        }
+
+        // Check if a node is clickable (Standard OR Smart)
+        // We do this by effectively "Dry Running" the transformation
+        function checkCanEvaluate(fullTree, nodeId) {
+            const map = createRandomValueMap(fullTree);
+            const res = validateAndExecute(fullTree, nodeId, map, 0);
+            return res !== null;
+        }
+
+
+        // --- UI Rendering ---
+
         function formatFractionText(f) { return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`; }
         
         function getPrecedence(op) {
@@ -182,261 +424,11 @@
             return 0;
         }
 
-        // --- String Generator ---
-        function getExpressionString(node) {
-            if (node.type === 'operand') return formatFractionText(node.value);
-            const currentPrec = getPrecedence(node.value);
-            let leftExpr = getExpressionString(node.left);
-            let rightExpr = getExpressionString(node.right);
-
-            if (node.left.type === 'operator') {
-                if (getPrecedence(node.left.value) < currentPrec) leftExpr = `(${leftExpr})`;
-            }
-
-            if (node.right.type === 'operator') {
-                const rightPrec = getPrecedence(node.right.value);
-                const isNonAssociative = (node.value === '-' || node.value === '÷') && rightPrec === currentPrec;
-                if (rightPrec < currentPrec || isNonAssociative) rightExpr = `(${rightExpr})`;
-            }
-            return `${leftExpr} ${node.value} ${rightExpr}`;
-        }
-
-        // --- Node Array Generator ---
         function getExpressionNodes(node) {
             if (node.type === 'operand') return [{ type: 'operand', source: node }];
-
             const currentPrec = getPrecedence(node.value);
             let leftNodes = getExpressionNodes(node.left);
             let rightNodes = getExpressionNodes(node.right);
-
             if (node.left.type === 'operator') {
                 if (getPrecedence(node.left.value) < currentPrec) {
-                    leftNodes = [{type: 'bracket', value: '('}, ...leftNodes, {type: 'bracket', value: ')'}];
-                }
-            }
-
-            if (node.right.type === 'operator') {
-                const rightPrec = getPrecedence(node.right.value);
-                const isNonAssociative = (node.value === '-' || node.value === '÷') && rightPrec === currentPrec;
-                if (rightPrec < currentPrec || isNonAssociative) {
-                    rightNodes = [{type: 'bracket', value: '('}, ...rightNodes, {type: 'bracket', value: ')'}];
-                }
-            }
-            return [...leftNodes, { type: 'operator', source: node }, ...rightNodes];
-        }
-
-        function evaluateAtNode(node, targetId) {
-            if (node.id === targetId) {
-                const result = fracOps[node.value](node.left.value, node.right.value);
-                return { id: 'node-' + Math.random().toString(36).substr(2, 9), type: 'operand', value: result };
-            }
-            if (node.type === 'operator') {
-                return { ...node, left: evaluateAtNode(node.left, targetId), right: evaluateAtNode(node.right, targetId) };
-            }
-            return node;
-        }
-
-        // --- History / Undo Logic ---
-        function saveToHistory() {
-            // Push deep copy of current tree
-            historyStack.push(JSON.parse(JSON.stringify(treeData)));
-            updateUndoBtn();
-        }
-
-        function undo() {
-            if (historyStack.length === 0) return;
-            // Restore last state
-            treeData = historyStack.pop();
-            updateUndoBtn();
-            render();
-            // No need to recenter, keeps user context
-        }
-
-        function updateUndoBtn() {
-            const btn = document.getElementById('undoBtn');
-            btn.disabled = historyStack.length === 0;
-        }
-
-        // --- DOM Builders ---
-
-        function createNodeDOM(node, isInteractive = true) {
-            const div = document.createElement('div');
-            const isLeaf = node.type === 'operand';
-            const canEvaluate = isInteractive && !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
-
-            div.id = node.id; 
-            
-            const baseClass = "node rounded-full flex items-center justify-center shrink-0 border-2 font-medium shadow-sm relative";
-            const sizeClass = "w-12 h-12 md:w-14 md:h-14 text-lg"; 
-
-            const stateClass = isLeaf ? 'border-gray-300 text-gray-700' : 
-                               canEvaluate ? 'node-operator can-evaluate' : 
-                               'border-gray-200 text-gray-300 bg-gray-50 node-operator';
-            
-            div.className = `${baseClass} ${sizeClass} ${stateClass}`;
-            
-            if (isLeaf) {
-                const f = node.value;
-                div.innerHTML = f.d === 1 ? `<span>${f.n}</span>` : `<div class="frac"><span class="top">${f.n}</span><span class="bottom">${f.d}</span></div>`;
-            } else {
-                div.textContent = node.value;
-            }
-
-            if (canEvaluate) {
-                div.onclick = (e) => {
-                    e.stopPropagation();
-                    saveToHistory(); // <--- Save State before changing
-                    treeData = evaluateAtNode(treeData, node.id);
-                    render();
-                };
-            }
-            return div;
-        }
-
-        // Tree View Builder
-        function buildTreeDOM(node) {
-            const wrapper = document.createElement('div');
-            wrapper.className = "flex flex-col items-center";
-            
-            wrapper.appendChild(createNodeDOM(node));
-
-            if (node.type !== 'operand') {
-                const childrenWrapper = document.createElement('div');
-                childrenWrapper.className = "flex gap-12 md:gap-24 mt-16 md:mt-20";
-                childrenWrapper.appendChild(buildTreeDOM(node.left));
-                childrenWrapper.appendChild(buildTreeDOM(node.right));
-                wrapper.appendChild(childrenWrapper);
-            }
-            return wrapper;
-        }
-
-        function drawConnectors(node) {
-            if (node.type === 'operand') return;
-            const p = document.getElementById(node.id);
-            const l = document.getElementById(node.left.id);
-            const r = document.getElementById(node.right.id);
-            
-            if (p && l && r) { 
-                drawLine(p, l); 
-                drawLine(p, r); 
-            }
-            drawConnectors(node.left); 
-            drawConnectors(node.right);
-        }
-
-        function drawLine(el1, el2) {
-            const svg = document.getElementById('svgConnectors');
-            const containerRect = document.getElementById('treeContainer').getBoundingClientRect();
-            const r1 = el1.getBoundingClientRect();
-            const r2 = el2.getBoundingClientRect();
-            const x1 = r1.left + r1.width / 2 - containerRect.left; 
-            const y1 = r1.top + r1.height / 2 - containerRect.top;
-            const x2 = r2.left + r2.width / 2 - containerRect.left; 
-            const y2 = r2.top + r2.height / 2 - containerRect.top;
-            
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-            line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-            line.setAttribute('class', 'connector');
-            svg.appendChild(line);
-        }
-
-        // --- Main Render Function ---
-        function render() {
-            const container = document.getElementById('treeContent');
-            const svg = document.getElementById('svgConnectors');
-            const expressionText = document.getElementById('expressionText');
-            
-            // Clear previous
-            container.innerHTML = '';
-            svg.innerHTML = '';
-            expressionText.textContent = getExpressionString(treeData);
-
-            document.body.className = currentView === 'tree' ? 'tree-view-active' : 'expression-view-active';
-
-            if (treeData.type === 'operand') {
-                // Victory
-                container.innerHTML = `
-                    <div class="flex flex-col items-center gap-4">
-                        <div class="text-7xl font-bold text-gray-900">
-                            ${treeData.value.d === 1 ? treeData.value.n : `<div class="frac"><span class="top">${treeData.value.n}</span><span class="bottom">${treeData.value.d}</span></div>`}
-                        </div>
-                        <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">Result</div>
-                    </div>
-                `;
-                return;
-            }
-
-            if (currentView === 'tree') {
-                svg.style.display = 'block';
-                container.appendChild(buildTreeDOM(treeData));
-                requestAnimationFrame(() => drawConnectors(treeData));
-            } else {
-                svg.style.display = 'none';
-                const flatNodes = getExpressionNodes(treeData);
-                flatNodes.forEach(item => {
-                    if (item.type === 'bracket') {
-                        const span = document.createElement('span');
-                        span.textContent = item.value;
-                        span.className = 'expression-bracket';
-                        container.appendChild(span);
-                    } else {
-                        const nodeEl = createNodeDOM(item.source);
-                        container.appendChild(nodeEl);
-                    }
-                });
-            }
-        }
-
-        function centerView() {
-            const vp = document.getElementById('treeViewport');
-            const content = document.getElementById('treeContainer');
-            vp.scrollLeft = (content.offsetWidth - vp.offsetWidth) / 2;
-            vp.scrollTop = (content.offsetHeight - vp.offsetHeight) / 2; 
-        }
-
-        // --- Initialization & Events ---
-        window.onload = () => {
-            treeData = generateRandomTree(0, 3);
-            render();
-            setTimeout(centerView, 0);
-
-            // New Question
-            document.getElementById('regenerateBtn').onclick = () => { 
-                historyStack = []; // Reset history
-                updateUndoBtn();
-                treeData = generateRandomTree(0, 3); 
-                render(); 
-                centerView(); 
-            };
-
-            // Undo Button Event
-            document.getElementById('undoBtn').onclick = undo;
-
-            const btnTree = document.getElementById('viewTreeBtn');
-            const btnExpr = document.getElementById('viewExprBtn');
-            
-            const updateToggleUI = () => {
-                if (currentView === 'tree') {
-                    btnTree.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
-                    btnExpr.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
-                } else {
-                    btnTree.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
-                    btnExpr.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
-                }
-            };
-
-            btnTree.onclick = () => { currentView = 'tree'; updateToggleUI(); render(); centerView(); };
-            btnExpr.onclick = () => { currentView = 'expression'; updateToggleUI(); render(); centerView(); };
-
-            window.addEventListener('resize', () => {
-                if (currentView === 'tree') {
-                    const svg = document.getElementById('svgConnectors');
-                    svg.innerHTML = '';
-                    drawConnectors(treeData);
-                }
-            });
-        };
-    </script>
-</body>
-    </html>
+                    leftNodes = [{type: 'bracket', value
