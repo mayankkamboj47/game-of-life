@@ -49,13 +49,23 @@
         }
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
-        /* --- Tree View Specifics --- */
-        .tree-view-active #treeContainer {
+        /* --- Common Large Canvas (Used by both views now) --- */
+        .tree-viewport {
+            /* Ensures the scrollbars appear on the viewport, not body */
+            overflow: auto; 
+        }
+
+        #treeContainer {
+            /* The "Infinite Canvas" logic */
             min-width: 2500px; 
             min-height: 2000px;
             display: grid;
             place-items: center;
             padding: 400px;
+        }
+
+        /* --- Tree View Specifics --- */
+        .tree-view-active #treeContainer {
             background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
             background-size: 30px 30px;
         }
@@ -68,26 +78,22 @@
 
         /* --- Expression View Specifics --- */
         .expression-view-active #treeViewport {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            /* Standard block display allows the huge container to overflow and scroll */
+            display: block; 
             background-color: #f8fafc;
         }
 
+        .expression-view-active #treeContainer {
+            background: none; /* No dots for expression view */
+        }
+
+        /* Target #treeContent specifically for the horizontal layout */
         .expression-view-active #treeContent {
-            /* Reset Grid styles */
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap; /* CRITICAL: Prevents wrapping */
             gap: 12px;
             align-items: center;
             justify-content: center;
-            padding: 40px;
-            max-width: 1200px;
-            width: 100%;
-            height: auto;
-            min-width: auto;
-            min-height: auto;
-            background: none;
         }
 
         .expression-bracket {
@@ -229,18 +235,14 @@
 
         // --- DOM Builders ---
 
-        // Creates the circular node element (used in both views)
         function createNodeDOM(node, isInteractive = true) {
             const div = document.createElement('div');
             const isLeaf = node.type === 'operand';
-            // Logic to check if we can click (only operands as children)
             const canEvaluate = isInteractive && !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
 
-            div.id = node.id; // ID attached to the bubble
+            div.id = node.id; 
             
             const baseClass = "node rounded-full flex items-center justify-center shrink-0 border-2 font-medium shadow-sm relative";
-            // Different sizing for Expression View vs Tree View? 
-            // Let's keep them similar, maybe slightly smaller in expression view via CSS if needed.
             const sizeClass = "w-12 h-12 md:w-14 md:h-14 text-lg"; 
 
             const stateClass = isLeaf ? 'border-gray-300 text-gray-700' : 
@@ -258,7 +260,7 @@
 
             if (canEvaluate) {
                 div.onclick = (e) => {
-                    e.stopPropagation(); // Prevent container clicks
+                    e.stopPropagation();
                     treeData = evaluateAtNode(treeData, node.id);
                     render();
                 };
@@ -266,7 +268,7 @@
             return div;
         }
 
-        // Recursive builder for Tree View
+        // Tree View Builder (Standard Vertical Tree)
         function buildTreeDOM(node) {
             const wrapper = document.createElement('div');
             wrapper.className = "flex flex-col items-center";
@@ -319,7 +321,6 @@
             const container = document.getElementById('treeContent');
             const svg = document.getElementById('svgConnectors');
             const expressionText = document.getElementById('expressionText');
-            const treeContainer = document.getElementById('treeContainer');
             
             // Clear previous
             container.innerHTML = '';
@@ -349,9 +350,8 @@
                 requestAnimationFrame(() => drawConnectors(treeData));
             } else {
                 // Render Expression
-                svg.style.display = 'none'; // Hide lines
+                svg.style.display = 'none';
                 
-                // Use the new Flattener
                 const flatNodes = getExpressionNodes(treeData);
                 
                 flatNodes.forEach(item => {
@@ -361,8 +361,6 @@
                         span.className = 'expression-bracket';
                         container.appendChild(span);
                     } else {
-                        // Render standard node (operator or operand)
-                        // Note: item.source is the actual tree node reference
                         const nodeEl = createNodeDOM(item.source);
                         container.appendChild(nodeEl);
                     }
@@ -371,18 +369,22 @@
         }
 
         function centerView() {
-            if (currentView !== 'tree') return; // Only scroll center for tree
+            // Updated to work for BOTH views
             const vp = document.getElementById('treeViewport');
             const content = document.getElementById('treeContainer');
+            
+            // Center horizontally
             vp.scrollLeft = (content.offsetWidth - vp.offsetWidth) / 2;
-            vp.scrollTop = (content.offsetHeight - vp.offsetHeight) / 2 - 100;
+            // Center vertically (useful for both tree and expression now)
+            vp.scrollTop = (content.offsetHeight - vp.offsetHeight) / 2; 
         }
 
         // --- Initialization & Events ---
         window.onload = () => {
             treeData = generateRandomTree(0, 3);
             render();
-            centerView();
+            // Allow layout to settle before centering
+            setTimeout(centerView, 0);
 
             document.getElementById('regenerateBtn').onclick = () => { 
                 treeData = generateRandomTree(0, 3); 
@@ -390,7 +392,6 @@
                 centerView(); 
             };
 
-            // View Toggles
             const btnTree = document.getElementById('viewTreeBtn');
             const btnExpr = document.getElementById('viewExprBtn');
             
@@ -405,9 +406,16 @@
             };
 
             btnTree.onclick = () => { currentView = 'tree'; updateToggleUI(); render(); centerView(); };
-            btnExpr.onclick = () => { currentView = 'expression'; updateToggleUI(); render(); };
+            btnExpr.onclick = () => { currentView = 'expression'; updateToggleUI(); render(); centerView(); };
 
-            window.addEventListener('resize', render);
+            // Re-draw lines on resize if in tree mode
+            window.addEventListener('resize', () => {
+                if (currentView === 'tree') {
+                    const svg = document.getElementById('svgConnectors');
+                    svg.innerHTML = '';
+                    drawConnectors(treeData);
+                }
+            });
         };
     </script>
 </body>
