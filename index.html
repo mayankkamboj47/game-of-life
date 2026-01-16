@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BODMAS Practice</title>
+    <title>BODMAS Practice - With Undo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -49,14 +49,12 @@
         }
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
-        /* --- Common Large Canvas (Used by both views now) --- */
+        /* --- Common Large Canvas --- */
         .tree-viewport {
-            /* Ensures the scrollbars appear on the viewport, not body */
             overflow: auto; 
         }
 
         #treeContainer {
-            /* The "Infinite Canvas" logic */
             min-width: 2500px; 
             min-height: 2000px;
             display: grid;
@@ -78,19 +76,17 @@
 
         /* --- Expression View Specifics --- */
         .expression-view-active #treeViewport {
-            /* Standard block display allows the huge container to overflow and scroll */
             display: block; 
             background-color: #f8fafc;
         }
 
         .expression-view-active #treeContainer {
-            background: none; /* No dots for expression view */
+            background: none; 
         }
 
-        /* Target #treeContent specifically for the horizontal layout */
         .expression-view-active #treeContent {
             display: flex;
-            flex-wrap: nowrap; /* CRITICAL: Prevents wrapping */
+            flex-wrap: nowrap; 
             gap: 12px;
             align-items: center;
             justify-content: center;
@@ -108,15 +104,22 @@
 
     <header class="fixed top-0 left-0 right-0 p-4 border-b bg-white/80 backdrop-blur-md z-50 flex justify-between items-center">
         <div class="flex items-center gap-4">
-            <h1 class="text-sm font-bold tracking-tight text-gray-500 uppercase">Arithmetic Engine</h1>
+            <h1 class="text-sm font-bold tracking-tight text-gray-500 uppercase hidden md:block">Arithmetic Engine</h1>
             <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium">
                 <button id="viewTreeBtn" class="px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all">Tree</button>
                 <button id="viewExprBtn" class="px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all">Expression</button>
             </div>
         </div>
-        <button id="regenerateBtn" class="bg-gray-900 text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-700 transition-colors">
-            New Question
-        </button>
+        
+        <div class="flex items-center gap-2">
+            <button id="undoBtn" disabled class="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                Undo
+            </button>
+            <button id="regenerateBtn" class="bg-gray-900 text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-700 transition-colors">
+                New Question
+            </button>
+        </div>
     </header>
 
     <main class="flex-grow relative overflow-hidden flex flex-col pt-16">
@@ -156,7 +159,8 @@
 
         // --- State ---
         let treeData = null;
-        let currentView = 'tree'; // 'tree' or 'expression'
+        let historyStack = []; // Stores deep copies of previous tree states
+        let currentView = 'tree'; 
 
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = 'node-' + Math.random().toString(36).substr(2, 9);
@@ -178,7 +182,7 @@
             return 0;
         }
 
-        // --- String Generator (for footer) ---
+        // --- String Generator ---
         function getExpressionString(node) {
             if (node.type === 'operand') return formatFractionText(node.value);
             const currentPrec = getPrecedence(node.value);
@@ -197,7 +201,7 @@
             return `${leftExpr} ${node.value} ${rightExpr}`;
         }
 
-        // --- Node Array Generator (For Expression View) ---
+        // --- Node Array Generator ---
         function getExpressionNodes(node) {
             if (node.type === 'operand') return [{ type: 'operand', source: node }];
 
@@ -218,7 +222,6 @@
                     rightNodes = [{type: 'bracket', value: '('}, ...rightNodes, {type: 'bracket', value: ')'}];
                 }
             }
-            // Use current node as the operator
             return [...leftNodes, { type: 'operator', source: node }, ...rightNodes];
         }
 
@@ -231,6 +234,27 @@
                 return { ...node, left: evaluateAtNode(node.left, targetId), right: evaluateAtNode(node.right, targetId) };
             }
             return node;
+        }
+
+        // --- History / Undo Logic ---
+        function saveToHistory() {
+            // Push deep copy of current tree
+            historyStack.push(JSON.parse(JSON.stringify(treeData)));
+            updateUndoBtn();
+        }
+
+        function undo() {
+            if (historyStack.length === 0) return;
+            // Restore last state
+            treeData = historyStack.pop();
+            updateUndoBtn();
+            render();
+            // No need to recenter, keeps user context
+        }
+
+        function updateUndoBtn() {
+            const btn = document.getElementById('undoBtn');
+            btn.disabled = historyStack.length === 0;
         }
 
         // --- DOM Builders ---
@@ -261,6 +285,7 @@
             if (canEvaluate) {
                 div.onclick = (e) => {
                     e.stopPropagation();
+                    saveToHistory(); // <--- Save State before changing
                     treeData = evaluateAtNode(treeData, node.id);
                     render();
                 };
@@ -268,7 +293,7 @@
             return div;
         }
 
-        // Tree View Builder (Standard Vertical Tree)
+        // Tree View Builder
         function buildTreeDOM(node) {
             const wrapper = document.createElement('div');
             wrapper.className = "flex flex-col items-center";
@@ -327,11 +352,10 @@
             svg.innerHTML = '';
             expressionText.textContent = getExpressionString(treeData);
 
-            // Toggle Classes based on View Mode
             document.body.className = currentView === 'tree' ? 'tree-view-active' : 'expression-view-active';
 
             if (treeData.type === 'operand') {
-                // Victory/Final result state
+                // Victory
                 container.innerHTML = `
                     <div class="flex flex-col items-center gap-4">
                         <div class="text-7xl font-bold text-gray-900">
@@ -344,16 +368,12 @@
             }
 
             if (currentView === 'tree') {
-                // Render Tree
                 svg.style.display = 'block';
                 container.appendChild(buildTreeDOM(treeData));
                 requestAnimationFrame(() => drawConnectors(treeData));
             } else {
-                // Render Expression
                 svg.style.display = 'none';
-                
                 const flatNodes = getExpressionNodes(treeData);
-                
                 flatNodes.forEach(item => {
                     if (item.type === 'bracket') {
                         const span = document.createElement('span');
@@ -369,13 +389,9 @@
         }
 
         function centerView() {
-            // Updated to work for BOTH views
             const vp = document.getElementById('treeViewport');
             const content = document.getElementById('treeContainer');
-            
-            // Center horizontally
             vp.scrollLeft = (content.offsetWidth - vp.offsetWidth) / 2;
-            // Center vertically (useful for both tree and expression now)
             vp.scrollTop = (content.offsetHeight - vp.offsetHeight) / 2; 
         }
 
@@ -383,14 +399,19 @@
         window.onload = () => {
             treeData = generateRandomTree(0, 3);
             render();
-            // Allow layout to settle before centering
             setTimeout(centerView, 0);
 
+            // New Question
             document.getElementById('regenerateBtn').onclick = () => { 
+                historyStack = []; // Reset history
+                updateUndoBtn();
                 treeData = generateRandomTree(0, 3); 
                 render(); 
                 centerView(); 
             };
+
+            // Undo Button Event
+            document.getElementById('undoBtn').onclick = undo;
 
             const btnTree = document.getElementById('viewTreeBtn');
             const btnExpr = document.getElementById('viewExprBtn');
@@ -408,7 +429,6 @@
             btnTree.onclick = () => { currentView = 'tree'; updateToggleUI(); render(); centerView(); };
             btnExpr.onclick = () => { currentView = 'expression'; updateToggleUI(); render(); centerView(); };
 
-            // Re-draw lines on resize if in tree mode
             window.addEventListener('resize', () => {
                 if (currentView === 'tree') {
                     const svg = document.getElementById('svgConnectors');
