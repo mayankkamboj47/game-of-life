@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BODMAS Practice - Rotations</title>
+    <title>BODMAS Practice - With Undo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -18,19 +18,11 @@
             height: 100vh;
         }
 
-        /* --- Node Styles --- */
-        .node-wrapper {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
+        /* --- Shared Node Styles --- */
         .node {
             transition: all 0.2s ease;
             background: white;
             user-select: none;
-            z-index: 10;
         }
 
         .node-operator.can-evaluate {
@@ -47,48 +39,6 @@
             box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
         }
 
-        /* --- Manipulation Tools (Rotate/Swap) --- */
-        .node-tools {
-            position: absolute;
-            top: -36px; /* Floating above the node */
-            display: flex;
-            gap: 4px;
-            opacity: 0;
-            transform: translateY(10px);
-            transition: all 0.2s ease;
-            pointer-events: none;
-            z-index: 20;
-        }
-
-        /* Show tools on hover of the wrapper */
-        .node-wrapper:hover .node-tools {
-            opacity: 1;
-            transform: translateY(0);
-            pointer-events: auto;
-        }
-
-        .tool-btn {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: white;
-            border: 1px solid #e5e7eb;
-            color: #4b5563;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            font-size: 14px;
-        }
-
-        .tool-btn:hover {
-            background: #f3f4f6;
-            color: #111827;
-            border-color: #d1d5db;
-            transform: scale(1.1);
-        }
-
         .frac {
             display: inline-flex;
             flex-direction: column;
@@ -99,8 +49,10 @@
         }
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
-        /* --- Viewport --- */
-        .tree-viewport { overflow: auto; }
+        /* --- Common Large Canvas --- */
+        .tree-viewport {
+            overflow: auto; 
+        }
 
         #treeContainer {
             min-width: 2500px; 
@@ -110,6 +62,7 @@
             padding: 400px;
         }
 
+        /* --- Tree View Specifics --- */
         .tree-view-active #treeContainer {
             background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
             background-size: 30px 30px;
@@ -121,11 +74,16 @@
             fill: none;
         }
 
-        /* --- Expression View --- */
+        /* --- Expression View Specifics --- */
         .expression-view-active #treeViewport {
             display: block; 
             background-color: #f8fafc;
         }
+
+        .expression-view-active #treeContainer {
+            background: none; 
+        }
+
         .expression-view-active #treeContent {
             display: flex;
             flex-wrap: nowrap; 
@@ -133,11 +91,13 @@
             align-items: center;
             justify-content: center;
         }
+
         .expression-bracket {
             font-size: 2.5rem;
             color: #94a3b8;
             font-weight: 300;
         }
+
     </style>
 </head>
 <body>
@@ -197,15 +157,11 @@
             '÷': (a, b) => simplify(a.n * b.d, a.d * b.n)
         };
 
-        const isCommutative = (op) => op === '+' || op === '×';
-        const isAssociative = (op) => op === '+' || op === '×';
-
         // --- State ---
         let treeData = null;
-        let historyStack = []; 
+        let historyStack = []; // Stores deep copies of previous tree states
         let currentView = 'tree'; 
 
-        // --- Tree Generation ---
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = 'node-' + Math.random().toString(36).substr(2, 9);
             const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
@@ -218,81 +174,6 @@
             }
         }
 
-        // --- Tree Manipulations (Immutability Pattern) ---
-
-        // 1. Recursive Tree Transformer
-        // Traverses tree, finds target node, applies actionFn which returns the new node structure
-        function transformTree(root, targetId, actionFn) {
-            if (root.id === targetId) {
-                return actionFn(root);
-            }
-            if (root.type === 'operator') {
-                return { 
-                    ...root, 
-                    left: transformTree(root.left, targetId, actionFn),
-                    right: transformTree(root.right, targetId, actionFn)
-                };
-            }
-            return root;
-        }
-
-        // 2. Actions
-        const actions = {
-            evaluate: (node) => {
-                const res = fracOps[node.value](node.left.value, node.right.value);
-                return { id: 'node-' + Math.random().toString(36).substr(2, 9), type: 'operand', value: res };
-            },
-            swap: (node) => {
-                return { ...node, left: node.right, right: node.left };
-            },
-            rotateLeft: (node) => {
-                // Current: node(A, right(B, C)) -> Become: right(node(A, B), C)
-                const newRoot = { ...node.right };
-                const oldRoot = { ...node };
-                const middle = newRoot.left;
-
-                oldRoot.right = middle;
-                newRoot.left = oldRoot;
-                return newRoot;
-            },
-            rotateRight: (node) => {
-                // Current: node(left(A, B), C) -> Become: left(A, node(B, C))
-                const newRoot = { ...node.left };
-                const oldRoot = { ...node };
-                const middle = newRoot.right;
-
-                oldRoot.left = middle;
-                newRoot.right = oldRoot;
-                return newRoot;
-            }
-        };
-
-        // 3. Command Executer
-        function performAction(targetId, actionName) {
-            saveToHistory();
-            treeData = transformTree(treeData, targetId, actions[actionName]);
-            render();
-            // Note: Rotation changes tree structure heavily, so drawing lines needs update
-        }
-
-        // --- History ---
-        function saveToHistory() {
-            historyStack.push(JSON.parse(JSON.stringify(treeData)));
-            updateUndoBtn();
-        }
-
-        function undo() {
-            if (historyStack.length === 0) return;
-            treeData = historyStack.pop();
-            updateUndoBtn();
-            render();
-        }
-
-        function updateUndoBtn() {
-            document.getElementById('undoBtn').disabled = historyStack.length === 0;
-        }
-
-        // --- Formatting & Display ---
         function formatFractionText(f) { return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`; }
         
         function getPrecedence(op) {
@@ -301,6 +182,7 @@
             return 0;
         }
 
+        // --- String Generator ---
         function getExpressionString(node) {
             if (node.type === 'operand') return formatFractionText(node.value);
             const currentPrec = getPrecedence(node.value);
@@ -310,24 +192,29 @@
             if (node.left.type === 'operator') {
                 if (getPrecedence(node.left.value) < currentPrec) leftExpr = `(${leftExpr})`;
             }
+
             if (node.right.type === 'operator') {
                 const rightPrec = getPrecedence(node.right.value);
-                // Standard associativity check for display
                 const isNonAssociative = (node.value === '-' || node.value === '÷') && rightPrec === currentPrec;
                 if (rightPrec < currentPrec || isNonAssociative) rightExpr = `(${rightExpr})`;
             }
             return `${leftExpr} ${node.value} ${rightExpr}`;
         }
 
+        // --- Node Array Generator ---
         function getExpressionNodes(node) {
             if (node.type === 'operand') return [{ type: 'operand', source: node }];
+
             const currentPrec = getPrecedence(node.value);
             let leftNodes = getExpressionNodes(node.left);
             let rightNodes = getExpressionNodes(node.right);
 
-            if (node.left.type === 'operator' && getPrecedence(node.left.value) < currentPrec) {
-                leftNodes = [{type: 'bracket', value: '('}, ...leftNodes, {type: 'bracket', value: ')'}];
+            if (node.left.type === 'operator') {
+                if (getPrecedence(node.left.value) < currentPrec) {
+                    leftNodes = [{type: 'bracket', value: '('}, ...leftNodes, {type: 'bracket', value: ')'}];
+                }
             }
+
             if (node.right.type === 'operator') {
                 const rightPrec = getPrecedence(node.right.value);
                 const isNonAssociative = (node.value === '-' || node.value === '÷') && rightPrec === currentPrec;
@@ -338,15 +225,43 @@
             return [...leftNodes, { type: 'operator', source: node }, ...rightNodes];
         }
 
+        function evaluateAtNode(node, targetId) {
+            if (node.id === targetId) {
+                const result = fracOps[node.value](node.left.value, node.right.value);
+                return { id: 'node-' + Math.random().toString(36).substr(2, 9), type: 'operand', value: result };
+            }
+            if (node.type === 'operator') {
+                return { ...node, left: evaluateAtNode(node.left, targetId), right: evaluateAtNode(node.right, targetId) };
+            }
+            return node;
+        }
+
+        // --- History / Undo Logic ---
+        function saveToHistory() {
+            // Push deep copy of current tree
+            historyStack.push(JSON.parse(JSON.stringify(treeData)));
+            updateUndoBtn();
+        }
+
+        function undo() {
+            if (historyStack.length === 0) return;
+            // Restore last state
+            treeData = historyStack.pop();
+            updateUndoBtn();
+            render();
+            // No need to recenter, keeps user context
+        }
+
+        function updateUndoBtn() {
+            const btn = document.getElementById('undoBtn');
+            btn.disabled = historyStack.length === 0;
+        }
+
         // --- DOM Builders ---
 
         function createNodeDOM(node, isInteractive = true) {
-            const wrapper = document.createElement('div');
-            wrapper.className = "node-wrapper";
-
             const div = document.createElement('div');
             const isLeaf = node.type === 'operand';
-            // Evaluate condition: both children are numbers (leaves)
             const canEvaluate = isInteractive && !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
 
             div.id = node.id; 
@@ -360,7 +275,6 @@
             
             div.className = `${baseClass} ${sizeClass} ${stateClass}`;
             
-            // Content
             if (isLeaf) {
                 const f = node.value;
                 div.innerHTML = f.d === 1 ? `<span>${f.n}</span>` : `<div class="frac"><span class="top">${f.n}</span><span class="bottom">${f.d}</span></div>`;
@@ -368,80 +282,32 @@
                 div.textContent = node.value;
             }
 
-            // Click to Evaluate
             if (canEvaluate) {
                 div.onclick = (e) => {
                     e.stopPropagation();
-                    performAction(node.id, 'evaluate');
+                    saveToHistory(); // <--- Save State before changing
+                    treeData = evaluateAtNode(treeData, node.id);
+                    render();
                 };
             }
-
-            wrapper.appendChild(div);
-
-            // --- Manipulation Tools (Swap / Rotate) ---
-            if (isInteractive && !isLeaf && currentView === 'tree') {
-                const toolsDiv = document.createElement('div');
-                toolsDiv.className = "node-tools";
-                let hasTools = false;
-
-                // 1. Swap (Commutativity)
-                if (isCommutative(node.value)) {
-                    const btn = document.createElement('button');
-                    btn.className = "tool-btn";
-                    btn.innerHTML = "⇄"; // Swap arrows
-                    btn.title = "Swap (Commutativity)";
-                    btn.onclick = (e) => { e.stopPropagation(); performAction(node.id, 'swap'); };
-                    toolsDiv.appendChild(btn);
-                    hasTools = true;
-                }
-
-                // 2. Rotate Left (Associativity) - Pulls Right Child Up
-                // Condition: Node is +, Right Child is + (or *, *)
-                if (isAssociative(node.value) && node.right.type === 'operator' && node.right.value === node.value) {
-                    const btn = document.createElement('button');
-                    btn.className = "tool-btn";
-                    btn.innerHTML = "↷"; // Curved arrow right/down
-                    btn.title = "Rotate Left (Associativity)";
-                    btn.onclick = (e) => { e.stopPropagation(); performAction(node.id, 'rotateLeft'); };
-                    toolsDiv.appendChild(btn);
-                    hasTools = true;
-                }
-
-                // 3. Rotate Right (Associativity) - Pulls Left Child Up
-                // Condition: Node is +, Left Child is + (or *, *)
-                if (isAssociative(node.value) && node.left.type === 'operator' && node.left.value === node.value) {
-                    const btn = document.createElement('button');
-                    btn.className = "tool-btn";
-                    btn.innerHTML = "↶"; // Curved arrow left/down
-                    btn.title = "Rotate Right (Associativity)";
-                    btn.onclick = (e) => { e.stopPropagation(); performAction(node.id, 'rotateRight'); };
-                    toolsDiv.appendChild(btn);
-                    hasTools = true;
-                }
-
-                if (hasTools) {
-                    wrapper.appendChild(toolsDiv);
-                }
-            }
-
-            return wrapper;
+            return div;
         }
 
         // Tree View Builder
         function buildTreeDOM(node) {
-            const container = document.createElement('div');
-            container.className = "flex flex-col items-center";
+            const wrapper = document.createElement('div');
+            wrapper.className = "flex flex-col items-center";
             
-            container.appendChild(createNodeDOM(node));
+            wrapper.appendChild(createNodeDOM(node));
 
             if (node.type !== 'operand') {
                 const childrenWrapper = document.createElement('div');
                 childrenWrapper.className = "flex gap-12 md:gap-24 mt-16 md:mt-20";
                 childrenWrapper.appendChild(buildTreeDOM(node.left));
                 childrenWrapper.appendChild(buildTreeDOM(node.right));
-                container.appendChild(childrenWrapper);
+                wrapper.appendChild(childrenWrapper);
             }
-            return container;
+            return wrapper;
         }
 
         function drawConnectors(node) {
@@ -475,12 +341,13 @@
             svg.appendChild(line);
         }
 
-        // --- Render ---
+        // --- Main Render Function ---
         function render() {
             const container = document.getElementById('treeContent');
             const svg = document.getElementById('svgConnectors');
             const expressionText = document.getElementById('expressionText');
             
+            // Clear previous
             container.innerHTML = '';
             svg.innerHTML = '';
             expressionText.textContent = getExpressionString(treeData);
@@ -490,4 +357,86 @@
             if (treeData.type === 'operand') {
                 // Victory
                 container.innerHTML = `
-                    <div class="flex fl
+                    <div class="flex flex-col items-center gap-4">
+                        <div class="text-7xl font-bold text-gray-900">
+                            ${treeData.value.d === 1 ? treeData.value.n : `<div class="frac"><span class="top">${treeData.value.n}</span><span class="bottom">${treeData.value.d}</span></div>`}
+                        </div>
+                        <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">Result</div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (currentView === 'tree') {
+                svg.style.display = 'block';
+                container.appendChild(buildTreeDOM(treeData));
+                requestAnimationFrame(() => drawConnectors(treeData));
+            } else {
+                svg.style.display = 'none';
+                const flatNodes = getExpressionNodes(treeData);
+                flatNodes.forEach(item => {
+                    if (item.type === 'bracket') {
+                        const span = document.createElement('span');
+                        span.textContent = item.value;
+                        span.className = 'expression-bracket';
+                        container.appendChild(span);
+                    } else {
+                        const nodeEl = createNodeDOM(item.source);
+                        container.appendChild(nodeEl);
+                    }
+                });
+            }
+        }
+
+        function centerView() {
+            const vp = document.getElementById('treeViewport');
+            const content = document.getElementById('treeContainer');
+            vp.scrollLeft = (content.offsetWidth - vp.offsetWidth) / 2;
+            vp.scrollTop = (content.offsetHeight - vp.offsetHeight) / 2; 
+        }
+
+        // --- Initialization & Events ---
+        window.onload = () => {
+            treeData = generateRandomTree(0, 3);
+            render();
+            setTimeout(centerView, 0);
+
+            // New Question
+            document.getElementById('regenerateBtn').onclick = () => { 
+                historyStack = []; // Reset history
+                updateUndoBtn();
+                treeData = generateRandomTree(0, 3); 
+                render(); 
+                centerView(); 
+            };
+
+            // Undo Button Event
+            document.getElementById('undoBtn').onclick = undo;
+
+            const btnTree = document.getElementById('viewTreeBtn');
+            const btnExpr = document.getElementById('viewExprBtn');
+            
+            const updateToggleUI = () => {
+                if (currentView === 'tree') {
+                    btnTree.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
+                    btnExpr.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
+                } else {
+                    btnTree.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
+                    btnExpr.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
+                }
+            };
+
+            btnTree.onclick = () => { currentView = 'tree'; updateToggleUI(); render(); centerView(); };
+            btnExpr.onclick = () => { currentView = 'expression'; updateToggleUI(); render(); centerView(); };
+
+            window.addEventListener('resize', () => {
+                if (currentView === 'tree') {
+                    const svg = document.getElementById('svgConnectors');
+                    svg.innerHTML = '';
+                    drawConnectors(treeData);
+                }
+            });
+        };
+    </script>
+</body>
+    </html>
