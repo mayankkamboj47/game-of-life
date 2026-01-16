@@ -18,12 +18,13 @@
             height: 100vh;
         }
 
-        /* --- Shared Node Styles --- */
+        /* --- Node Styles --- */
         .node {
             transition: all 0.2s ease;
             background: white;
             user-select: none;
             z-index: 10; 
+            position: relative;
         }
 
         /* Evaluate Mode Styles */
@@ -43,7 +44,7 @@
         /* Transform Mode Styles */
         body[data-mode="transform"] .node-operator {
             cursor: pointer;
-            border-color: #7c3aed; /* Purple for Transform */
+            border-color: #7c3aed; /* Purple */
             color: #7c3aed;
             background-color: #f5f3ff;
         }
@@ -53,14 +54,15 @@
             box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.2);
         }
         body[data-mode="transform"] .node-operand {
-            opacity: 0.6; /* Dim operands in transform mode */
+            opacity: 0.5; 
         }
 
-        /* Selection Halo */
+        /* Selected State */
         .node.selected {
-            ring: 4px solid #f59e0b; /* Amber halo */
+            box-shadow: 0 0 0 4px #f59e0b; /* Amber Halo */
             transform: scale(1.05);
             z-index: 20;
+            border-color: #f59e0b;
         }
 
         .frac {
@@ -73,7 +75,7 @@
         }
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
-        /* --- Canvas & Viewport --- */
+        /* --- Canvas --- */
         .tree-viewport { overflow: auto; }
         #treeContainer {
             min-width: 2500px; 
@@ -83,7 +85,7 @@
             padding: 400px;
         }
 
-        /* Tree View Background */
+        /* Background Grid */
         .tree-view-active #treeContainer {
             background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
             background-size: 30px 30px;
@@ -104,7 +106,7 @@
         }
         .expression-bracket { font-size: 2.5rem; color: #94a3b8; font-weight: 300; }
 
-        /* --- Action Menu (Popover) --- */
+        /* --- Context Menu --- */
         #actionMenu {
             position: absolute;
             z-index: 100;
@@ -133,6 +135,7 @@
             background: #f9fafb;
             border: 1px solid #e5e7eb;
             transition: all 0.1s;
+            white-space: nowrap;
         }
         .action-btn:hover { background: #eff6ff; color: #2563eb; border-color: #2563eb; }
         .action-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
@@ -171,18 +174,16 @@
             <div id="treeContainer" class="relative">
                 <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
                 <div id="treeContent" class="relative z-10"></div>
+                
                 <div id="actionMenu">
                     <button class="action-btn" id="actSwap" title="Commutativity">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
-                        Swap
+                        Swap ⇄
                     </button>
-                    <button class="action-btn" id="actRotLeft" title="Associativity (Left)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                        Left
+                    <button class="action-btn" id="actRotLeft" title="Associativity (Right -> Up)">
+                        Rotate Left ↶
                     </button>
-                    <button class="action-btn" id="actRotRight" title="Associativity (Right)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
-                        Right
+                    <button class="action-btn" id="actRotRight" title="Associativity (Left -> Up)">
+                        Rotate Right ↷
                     </button>
                 </div>
             </div>
@@ -219,7 +220,7 @@
         let treeData = null;
         let historyStack = [];
         let currentView = 'tree';
-        let currentMode = 'evaluate'; // 'evaluate' or 'transform'
+        let currentMode = 'evaluate'; 
         let selectedNodeId = null;
 
         function generateRandomTree(depth = 0, maxDepth = 3) {
@@ -234,16 +235,15 @@
             }
         }
 
-        // --- Tree Traversals & Helpers ---
+        // --- Tree Utilities ---
         function findNode(root, id) {
             if (!root) return null;
             if (root.id === id) return root;
             return findNode(root.left, id) || findNode(root.right, id);
         }
 
-        // Returns { parent, node, side } ('left' or 'right')
         function findParent(root, targetId) {
-            if (!root || root.id === targetId) return null; // Root has no parent
+            if (!root || root.id === targetId) return null;
             if (root.left && root.left.id === targetId) return { parent: root, node: root.left, side: 'left' };
             if (root.right && root.right.id === targetId) return { parent: root, node: root.right, side: 'right' };
             return findParent(root.left, targetId) || findParent(root.right, targetId);
@@ -253,26 +253,19 @@
             return JSON.parse(JSON.stringify(obj));
         }
 
-        // --- Evaluation Logic ---
+        // --- Logic: Evaluate ---
         function evaluateAtNode(root, targetId) {
-            // Recursive tree rebuilder that evaluates the target
             if (root.id === targetId) {
                 const result = fracOps[root.value](root.left.value, root.right.value);
                 return { id: 'node-' + Math.random().toString(36).substr(2, 9), type: 'operand', value: result };
             }
             if (root.type === 'operator') {
-                return { 
-                    ...root, 
-                    left: evaluateAtNode(root.left, targetId), 
-                    right: evaluateAtNode(root.right, targetId) 
-                };
+                return { ...root, left: evaluateAtNode(root.left, targetId), right: evaluateAtNode(root.right, targetId) };
             }
             return root;
         }
 
-        // --- Transformation Logic (The New Stuff) ---
-
-        // 1. Commutativity: Swap Left and Right
+        // --- Logic: Transform ---
         function performSwap(root, targetId) {
             const newRoot = deepCopy(root);
             const target = findNode(newRoot, targetId);
@@ -284,58 +277,35 @@
             return newRoot;
         }
 
-        // 2. Associativity: Rotate Left (Move Right Child Up)
-        // A + (B + C) -> (A + B) + C
         function performRotateLeft(root, targetId) {
             let newRoot = deepCopy(root);
-            
-            // Special Case: Rotating the absolute Root
-            if (newRoot.id === targetId) {
-                return rotateNodeLeft(newRoot);
-            }
-
-            // Normal Case: Find parent and rotate child
+            if (newRoot.id === targetId) return rotateNodeLeft(newRoot);
             const pInfo = findParent(newRoot, targetId);
-            if (pInfo) {
-                pInfo.parent[pInfo.side] = rotateNodeLeft(pInfo.node);
-            }
+            if (pInfo) pInfo.parent[pInfo.side] = rotateNodeLeft(pInfo.node);
             return newRoot;
         }
-
         function rotateNodeLeft(node) {
-            // Logic: The 'right' child moves up
             const rightChild = node.right;
             node.right = rightChild.left;
             rightChild.left = node;
-            return rightChild; // New root of this subtree
+            return rightChild;
         }
 
-        // 3. Associativity: Rotate Right (Move Left Child Up)
-        // (A + B) + C -> A + (B + C)
         function performRotateRight(root, targetId) {
             let newRoot = deepCopy(root);
-            
-            if (newRoot.id === targetId) {
-                return rotateNodeRight(newRoot);
-            }
-
+            if (newRoot.id === targetId) return rotateNodeRight(newRoot);
             const pInfo = findParent(newRoot, targetId);
-            if (pInfo) {
-                pInfo.parent[pInfo.side] = rotateNodeRight(pInfo.node);
-            }
+            if (pInfo) pInfo.parent[pInfo.side] = rotateNodeRight(pInfo.node);
             return newRoot;
         }
-
         function rotateNodeRight(node) {
-            // Logic: The 'left' child moves up
             const leftChild = node.left;
             node.left = leftChild.right;
             leftChild.right = node;
             return leftChild;
         }
 
-        // --- UI Logic ---
-
+        // --- View Logic ---
         function formatFractionText(f) { return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`; }
         function getPrecedence(op) {
             if (op === '×' || op === '÷') return 2;
@@ -361,7 +331,6 @@
             return `${leftExpr} ${node.value} ${rightExpr}`;
         }
 
-        // Flat Node Array for Expression View
         function getExpressionNodes(node) {
             if (node.type === 'operand') return [{ type: 'operand', source: node }];
             const currentPrec = getPrecedence(node.value);
@@ -383,32 +352,10 @@
             return [...leftNodes, { type: 'operator', source: node }, ...rightNodes];
         }
 
-        // --- History ---
-        function saveToHistory() {
-            historyStack.push(deepCopy(treeData));
-            updateUndoBtn();
-        }
-
-        function undo() {
-            if (historyStack.length === 0) return;
-            treeData = historyStack.pop();
-            selectedNodeId = null; 
-            hideActionMenu();
-            updateUndoBtn();
-            render();
-        }
-
-        function updateUndoBtn() {
-            document.getElementById('undoBtn').disabled = historyStack.length === 0;
-        }
-
-        // --- DOM Generation ---
-
+        // --- UI Rendering ---
         function createNodeDOM(node) {
             const div = document.createElement('div');
             const isLeaf = node.type === 'operand';
-            
-            // Logic for visual states
             const canEvaluate = currentMode === 'evaluate' && !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
             const isSelectable = currentMode === 'transform' && !isLeaf;
             const isSelected = selectedNodeId === node.id;
@@ -417,17 +364,13 @@
             
             let baseClass = "node rounded-full flex items-center justify-center shrink-0 border-2 font-medium shadow-sm relative transition-all duration-200";
             let sizeClass = "w-12 h-12 md:w-14 md:h-14 text-lg";
-            let stateClass = "";
+            let stateClass = isLeaf ? "border-gray-300 text-gray-700 node-operand" : "node-operator";
 
-            if (isLeaf) {
-                stateClass = "border-gray-300 text-gray-700 node-operand";
-            } else {
-                stateClass = "node-operator";
+            if (!isLeaf) {
                 if (canEvaluate) stateClass += " can-evaluate";
                 else if (isSelectable) stateClass += " hover:border-purple-400";
                 else stateClass += " border-gray-200 text-gray-300 bg-gray-50";
             }
-
             if (isSelected) stateClass += " selected";
 
             div.className = `${baseClass} ${sizeClass} ${stateClass}`;
@@ -439,25 +382,18 @@
                 div.textContent = node.value;
             }
 
-            // Click Handlers
             div.onclick = (e) => {
                 e.stopPropagation();
-                
-                if (currentMode === 'evaluate') {
-                    if (canEvaluate) {
-                        saveToHistory();
-                        treeData = evaluateAtNode(treeData, node.id);
-                        render();
-                    }
-                } else if (currentMode === 'transform') {
-                    if (!isLeaf) {
-                        selectedNodeId = node.id;
-                        render(); // Re-render to show halo
-                        showActionMenu(node);
-                    }
+                if (currentMode === 'evaluate' && canEvaluate) {
+                    saveToHistory();
+                    treeData = evaluateAtNode(treeData, node.id);
+                    render();
+                } else if (currentMode === 'transform' && !isLeaf) {
+                    selectedNodeId = node.id;
+                    render();
+                    showActionMenu(node);
                 }
             };
-
             return div;
         }
 
@@ -466,12 +402,55 @@
             const targetEl = document.getElementById(node.id);
             if (!targetEl) return;
 
-            // Get positions relative to container
-            const container = document.getElementById('treeContainer');
-            // We use standard offsetTop because container is relative
-            // Actually, we need to place it near the node DOM element
+            const canSwap = (node.value === '+' || node.value === '×');
+            const canRotLeft = canSwap && node.right && node.right.type === 'operator' && node.right.value === node.value;
+            const canRotRight = canSwap && node.left && node.left.type === 'operator' && node.left.value === node.value;
+
+            document.getElementById('actSwap').className = canSwap ? 'action-btn' : 'action-btn disabled';
+            document.getElementById('actRotLeft').className = canRotLeft ? 'action-btn' : 'action-btn disabled';
+            document.getElementById('actRotRight').className = canRotRight ? 'action-btn' : 'action-btn disabled';
+
+            document.getElementById('actSwap').onclick = (e) => { e.stopPropagation(); executeAction('swap', node.id); };
+            document.getElementById('actRotLeft').onclick = (e) => { e.stopPropagation(); executeAction('left', node.id); };
+            document.getElementById('actRotRight').onclick = (e) => { e.stopPropagation(); executeAction('right', node.id); };
+
+            menu.style.display = 'flex';
+            const rect = targetEl.getBoundingClientRect();
+            // Position above the node (relative to container logic in render)
+            // But since container is relative, we use offset
+            menu.style.top = (targetEl.offsetTop - 50) + 'px';
+            menu.style.left = (targetEl.offsetLeft + targetEl.offsetWidth/2 - 100) + 'px'; // approx center
             
-            // Simple positioning: append to treeContainer and position absolute based on node's offset
-            // We need to update the menu's top/left styles
-            
-       
+            // Adjust after render
+            requestAnimationFrame(() => {
+                menu.style.left = (targetEl.offsetLeft + targetEl.offsetWidth/2 - menu.offsetWidth/2) + 'px';
+            });
+        }
+
+        function executeAction(action, nodeId) {
+            saveToHistory();
+            if (action === 'swap') treeData = performSwap(treeData, nodeId);
+            if (action === 'left') treeData = performRotateLeft(treeData, nodeId);
+            if (action === 'right') treeData = performRotateRight(treeData, nodeId);
+            selectedNodeId = null;
+            document.getElementById('actionMenu').style.display = 'none';
+            render();
+        }
+
+        function buildTreeDOM(node) {
+            const wrapper = document.createElement('div');
+            wrapper.className = "flex flex-col items-center";
+            wrapper.appendChild(createNodeDOM(node));
+            if (node.type !== 'operand') {
+                const childrenWrapper = document.createElement('div');
+                childrenWrapper.className = "flex gap-12 md:gap-24 mt-16 md:mt-20";
+                childrenWrapper.appendChild(buildTreeDOM(node.left));
+                childrenWrapper.appendChild(buildTreeDOM(node.right));
+                wrapper.appendChild(childrenWrapper);
+            }
+            return wrapper;
+        }
+
+        function drawLine(el1, el2) {
+            const svg = document.getElementById('svgConnectors');
+            const containerRect = document.getElementById('treeContainer')
