@@ -199,7 +199,108 @@
             if (op === '+' || op === '-') return 1;
             return 0;
         }
+        // -- Tree manipulation logic 
+ 
+// Helper to generate IDs for new nodes created during distribution
+const generateId = () => 'node-' + Math.random().toString(36).substr(2, 9);
 
+/**
+ * Commutativity: A + B -> B + A
+ * Applies to: + and x (multiply)
+ */
+function commute(node) {
+    if (node.type === 'operator' && ['+', 'x'].includes(node.value)) {
+        [node.left, node.right] = [node.right, node.left];
+    }
+    return node;
+}
+
+/**
+ * Associate Right (Right Rotation): (A + B) + C -> A + (B + C)
+ * Requirement: Node and Left Child must have the same operator (+ or x)
+ */
+function associate_right(node) {
+    const lchild = node.left;
+
+    // Guard: Structure and Math validity
+    if (!lchild || lchild.type !== 'operator') return node;
+    
+    // Check that parent and child have identical operators (e.g. both are + or both are x)
+    if (node.value !== lchild.value || !['+', 'x'].includes(node.value)) return node;
+
+    // Perform Rotation
+    node.left = lchild.right;
+    lchild.right = node;
+
+    return lchild; // lchild becomes the new root
+}
+
+/**
+ * Associate Left (Left Rotation): A + (B + C) -> (A + B) + C
+ * Requirement: Node and Right Child must have the same operator (+ or x)
+ */
+function associate_left(node) {
+    const rchild = node.right;
+
+    // Guard: Structure and Math validity
+    if (!rchild || rchild.type !== 'operator') return node;
+    
+    // Check that parent and child have identical operators (e.g. both are + or both are x)
+    if (node.value !== rchild.value || !['+', 'x'].includes(node.value)) return node;
+
+    // Perform Rotation
+    node.right = rchild.left;
+    rchild.left = node;
+
+    return rchild; // rchild becomes the new root
+}
+
+/**
+ * Distributivity: L x (A + B) -> (L x A) + (L x B)
+ * Requirement: Root is 'x', one child is Leaf, other child is '+' or '-'
+ */
+function distribute(node) {
+    // 1. Guard: Must be multiplication ('x')
+    if (node.type !== 'operator' || node.value !== 'x') return node;
+
+    // 2. Identify Leaf and Group (Expression)
+    let leaf = null;
+    let group = null;
+
+    if (node.left.type === 'operand' && node.right.type === 'operator') {
+        leaf = node.left;
+        group = node.right;
+    } else if (node.right.type === 'operand' && node.left.type === 'operator') {
+        leaf = node.right;
+        group = node.left;
+    } else {
+        return node; // Structure doesn't match L x (A+B)
+    }
+
+    // 3. Guard: Group operator must be + or -
+    if (!['+', '-'].includes(group.value)) return node;
+
+    // 4. Helper to clone the leaf (Deep copy needed for ID uniqueness)
+    const createMultNode = (targetOperand) => ({
+        id: generateId(),
+        type: 'operator',
+        value: 'x',
+        left: { ...leaf, id: generateId() }, // Clone leaf
+        right: targetOperand 
+    });
+
+    // 5. Transform: The Group Operator (+ or -) becomes the new Root
+    // The structure becomes: (+ or -) with two 'x' children
+    const newRoot = {
+        id: node.id, 
+        type: 'operator',
+        value: group.value, // The + or -
+        left: createMultNode(group.left),
+        right: createMultNode(group.right)
+    };
+
+    return newRoot;
+}
         // --- String Generator ---
         function getExpressionString(node) {
             if (node.type === 'operand') return formatFractionText(node.value);
