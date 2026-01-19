@@ -287,8 +287,8 @@
 
         const canDistribute = (node) => {
             if (node.type !== 'operator' || node.value !== '×') return false;
-            if (node.right.type === 'operator' && ['+', '-'].includes(node.right.value)) return 'right';
-            if (node.left.type === 'operator' && ['+', '-'].includes(node.left.value)) return 'left';
+            if (node.right.type === 'operator' && ['+', '-'].includes(node.right.value) && node.left.type='operand') return 'right';
+            if (node.left.type === 'operator' && ['+', '-'].includes(node.left.value) && node.right.type=='operand') return 'left';
             return false;
         }
         function doDistribute(node) {
