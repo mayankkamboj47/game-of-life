@@ -3,19 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BODMAS Engine - Responsive</title>
+    <title>BODMAS Engine - Mobile Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
 
+        /* --- Page Layout --- */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #ffffff;
             color: #1a1a1a;
-            overflow: hidden; /* Prevent body scroll, handle in main */
+            /* Flex Column: Header takes space it needs, Main takes the rest */
             display: flex;
             flex-direction: column;
-            height: 100vh; /* Full viewport height */
+            height: 100vh; 
+            width: 100vw;
+            overflow: hidden; /* Prevent body scroll */
+        }
+
+        /* --- Header --- */
+        header {
+            flex: none; /* Do not shrink */
+            z-index: 50;
+        }
+
+        /* --- Main Canvas Area --- */
+        main {
+            flex: 1; /* Take remaining height */
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tree-viewport { 
+            flex: 1; 
+            overflow: auto; 
+            position: relative;
+            touch-action: pan-x pan-y;
+            background-color: #fcfcfc;
+            /* Dot Grid Background */
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        
+        #treeContainer {
+            min-width: 1500px;
+            min-height: 1200px;
+            display: grid;
+            place-items: center;
+            padding: 100px;
         }
 
         /* --- Node Styles --- */
@@ -34,34 +71,30 @@
             background-color: #f9fafb;
         }
 
-        /* SIMPLIFY MODE (Blue) */
+        /* Simplify Mode */
         body.mode-simplify .node-operator.can-evaluate {
             cursor: pointer;
             border-color: #2563eb;
             color: #2563eb;
             background-color: #eff6ff;
         }
-        body.mode-simplify .node-operator.can-evaluate:active,
-        body.mode-simplify .node-operator.can-evaluate:hover {
+        body.mode-simplify .node-operator.can-evaluate:active {
             background-color: #2563eb;
             color: #ffffff;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+            transform: scale(0.95);
         }
 
-        /* REARRANGE MODE (Purple) */
+        /* Rearrange Mode */
         body.mode-rearrange .node-operator.can-transform {
             cursor: pointer;
             border-color: #9333ea;
             color: #9333ea;
             background-color: #f3e8ff;
         }
-        body.mode-rearrange .node-operator.can-transform:active,
-        body.mode-rearrange .node-operator.can-transform:hover {
+        body.mode-rearrange .node-operator.can-transform:active {
             background-color: #9333ea;
             color: #ffffff;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(147, 51, 234, 0.2);
+            transform: scale(0.95);
         }
 
         /* Active Menu State */
@@ -69,7 +102,7 @@
             background-color: #1f2937 !important;
             border-color: #1f2937 !important;
             color: white !important;
-            box-shadow: 0 0 0 2px rgba(31, 41, 55, 0.3);
+            box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.2);
         }
 
         .frac {
@@ -82,38 +115,17 @@
         }
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
-        /* --- Canvas & Connectors --- */
-        /* Main takes remaining height */
-        main { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
-        
-        .tree-viewport { 
-            flex: 1; 
-            overflow: auto; 
-            position: relative;
-            touch-action: pan-x pan-y; /* Better touch scrolling */
-        }
-        
-        #treeContainer {
-            min-width: 1500px; /* Slightly smaller min-width for mobile perf */
-            min-height: 1200px;
-            display: grid;
-            place-items: center;
-            padding: 200px; /* Reduced padding */
-        }
-        .tree-view-active #treeContainer {
-            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
-            background-size: 30px 30px;
-        }
         .connector {
             stroke: #94a3b8;
             stroke-width: 1.5;
             fill: none;
-            transition: all 0.2s ease;
         }
 
         /* --- Expression View --- */
-        .expression-view-active #treeViewport { display: block; background-color: #f8fafc; }
-        .expression-view-active #treeContainer { background: none; display: flex; min-width: auto; min-height: auto; height: 100%; width: 100%; }
+        .expression-view-active #treeContainer { 
+            background: none; display: flex; min-width: auto; min-height: auto; height: 100%; width: 100%; 
+            align-items: center; justify-content: center;
+        }
         .expression-view-active #treeContent {
             display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 20px;
         }
@@ -125,71 +137,68 @@
             z-index: 1000;
             background: white;
             border: 1px solid #e5e7eb;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            border-radius: 8px;
-            padding: 4px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-radius: 12px;
+            padding: 6px;
             display: flex;
             flex-direction: column;
-            gap: 2px;
-            min-width: 150px;
-            animation: fadeIn 0.1s ease-out;
+            gap: 4px;
+            min-width: 160px;
+            animation: fadeIn 0.15s ease-out;
         }
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
         .menu-item {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             width: 100%;
             text-align: left;
-            padding: 10px 12px; /* Larger hit area */
-            font-size: 0.9rem;
+            padding: 12px 16px;
+            font-size: 1rem; /* Larger text for mobile */
             font-weight: 500;
             color: #374151;
-            border-radius: 4px;
-            transition: background 0.1s;
+            border-radius: 8px;
             background: transparent;
             border: none;
             cursor: pointer;
         }
-        .menu-item:hover, .menu-item:active { background-color: #f3f4f6; color: #111827; }
-        .menu-item-icon { width: 16px; text-align: center; color: #6b7280; font-weight: bold; }
+        .menu-item:active { background-color: #f3f4f6; color: #111827; }
+        .menu-item-icon { width: 20px; text-align: center; color: #6b7280; font-weight: bold; }
 
     </style>
 </head>
 <body class="mode-simplify">
 
-    <header class="bg-white/90 backdrop-blur-md border-b border-gray-200 z-50 flex flex-wrap items-center justify-between p-3 gap-3 shadow-sm">
-        
-        <div class="flex items-center gap-2 sm:gap-4 flex-wrap w-full md:w-auto justify-center md:justify-start">
+    <header class="bg-white border-b border-gray-200 shadow-sm p-3">
+        <div class="max-w-4xl mx-auto flex flex-col gap-3">
             
-            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
-                <button id="modeSimplifyBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md shadow-sm bg-white text-blue-600 transition-all touch-manipulation">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="16" y1="18" x2="16" y2="18"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/></svg>
-                    <span>Simplify</span>
+            <div class="flex justify-between items-center gap-2">
+                <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
+                    <button id="modeSimplifyBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation">
+                        <span>Simplify</span>
+                    </button>
+                    <button id="modeRearrangeBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation">
+                        <span>Move</span>
+                    </button>
+                </div>
+
+                <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
+                    <button id="viewTreeBtn" class="px-3 py-2 rounded-md transition-all touch-manipulation">Tree</button>
+                    <button id="viewExprBtn" class="px-3 py-2 rounded-md transition-all touch-manipulation">Expr</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button id="undoBtn" disabled class="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-gray-50 transition-all disabled:opacity-40 disabled:bg-gray-50 touch-manipulation">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                    Undo
                 </button>
-                <button id="modeRearrangeBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md text-gray-500 hover:text-purple-600 transition-all touch-manipulation">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-                    <span>Move</span>
+                <button id="regenerateBtn" class="flex items-center justify-center bg-gray-900 text-white px-4 py-2.5 rounded-lg text-sm font-bold active:bg-gray-700 transition-colors touch-manipulation shadow-sm">
+                    New Question
                 </button>
             </div>
 
-            <div class="hidden sm:block h-6 w-px bg-gray-200"></div>
-
-            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
-                <button id="viewTreeBtn" class="px-3 py-2 rounded-md shadow-sm bg-white text-gray-900 transition-all touch-manipulation">Tree</button>
-                <button id="viewExprBtn" class="px-3 py-2 rounded-md text-gray-500 hover:text-gray-900 transition-all touch-manipulation">Expr</button>
-            </div>
-        </div>
-
-        <div class="flex items-center gap-2 w-full md:w-auto justify-center md:justify-end border-t md:border-t-0 pt-2 md:pt-0 border-gray-100">
-            <button id="undoBtn" disabled class="flex-1 md:flex-none justify-center flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation active:bg-gray-100">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-                Undo
-            </button>
-            <button id="regenerateBtn" class="flex-1 md:flex-none justify-center bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors touch-manipulation active:bg-black shadow-sm">
-                New
-            </button>
         </div>
     </header>
 
@@ -204,10 +213,10 @@
 
     <div id="contextMenu" class="hidden"></div>
 
-    <footer class="absolute bottom-4 left-0 right-0 px-4 flex justify-center z-50 pointer-events-none">
-        <div class="pointer-events-auto bg-white/90 backdrop-blur border border-gray-200 p-3 rounded-xl shadow-lg max-w-xl w-full text-center">
-            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1 tracking-wider">Current String</div>
-            <div id="expressionText" class="text-base sm:text-lg font-medium text-gray-800 font-mono break-all leading-tight"></div>
+    <footer class="absolute bottom-6 left-0 right-0 px-4 flex justify-center z-40 pointer-events-none">
+        <div class="pointer-events-auto bg-white/95 backdrop-blur border border-gray-200 px-4 py-3 rounded-xl shadow-lg max-w-lg w-full text-center">
+            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1 tracking-wider">Current Expression</div>
+            <div id="expressionText" class="text-lg font-medium text-gray-800 font-mono"></div>
         </div>
     </footer>
 
@@ -235,7 +244,7 @@
         let interactionMode = 'simplify'; 
         let activeMenuCloser = null;
 
-        // --- Tree Logic ---
+        // --- Tree Generation ---
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = generateId();
             const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
@@ -250,9 +259,7 @@
 
         // --- Transforms ---
         const canCommute = (node) => node.type === 'operator' && ['+', '×'].includes(node.value);
-        function doCommute(node) {
-            return { ...node, left: node.right, right: node.left };
-        }
+        function doCommute(node) { return { ...node, left: node.right, right: node.left }; }
 
         const canAssociateRight = (node) => {
             if (node.type !== 'operator' || !['+', '×'].includes(node.value)) return false;
@@ -290,21 +297,18 @@
             let scalar, group;
             if (dir === 'right') { scalar = node.left; group = node.right; }
             else { scalar = node.right; group = node.left; }
-
             const s1 = JSON.parse(JSON.stringify(scalar)); s1.id = generateId();
             const s2 = JSON.parse(JSON.stringify(scalar)); s2.id = generateId();
-
             const leftMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s1:group.left, right: dir==='right'?group.left:s1 };
             const rightMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s2:group.right, right: dir==='right'?group.right:s2 };
-
             return { id: node.id, type: 'operator', value: group.value, left: leftMult, right: rightMult };
         }
 
         function getPossibleTransforms(node) {
             const moves = [];
             if (canCommute(node)) moves.push({ name: 'Swap', action: 'commute', icon: '⇄' });
-            if (canAssociateRight(node)) moves.push({ name: 'Assoc Right', action: 'assoc-right', icon: '⤵' });
-            if (canAssociateLeft(node)) moves.push({ name: 'Assoc Left', action: 'assoc-left', icon: '⤴' });
+            if (canAssociateRight(node)) moves.push({ name: 'Group Right', action: 'assoc-right', icon: '⤵' });
+            if (canAssociateLeft(node)) moves.push({ name: 'Group Left', action: 'assoc-left', icon: '⤴' });
             if (canDistribute(node)) moves.push({ name: 'Distribute', action: 'distribute', icon: '⑃' });
             return moves;
         }
@@ -330,7 +334,7 @@
             return [...l, { type: 'operator', source: node }, ...r];
         }
 
-        // --- Interaction ---
+        // --- Logic ---
         function updateTree(actionFn, targetId) {
             saveToHistory();
             const rebuild = (node) => {
@@ -378,66 +382,56 @@
             if (fn) updateTree(fn, nodeId);
         }
 
-        // --- Context Menu Management ---
+        // --- Context Menu ---
         const ctxMenu = document.getElementById('contextMenu');
 
         function showContextMenu(x, y, node, moves) {
             const el = document.getElementById(node.id);
             if(el) el.classList.add('menu-open');
 
-            // Populate
             ctxMenu.innerHTML = '';
             moves.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = 'menu-item';
                 btn.innerHTML = `<span class="menu-item-icon">${m.icon}</span> ${m.name}`;
                 btn.onclick = (e) => {
-                    e.stopPropagation(); // Stop menu background click
+                    e.stopPropagation();
                     executeTransform(m.action, node.id);
                     hideContextMenu();
                 };
                 ctxMenu.appendChild(btn);
             });
 
-            // Boundary Check for Mobile
-            const menuWidth = 160;
-            const menuHeight = moves.length * 40;
+            // Smart Positioning (keep within bounds)
             let finalX = x;
             let finalY = y;
-            
-            if (x + menuWidth > window.innerWidth) finalX = window.innerWidth - menuWidth - 10;
-            if (y + menuHeight > window.innerHeight) finalY = y - menuHeight;
+            const menuW = 180;
+            const menuH = moves.length * 50;
 
+            if (finalX + menuW > window.innerWidth) finalX = window.innerWidth - menuW - 10;
+            if (finalY + menuH > window.innerHeight) finalY = y - menuH;
+            
             ctxMenu.style.left = finalX + 'px';
             ctxMenu.style.top = finalY + 'px';
             ctxMenu.classList.remove('hidden');
 
-            // prevent clicks inside the menu container from bubbling to the document closer
             ctxMenu.onclick = (e) => e.stopPropagation();
 
-            // Setup Global Closer
-            if (activeMenuCloser) {
-                document.removeEventListener('click', activeMenuCloser);
-            }
+            if (activeMenuCloser) document.removeEventListener('click', activeMenuCloser);
             activeMenuCloser = () => hideContextMenu();
-
-            // Delay adding to avoid current click triggering it
-            setTimeout(() => {
-                document.addEventListener('click', activeMenuCloser);
-            }, 0);
+            setTimeout(() => document.addEventListener('click', activeMenuCloser), 0);
         }
 
         function hideContextMenu() {
             ctxMenu.classList.add('hidden');
             document.querySelectorAll('.menu-open').forEach(el => el.classList.remove('menu-open'));
-
             if (activeMenuCloser) {
                 document.removeEventListener('click', activeMenuCloser);
                 activeMenuCloser = null;
             }
         }
 
-        // --- History & DOM ---
+        // --- History ---
         function saveToHistory() {
             historyStack.push(JSON.parse(JSON.stringify(treeData)));
             document.getElementById('undoBtn').disabled = false;
@@ -449,6 +443,7 @@
             render();
         }
 
+        // --- DOM Generation ---
         function createNodeDOM(node) {
             const div = document.createElement('div');
             const isLeaf = node.type === 'operand';
@@ -468,7 +463,6 @@
                 if (interactionMode === 'simplify' && canEval) div.className += "can-evaluate";
                 if (interactionMode === 'rearrange' && canTransform) div.className += "can-transform";
                 div.textContent = node.value;
-
                 if ((interactionMode === 'simplify' && canEval) || (interactionMode === 'rearrange' && canTransform)) {
                     div.onclick = (e) => handleNodeClick(e, node);
                 }
@@ -480,10 +474,9 @@
             const wrapper = document.createElement('div');
             wrapper.className = "flex flex-col items-center";
             wrapper.appendChild(createNodeDOM(node));
-
             if (node.type !== 'operand') {
                 const childrenWrapper = document.createElement('div');
-                childrenWrapper.className = "flex gap-8 md:gap-24 mt-12 md:mt-20"; // tighter gaps on mobile
+                childrenWrapper.className = "flex gap-8 md:gap-24 mt-12 md:mt-20";
                 childrenWrapper.appendChild(buildTreeDOM(node.left));
                 childrenWrapper.appendChild(buildTreeDOM(node.right));
                 wrapper.appendChild(childrenWrapper);
@@ -550,7 +543,7 @@
             }
         }
 
-        // --- Init ---
+        // --- Initialization ---
         window.onload = () => {
             treeData = generateRandomTree(0, 3);
             
@@ -560,27 +553,25 @@
             const btnViewExpr = document.getElementById('viewExprBtn');
 
             const updateUI = () => {
-                const activeClass = "bg-white shadow-sm ring-1 ring-gray-200";
-                const inactiveClass = "text-gray-500 hover:text-gray-900 bg-transparent";
+                const activeMode = "bg-white text-blue-600 shadow-sm ring-1 ring-gray-200";
+                const activeModePurple = "bg-white text-purple-600 shadow-sm ring-1 ring-gray-200";
+                const inactive = "text-gray-500 hover:text-gray-900 bg-transparent";
 
-                // Mode Buttons
                 if(interactionMode === 'simplify') {
-                    btnSimp.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation text-blue-600 ${activeClass}`;
-                    btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${inactiveClass}`;
+                    btnSimp.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${activeMode}`;
+                    btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
                 } else {
-                    btnSimp.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${inactiveClass}`;
-                    btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation text-purple-600 ${activeClass}`;
+                    btnSimp.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
+                    btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${activeModePurple}`;
                 }
 
-                // View Buttons
                 if(currentView === 'tree') {
-                    btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation text-gray-900 ${activeClass}`;
-                    btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactiveClass}`;
+                    btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation bg-white text-gray-900 shadow-sm ring-1 ring-gray-200`;
+                    btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
                 } else {
-                    btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactiveClass}`;
-                    btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation text-gray-900 ${activeClass}`;
+                    btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
+                    btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation bg-white text-gray-900 shadow-sm ring-1 ring-gray-200`;
                 }
-                
                 render();
             }
 
@@ -595,23 +586,17 @@
             };
             
             document.getElementById('undoBtn').onclick = undo;
-            
             window.addEventListener('resize', () => { 
-                if(currentView==='tree') { 
-                    document.getElementById('svgConnectors').innerHTML=''; 
-                    drawConnectors(treeData); 
-                } 
+                if(currentView==='tree') { document.getElementById('svgConnectors').innerHTML=''; drawConnectors(treeData); } 
             });
 
-            updateUI(); // Initial render
-            
-            // Center Viewport Helper
+            updateUI();
             const centerViewport = () => {
                 const vp = document.getElementById('treeViewport');
                 const ct = document.getElementById('treeContainer');
                 if(vp && ct) {
                     vp.scrollLeft = (ct.offsetWidth - vp.offsetWidth) / 2;
-                    vp.scrollTop = (ct.offsetHeight - vp.offsetHeight) / 2;
+                    vp.scrollTop = (ct.offsetHeight - vp.offsetHeight) / 2 - 50;
                 }
             };
             setTimeout(centerViewport, 100);
