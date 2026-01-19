@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BODMAS Engine - Final Polish</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BODMAS Engine - Responsive</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -12,10 +12,10 @@
             font-family: 'Inter', sans-serif;
             background-color: #ffffff;
             color: #1a1a1a;
-            overflow: hidden;
+            overflow: hidden; /* Prevent body scroll, handle in main */
             display: flex;
             flex-direction: column;
-            height: 100vh;
+            height: 100vh; /* Full viewport height */
         }
 
         /* --- Node Styles --- */
@@ -25,6 +25,7 @@
             user-select: none;
             position: relative;
             z-index: 20;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .node-operator {
@@ -40,10 +41,11 @@
             color: #2563eb;
             background-color: #eff6ff;
         }
+        body.mode-simplify .node-operator.can-evaluate:active,
         body.mode-simplify .node-operator.can-evaluate:hover {
             background-color: #2563eb;
             color: #ffffff;
-            transform: translateY(-2px);
+            transform: translateY(-1px);
             box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
         }
 
@@ -54,10 +56,11 @@
             color: #9333ea;
             background-color: #f3e8ff;
         }
+        body.mode-rearrange .node-operator.can-transform:active,
         body.mode-rearrange .node-operator.can-transform:hover {
             background-color: #9333ea;
             color: #ffffff;
-            transform: translateY(-2px);
+            transform: translateY(-1px);
             box-shadow: 0 4px 6px -1px rgba(147, 51, 234, 0.2);
         }
 
@@ -80,13 +83,22 @@
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
         /* --- Canvas & Connectors --- */
-        .tree-viewport { overflow: auto; }
+        /* Main takes remaining height */
+        main { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+        
+        .tree-viewport { 
+            flex: 1; 
+            overflow: auto; 
+            position: relative;
+            touch-action: pan-x pan-y; /* Better touch scrolling */
+        }
+        
         #treeContainer {
-            min-width: 2500px; 
-            min-height: 2000px;
+            min-width: 1500px; /* Slightly smaller min-width for mobile perf */
+            min-height: 1200px;
             display: grid;
             place-items: center;
-            padding: 400px;
+            padding: 200px; /* Reduced padding */
         }
         .tree-view-active #treeContainer {
             background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
@@ -101,11 +113,11 @@
 
         /* --- Expression View --- */
         .expression-view-active #treeViewport { display: block; background-color: #f8fafc; }
-        .expression-view-active #treeContainer { background: none; }
+        .expression-view-active #treeContainer { background: none; display: flex; min-width: auto; min-height: auto; height: 100%; width: 100%; }
         .expression-view-active #treeContent {
-            display: flex; flex-wrap: nowrap; gap: 12px; align-items: center; justify-content: center;
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 20px;
         }
-        .expression-bracket { font-size: 2.5rem; color: #94a3b8; font-weight: 300; }
+        .expression-bracket { font-size: 2rem; color: #94a3b8; font-weight: 300; margin: 0 2px; }
 
         /* --- Context Menu --- */
         #contextMenu {
@@ -119,19 +131,19 @@
             display: flex;
             flex-direction: column;
             gap: 2px;
-            min-width: 160px;
+            min-width: 150px;
             animation: fadeIn 0.1s ease-out;
         }
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-        
+
         .menu-item {
             display: flex;
             align-items: center;
             gap: 10px;
             width: 100%;
             text-align: left;
-            padding: 8px 12px;
-            font-size: 0.85rem;
+            padding: 10px 12px; /* Larger hit area */
+            font-size: 0.9rem;
             font-weight: 500;
             color: #374151;
             border-radius: 4px;
@@ -140,60 +152,62 @@
             border: none;
             cursor: pointer;
         }
-        .menu-item:hover { background-color: #f3f4f6; color: #111827; }
+        .menu-item:hover, .menu-item:active { background-color: #f3f4f6; color: #111827; }
         .menu-item-icon { width: 16px; text-align: center; color: #6b7280; font-weight: bold; }
 
     </style>
 </head>
 <body class="mode-simplify">
 
-    <header class="fixed top-0 left-0 right-0 p-4 border-b bg-white/80 backdrop-blur-md z-50 flex justify-between items-center">
-        <div class="flex items-center gap-4">
-            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200">
-                <button id="modeSimplifyBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-md shadow-sm bg-white text-blue-600 transition-all">
+    <header class="bg-white/90 backdrop-blur-md border-b border-gray-200 z-50 flex flex-wrap items-center justify-between p-3 gap-3 shadow-sm">
+        
+        <div class="flex items-center gap-2 sm:gap-4 flex-wrap w-full md:w-auto justify-center md:justify-start">
+            
+            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
+                <button id="modeSimplifyBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md shadow-sm bg-white text-blue-600 transition-all touch-manipulation">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="16" y1="18" x2="16" y2="18"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/></svg>
-                    Simplify
+                    <span>Simplify</span>
                 </button>
-                <button id="modeRearrangeBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-md text-gray-500 hover:text-purple-600 transition-all">
+                <button id="modeRearrangeBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md text-gray-500 hover:text-purple-600 transition-all touch-manipulation">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-                    Rearrange
+                    <span>Move</span>
                 </button>
             </div>
 
-            <div class="h-6 w-px bg-gray-200 mx-2"></div>
+            <div class="hidden sm:block h-6 w-px bg-gray-200"></div>
 
-            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium">
-                <button id="viewTreeBtn" class="px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all">Tree</button>
-                <button id="viewExprBtn" class="px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all">Expression</button>
+            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
+                <button id="viewTreeBtn" class="px-3 py-2 rounded-md shadow-sm bg-white text-gray-900 transition-all touch-manipulation">Tree</button>
+                <button id="viewExprBtn" class="px-3 py-2 rounded-md text-gray-500 hover:text-gray-900 transition-all touch-manipulation">Expr</button>
             </div>
         </div>
 
-        <div class="flex items-center gap-2">
-            <button id="undoBtn" disabled class="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+        <div class="flex items-center gap-2 w-full md:w-auto justify-center md:justify-end border-t md:border-t-0 pt-2 md:pt-0 border-gray-100">
+            <button id="undoBtn" disabled class="flex-1 md:flex-none justify-center flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation active:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
                 Undo
             </button>
-            <button id="regenerateBtn" class="bg-gray-900 text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-700 transition-colors">
-                New Question
+            <button id="regenerateBtn" class="flex-1 md:flex-none justify-center bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors touch-manipulation active:bg-black shadow-sm">
+                New
             </button>
         </div>
     </header>
 
-    <main class="flex-grow relative overflow-hidden flex flex-col pt-16" id="mainArea">
-        <div id="treeViewport" class="tree-viewport flex-grow overflow-auto relative w-full cursor-grab active:cursor-grabbing">
+    <main id="mainArea">
+        <div id="treeViewport" class="tree-viewport cursor-grab active:cursor-grabbing">
             <div id="treeContainer" class="relative">
                 <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 10;"></svg>
                 <div id="treeContent" class="relative z-20"></div>
             </div>
         </div>
     </main>
-    
+
     <div id="contextMenu" class="hidden"></div>
 
-    <footer class="fixed bottom-0 left-0 right-0 p-6 flex justify-center z-50 pointer-events-none">
-        <div class="pointer-events-auto bg-white border border-gray-200 p-4 rounded-lg shadow-sm max-w-2xl w-full text-center">
-            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1">Current String</div>
-            <div id="expressionText" class="text-lg font-medium text-gray-700 font-mono"></div>
+    <footer class="absolute bottom-4 left-0 right-0 px-4 flex justify-center z-50 pointer-events-none">
+        <div class="pointer-events-auto bg-white/90 backdrop-blur border border-gray-200 p-3 rounded-xl shadow-lg max-w-xl w-full text-center">
+            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1 tracking-wider">Current String</div>
+            <div id="expressionText" class="text-base sm:text-lg font-medium text-gray-800 font-mono break-all leading-tight"></div>
         </div>
     </footer>
 
@@ -219,7 +233,7 @@
         let historyStack = []; 
         let currentView = 'tree'; 
         let interactionMode = 'simplify'; 
-        let activeMenuCloser = null; // Global reference for the click-outside listener
+        let activeMenuCloser = null;
 
         // --- Tree Logic ---
         function generateRandomTree(depth = 0, maxDepth = 3) {
@@ -289,8 +303,8 @@
         function getPossibleTransforms(node) {
             const moves = [];
             if (canCommute(node)) moves.push({ name: 'Swap', action: 'commute', icon: '⇄' });
-            if (canAssociateRight(node)) moves.push({ name: 'Rotate Right', action: 'assoc-right', icon: '⤵' });
-            if (canAssociateLeft(node)) moves.push({ name: 'Rotate Left', action: 'assoc-left', icon: '⤴' });
+            if (canAssociateRight(node)) moves.push({ name: 'Assoc Right', action: 'assoc-right', icon: '⤵' });
+            if (canAssociateLeft(node)) moves.push({ name: 'Assoc Left', action: 'assoc-left', icon: '⤴' });
             if (canDistribute(node)) moves.push({ name: 'Distribute', action: 'distribute', icon: '⑃' });
             return moves;
         }
@@ -366,7 +380,7 @@
 
         // --- Context Menu Management ---
         const ctxMenu = document.getElementById('contextMenu');
-        
+
         function showContextMenu(x, y, node, moves) {
             const el = document.getElementById(node.id);
             if(el) el.classList.add('menu-open');
@@ -384,9 +398,18 @@
                 };
                 ctxMenu.appendChild(btn);
             });
+
+            // Boundary Check for Mobile
+            const menuWidth = 160;
+            const menuHeight = moves.length * 40;
+            let finalX = x;
+            let finalY = y;
             
-            ctxMenu.style.left = x + 'px';
-            ctxMenu.style.top = y + 'px';
+            if (x + menuWidth > window.innerWidth) finalX = window.innerWidth - menuWidth - 10;
+            if (y + menuHeight > window.innerHeight) finalY = y - menuHeight;
+
+            ctxMenu.style.left = finalX + 'px';
+            ctxMenu.style.top = finalY + 'px';
             ctxMenu.classList.remove('hidden');
 
             // prevent clicks inside the menu container from bubbling to the document closer
@@ -397,7 +420,7 @@
                 document.removeEventListener('click', activeMenuCloser);
             }
             activeMenuCloser = () => hideContextMenu();
-            
+
             // Delay adding to avoid current click triggering it
             setTimeout(() => {
                 document.addEventListener('click', activeMenuCloser);
@@ -407,7 +430,7 @@
         function hideContextMenu() {
             ctxMenu.classList.add('hidden');
             document.querySelectorAll('.menu-open').forEach(el => el.classList.remove('menu-open'));
-            
+
             if (activeMenuCloser) {
                 document.removeEventListener('click', activeMenuCloser);
                 activeMenuCloser = null;
@@ -445,7 +468,7 @@
                 if (interactionMode === 'simplify' && canEval) div.className += "can-evaluate";
                 if (interactionMode === 'rearrange' && canTransform) div.className += "can-transform";
                 div.textContent = node.value;
-                
+
                 if ((interactionMode === 'simplify' && canEval) || (interactionMode === 'rearrange' && canTransform)) {
                     div.onclick = (e) => handleNodeClick(e, node);
                 }
@@ -460,7 +483,7 @@
 
             if (node.type !== 'operand') {
                 const childrenWrapper = document.createElement('div');
-                childrenWrapper.className = "flex gap-12 md:gap-24 mt-16 md:mt-20";
+                childrenWrapper.className = "flex gap-8 md:gap-24 mt-12 md:mt-20"; // tighter gaps on mobile
                 childrenWrapper.appendChild(buildTreeDOM(node.left));
                 childrenWrapper.appendChild(buildTreeDOM(node.right));
                 wrapper.appendChild(childrenWrapper);
@@ -530,48 +553,68 @@
         // --- Init ---
         window.onload = () => {
             treeData = generateRandomTree(0, 3);
+            
             const btnSimp = document.getElementById('modeSimplifyBtn');
             const btnRear = document.getElementById('modeRearrangeBtn');
-            const setMode = (m) => {
-                interactionMode = m;
-                const activeClass = "bg-white text-blue-600 shadow-sm";
-                const inactiveClass = "text-gray-500 hover:text-gray-900";
-                
-                if(m === 'simplify') {
-                    btnSimp.className = "flex items-center gap-2 px-3 py-1.5 rounded-md transition-all " + activeClass;
-                    btnRear.className = "flex items-center gap-2 px-3 py-1.5 rounded-md transition-all " + inactiveClass;
+            const btnViewTree = document.getElementById('viewTreeBtn');
+            const btnViewExpr = document.getElementById('viewExprBtn');
+
+            const updateUI = () => {
+                const activeClass = "bg-white shadow-sm ring-1 ring-gray-200";
+                const inactiveClass = "text-gray-500 hover:text-gray-900 bg-transparent";
+
+                // Mode Buttons
+                if(interactionMode === 'simplify') {
+                    btnSimp.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation text-blue-600 ${activeClass}`;
+                    btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${inactiveClass}`;
                 } else {
-                    btnSimp.className = "flex items-center gap-2 px-3 py-1.5 rounded-md transition-all " + inactiveClass;
-                    btnRear.className = "flex items-center gap-2 px-3 py-1.5 rounded-md transition-all bg-white text-purple-600 shadow-sm";
+                    btnSimp.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${inactiveClass}`;
+                    btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation text-purple-600 ${activeClass}`;
                 }
+
+                // View Buttons
+                if(currentView === 'tree') {
+                    btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation text-gray-900 ${activeClass}`;
+                    btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactiveClass}`;
+                } else {
+                    btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactiveClass}`;
+                    btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation text-gray-900 ${activeClass}`;
+                }
+                
                 render();
             }
 
-            btnSimp.onclick = () => setMode('simplify');
-            btnRear.onclick = () => setMode('rearrange');
+            btnSimp.onclick = () => { interactionMode = 'simplify'; updateUI(); };
+            btnRear.onclick = () => { interactionMode = 'rearrange'; updateUI(); };
+            btnViewTree.onclick = () => { currentView = 'tree'; updateUI(); };
+            btnViewExpr.onclick = () => { currentView = 'expression'; updateUI(); };
 
             document.getElementById('regenerateBtn').onclick = () => { 
                 historyStack = []; treeData = generateRandomTree(0, 3); render(); 
-                const vp = document.getElementById('treeViewport');
-                const ct = document.getElementById('treeContainer');
-                vp.scrollLeft = (ct.offsetWidth - vp.offsetWidth) / 2;
-                vp.scrollTop = (ct.offsetHeight - vp.offsetHeight) / 2;
+                centerViewport();
             };
+            
             document.getElementById('undoBtn').onclick = undo;
-            document.getElementById('viewTreeBtn').onclick = () => { currentView = 'tree'; render(); };
-            document.getElementById('viewExprBtn').onclick = () => { currentView = 'expression'; render(); };
-            window.addEventListener('resize', () => { if(currentView==='tree') { document.getElementById('svgConnectors').innerHTML=''; drawConnectors(treeData); } });
+            
+            window.addEventListener('resize', () => { 
+                if(currentView==='tree') { 
+                    document.getElementById('svgConnectors').innerHTML=''; 
+                    drawConnectors(treeData); 
+                } 
+            });
 
-            render();
-            // Center Viewport
-            setTimeout(() => {
+            updateUI(); // Initial render
+            
+            // Center Viewport Helper
+            const centerViewport = () => {
                 const vp = document.getElementById('treeViewport');
                 const ct = document.getElementById('treeContainer');
                 if(vp && ct) {
                     vp.scrollLeft = (ct.offsetWidth - vp.offsetWidth) / 2;
                     vp.scrollTop = (ct.offsetHeight - vp.offsetHeight) / 2;
                 }
-            }, 100);
+            };
+            setTimeout(centerViewport, 100);
         };
     </script>
 </body>
