@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BODMAS Engine - Simplify & Rearrange</title>
+    <title>BODMAS Engine - Fixed Redraws</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -20,10 +20,11 @@
 
         /* --- Node Styles --- */
         .node {
-            transition: all 0.2s ease;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
             background: white;
             user-select: none;
             position: relative;
+            z-index: 20; /* Ensure nodes are above lines */
         }
 
         .node-operator {
@@ -49,9 +50,9 @@
         /* REARRANGE MODE (Purple) */
         body.mode-rearrange .node-operator.can-transform {
             cursor: pointer;
-            border-color: #9333ea; /* Purple-600 */
+            border-color: #9333ea;
             color: #9333ea;
-            background-color: #f3e8ff; /* Purple-50 */
+            background-color: #f3e8ff;
         }
         body.mode-rearrange .node-operator.can-transform:hover {
             background-color: #9333ea;
@@ -65,6 +66,7 @@
             background-color: #1f2937 !important;
             border-color: #1f2937 !important;
             color: white !important;
+            box-shadow: 0 0 0 2px rgba(31, 41, 55, 0.3);
         }
 
         .frac {
@@ -94,6 +96,7 @@
             stroke: #94a3b8;
             stroke-width: 1.5;
             fill: none;
+            transition: all 0.2s ease;
         }
 
         /* --- Expression View --- */
@@ -104,19 +107,19 @@
         }
         .expression-bracket { font-size: 2.5rem; color: #94a3b8; font-weight: 300; }
 
-        /* --- Context Menu --- */
+        /* --- Context Menu (FIXED POSITIONING) --- */
         #contextMenu {
-            position: absolute;
-            z-index: 100;
+            position: fixed; /* Fixed is key for correct mouse coordinates */
+            z-index: 1000;
             background: white;
             border: 1px solid #e5e7eb;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             border-radius: 8px;
             padding: 4px;
             display: flex;
             flex-direction: column;
             gap: 2px;
-            min-width: 140px;
+            min-width: 160px;
             animation: fadeIn 0.1s ease-out;
         }
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
@@ -124,7 +127,7 @@
         .menu-item {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             width: 100%;
             text-align: left;
             padding: 8px 12px;
@@ -133,9 +136,12 @@
             color: #374151;
             border-radius: 4px;
             transition: background 0.1s;
+            background: transparent;
+            border: none;
+            cursor: pointer;
         }
         .menu-item:hover { background-color: #f3f4f6; color: #111827; }
-        .menu-item svg { width: 14px; height: 14px; color: #6b7280; }
+        .menu-item-icon { width: 16px; text-align: center; color: #6b7280; font-weight: bold; }
 
     </style>
 </head>
@@ -176,12 +182,13 @@
     <main class="flex-grow relative overflow-hidden flex flex-col pt-16" id="mainArea">
         <div id="treeViewport" class="tree-viewport flex-grow overflow-auto relative w-full cursor-grab active:cursor-grabbing">
             <div id="treeContainer" class="relative">
-                <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
-                <div id="treeContent" class="relative z-10"></div>
-                <div id="contextMenu" class="hidden"></div>
+                <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 10;"></svg>
+                <div id="treeContent" class="relative z-20"></div>
             </div>
         </div>
     </main>
+    
+    <div id="contextMenu" class="hidden"></div>
 
     <footer class="fixed bottom-0 left-0 right-0 p-6 flex justify-center z-50 pointer-events-none">
         <div class="pointer-events-auto bg-white border border-gray-200 p-4 rounded-lg shadow-sm max-w-2xl w-full text-center">
@@ -221,7 +228,7 @@
             if (isLeaf) {
                 return { id, type: 'operand', value: { n: Math.floor(Math.random() * 12) + 1, d: 1 } };
             } else {
-                const symbols = ['+', '-', '×']; // Reduced set for cleaner demo, add '÷' if desired
+                const symbols = ['+', '-', '×'];
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
                 return { id, type: 'operator', value: symbol, left: generateRandomTree(depth + 1, maxDepth), right: generateRandomTree(depth + 1, maxDepth) };
             }
@@ -236,7 +243,6 @@
         }
 
         // 2. Associate Right: (A + B) + C -> A + (B + C)
-        // Look at LEFT child. If same op, rotate.
         const canAssociateRight = (node) => {
             if (node.type !== 'operator' || !['+', '×'].includes(node.value)) return false;
             return node.left && node.left.type === 'operator' && node.left.value === node.value;
@@ -246,11 +252,10 @@
             const B = node.left.right;
             const C = node.right;
             const newRight = { ...node, id: generateId(), left: B, right: C };
-            return { ...node.left, id: node.id, left: A, right: newRight }; // node.left becomes root
+            return { ...node.left, id: node.id, left: A, right: newRight };
         }
 
         // 3. Associate Left: A + (B + C) -> (A + B) + C
-        // Look at RIGHT child. If same op, rotate.
         const canAssociateLeft = (node) => {
             if (node.type !== 'operator' || !['+', '×'].includes(node.value)) return false;
             return node.right && node.right.type === 'operator' && node.right.value === node.value;
@@ -266,9 +271,7 @@
         // 4. Distribute: A × (B + C) -> (A × B) + (A × C)
         const canDistribute = (node) => {
             if (node.type !== 'operator' || node.value !== '×') return false;
-            // Case 1: Right child is group (A * (B+C))
             if (node.right.type === 'operator' && ['+', '-'].includes(node.right.value)) return 'right';
-            // Case 2: Left child is group ((B+C) * A)
             if (node.left.type === 'operator' && ['+', '-'].includes(node.left.value)) return 'left';
             return false;
         }
@@ -281,7 +284,6 @@
             if (dir === 'right') { scalar = node.left; group = node.right; }
             else { scalar = node.right; group = node.left; }
 
-            // Clone scalar to ensure unique IDs
             const scalarClone1 = JSON.parse(JSON.stringify(scalar)); scalarClone1.id = generateId();
             const scalarClone2 = JSON.parse(JSON.stringify(scalar)); scalarClone2.id = generateId();
 
@@ -291,13 +293,12 @@
             return {
                 id: node.id,
                 type: 'operator',
-                value: group.value, // The + or -
+                value: group.value,
                 left: leftMult,
                 right: rightMult
             };
         }
 
-        // Check if ANY transform is possible
         function getPossibleTransforms(node) {
             const moves = [];
             if (canCommute(node)) moves.push({ name: 'Swap', action: 'commute', icon: '⇄' });
@@ -334,15 +335,12 @@
         function updateTree(actionFn, targetId) {
             saveToHistory();
             
-            // Recursive re-builder
             const rebuild = (node) => {
                 if (node.id === targetId) {
-                    // Logic for Evaluation vs Transformation
                     if (interactionMode === 'simplify') {
                          const res = fracOps[node.value](node.left.value, node.right.value);
                          return { id: generateId(), type: 'operand', value: res };
                     } else {
-                        // Transformation actions are passed as a specialized function
                         return actionFn(node);
                     }
                 }
@@ -361,19 +359,15 @@
             hideContextMenu();
 
             if (interactionMode === 'simplify') {
-                // Evaluation Mode
                 const canEval = node.left.type === 'operand' && node.right.type === 'operand';
                 if (canEval) updateTree(null, node.id); 
             } else {
-                // Rearrange Mode
                 const moves = getPossibleTransforms(node);
                 if (moves.length === 0) return;
 
                 if (moves.length === 1) {
-                    // Only one move? Just do it.
                     executeTransform(moves[0].action, node.id);
                 } else {
-                    // Multiple moves? Show menu.
                     showContextMenu(e.clientX, e.clientY, node, moves);
                 }
             }
@@ -413,7 +407,7 @@
             moves.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = 'menu-item';
-                btn.innerHTML = `<span>${m.icon}</span> ${m.name}`;
+                btn.innerHTML = `<span class="menu-item-icon">${m.icon}</span> ${m.name}`;
                 btn.onclick = (e) => {
                     e.stopPropagation();
                     executeTransform(m.action, node.id);
@@ -422,13 +416,16 @@
                 ctxMenu.appendChild(btn);
             });
             
+            // Positioning Logic (Boundaries check optional but good)
             ctxMenu.style.left = x + 'px';
             ctxMenu.style.top = y + 'px';
             ctxMenu.classList.remove('hidden');
 
-            // Click outside to close
-            const closer = () => { hideContextMenu(); document.removeEventListener('click', closer); };
-            setTimeout(() => document.addEventListener('click', closer), 0);
+            // Click outside to close (Delayed to avoid immediate triggering)
+            setTimeout(() => {
+                const closer = () => { hideContextMenu(); document.removeEventListener('click', closer); };
+                document.addEventListener('click', closer);
+            }, 0);
         }
 
         function hideContextMenu() {
@@ -442,7 +439,6 @@
             const div = document.createElement('div');
             const isLeaf = node.type === 'operand';
             
-            // Logic Checkers
             const canEval = !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
             const moves = !isLeaf ? getPossibleTransforms(node) : [];
             const canTransform = moves.length > 0;
@@ -460,7 +456,6 @@
                 if (interactionMode === 'rearrange' && canTransform) div.className += "can-transform";
                 div.textContent = node.value;
                 
-                // Add click handler if actionable in current mode
                 if ((interactionMode === 'simplify' && canEval) || (interactionMode === 'rearrange' && canTransform)) {
                     div.onclick = (e) => handleNodeClick(e, node);
                 }
@@ -485,6 +480,8 @@
 
         function drawConnectors(node) {
             if (node.type === 'operand') return;
+            
+            // Re-fetch elements to ensure we have the live DOM
             const p = document.getElementById(node.id);
             const l = document.getElementById(node.left.id);
             const r = document.getElementById(node.right.id);
@@ -496,6 +493,7 @@
                     const r1 = e1.getBoundingClientRect();
                     const r2 = e2.getBoundingClientRect();
                     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    // Calculate relative position within container
                     line.setAttribute('x1', r1.left + r1.width/2 - cRect.left);
                     line.setAttribute('y1', r1.top + r1.height/2 - cRect.top);
                     line.setAttribute('x2', r2.left + r2.width/2 - cRect.left);
@@ -515,10 +513,9 @@
             const exprText = document.getElementById('expressionText');
 
             container.innerHTML = '';
-            svg.innerHTML = '';
+            svg.innerHTML = ''; // Clear lines immediately
             exprText.textContent = getExpressionString(treeData);
 
-            // Apply Body Class for Modes
             document.body.className = `mode-${interactionMode} ${currentView === 'tree' ? 'tree-view-active' : 'expression-view-active'}`;
 
             if (treeData.type === 'operand') {
@@ -529,7 +526,17 @@
             if (currentView === 'tree') {
                 svg.style.display = 'block';
                 container.appendChild(buildTreeDOM(treeData));
-                requestAnimationFrame(() => drawConnectors(treeData));
+                
+                // CRITICAL FIX FOR REDRAWS:
+                // We use setTimeout to let the DOM settle (layout calculation), 
+                // then requestAnimationFrame to draw lines before the next paint.
+                setTimeout(() => {
+                    requestAnimationFrame(() => {
+                        svg.innerHTML = ''; // Double safety clear
+                        drawConnectors(treeData);
+                    });
+                }, 0);
+                
             } else {
                 svg.style.display = 'none';
                 const flat = getExpressionNodes(treeData);
@@ -548,7 +555,6 @@
         window.onload = () => {
             treeData = generateRandomTree(0, 3);
             
-            // UI References
             const btnSimp = document.getElementById('modeSimplifyBtn');
             const btnRear = document.getElementById('modeRearrangeBtn');
             
@@ -569,7 +575,6 @@
 
             document.getElementById('regenerateBtn').onclick = () => { 
                 historyStack = []; treeData = generateRandomTree(0, 3); render(); 
-                // Center view
                 const vp = document.getElementById('treeViewport');
                 const ct = document.getElementById('treeContainer');
                 vp.scrollLeft = (ct.offsetWidth - vp.offsetWidth) / 2;
@@ -583,7 +588,15 @@
             window.addEventListener('resize', () => { if(currentView==='tree') { document.getElementById('svgConnectors').innerHTML=''; drawConnectors(treeData); } });
 
             render();
-            setTimeout(() => document.getElementById('regenerateBtn').click(), 100);
+            // Force center after initial load
+            setTimeout(() => {
+                const vp = document.getElementById('treeViewport');
+                const ct = document.getElementById('treeContainer');
+                if(vp && ct) {
+                    vp.scrollLeft = (ct.offsetWidth - vp.offsetWidth) / 2;
+                    vp.scrollTop = (ct.offsetHeight - vp.offsetHeight) / 2;
+                }
+            }, 100);
         };
     </script>
 </body>
