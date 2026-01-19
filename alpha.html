@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BODMAS Engine - Simplify & Rearrange</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #1a1a1a;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* --- Node Styles --- */
+        .node {
+            transition: all 0.2s ease;
+            background: white;
+            user-select: none;
+            position: relative;
+        }
+
+        .node-operator {
+            border-color: #e5e7eb;
+            color: #9ca3af;
+            background-color: #f9fafb;
+        }
+
+        /* SIMPLIFY MODE (Blue) */
+        body.mode-simplify .node-operator.can-evaluate {
+            cursor: pointer;
+            border-color: #2563eb;
+            color: #2563eb;
+            background-color: #eff6ff;
+        }
+        body.mode-simplify .node-operator.can-evaluate:hover {
+            background-color: #2563eb;
+            color: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+        }
+
+        /* REARRANGE MODE (Purple) */
+        body.mode-rearrange .node-operator.can-transform {
+            cursor: pointer;
+            border-color: #9333ea; /* Purple-600 */
+            color: #9333ea;
+            background-color: #f3e8ff; /* Purple-50 */
+        }
+        body.mode-rearrange .node-operator.can-transform:hover {
+            background-color: #9333ea;
+            color: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(147, 51, 234, 0.2);
+        }
+
+        /* Active Menu State */
+        .node-operator.menu-open {
+            background-color: #1f2937 !important;
+            border-color: #1f2937 !important;
+            color: white !important;
+        }
+
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            vertical-align: middle;
+            text-align: center;
+            line-height: 1.1;
+            font-size: 0.9em;
+        }
+        .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
+
+        /* --- Canvas & Connectors --- */
+        .tree-viewport { overflow: auto; }
+        #treeContainer {
+            min-width: 2500px; 
+            min-height: 2000px;
+            display: grid;
+            place-items: center;
+            padding: 400px;
+        }
+        .tree-view-active #treeContainer {
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+        .connector {
+            stroke: #94a3b8;
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        /* --- Expression View --- */
+        .expression-view-active #treeViewport { display: block; background-color: #f8fafc; }
+        .expression-view-active #treeContainer { background: none; }
+        .expression-view-active #treeContent {
+            display: flex; flex-wrap: nowrap; gap: 12px; align-items: center; justify-content: center;
+        }
+        .expression-bracket { font-size: 2.5rem; color: #94a3b8; font-weight: 300; }
+
+        /* --- Context Menu --- */
+        #contextMenu {
+            position: absolute;
+            z-index: 100;
+            background: white;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 140px;
+            animation: fadeIn 0.1s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #374151;
+            border-radius: 4px;
+            transition: background 0.1s;
+        }
+        .menu-item:hover { background-color: #f3f4f6; color: #111827; }
+        .menu-item svg { width: 14px; height: 14px; color: #6b7280; }
+
+    </style>
+</head>
+<body class="mode-simplify">
+
+    <header class="fixed top-0 left-0 right-0 p-4 border-b bg-white/80 backdrop-blur-md z-50 flex justify-between items-center">
+        <div class="flex items-center gap-4">
+            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200">
+                <button id="modeSimplifyBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-md shadow-sm bg-white text-blue-600 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="16" y1="18" x2="16" y2="18"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/></svg>
+                    Simplify
+                </button>
+                <button id="modeRearrangeBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-md text-gray-500 hover:text-purple-600 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                    Rearrange
+                </button>
+            </div>
+
+            <div class="h-6 w-px bg-gray-200 mx-2"></div>
+
+            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium">
+                <button id="viewTreeBtn" class="px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all">Tree</button>
+                <button id="viewExprBtn" class="px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all">Expression</button>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="undoBtn" disabled class="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                Undo
+            </button>
+            <button id="regenerateBtn" class="bg-gray-900 text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-700 transition-colors">
+                New Question
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow relative overflow-hidden flex flex-col pt-16" id="mainArea">
+        <div id="treeViewport" class="tree-viewport flex-grow overflow-auto relative w-full cursor-grab active:cursor-grabbing">
+            <div id="treeContainer" class="relative">
+                <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+                <div id="treeContent" class="relative z-10"></div>
+                <div id="contextMenu" class="hidden"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 p-6 flex justify-center z-50 pointer-events-none">
+        <div class="pointer-events-auto bg-white border border-gray-200 p-4 rounded-lg shadow-sm max-w-2xl w-full text-center">
+            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1">Current String</div>
+            <div id="expressionText" class="text-lg font-medium text-gray-700 font-mono"></div>
+        </div>
+    </footer>
+
+    <script>
+        // --- Configuration & Utils ---
+        const fractionsMode = false;
+        const generateId = () => 'node-' + Math.random().toString(36).substr(2, 9);
+        const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { a %= b; [a, b] = [b, a]; } return a; };
+        const simplify = (n, d) => {
+            if (d === 0) return { n, d };
+            const common = gcd(n, d);
+            return { n: n/common, d: d/common };
+        };
+
+        const fracOps = {
+            '+': (a, b) => simplify(a.n * b.d + b.n * a.d, a.d * b.d),
+            '-': (a, b) => simplify(a.n * b.d - b.n * a.d, a.d * b.d),
+            '×': (a, b) => simplify(a.n * b.n, a.d * b.d),
+            '÷': (a, b) => simplify(a.n * b.d, a.d * b.n)
+        };
+
+        // --- State ---
+        let treeData = null;
+        let historyStack = []; 
+        let currentView = 'tree'; 
+        let interactionMode = 'simplify'; // 'simplify' | 'rearrange'
+
+        // --- Tree Generation ---
+        function generateRandomTree(depth = 0, maxDepth = 3) {
+            const id = generateId();
+            const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
+            if (isLeaf) {
+                return { id, type: 'operand', value: { n: Math.floor(Math.random() * 12) + 1, d: 1 } };
+            } else {
+                const symbols = ['+', '-', '×']; // Reduced set for cleaner demo, add '÷' if desired
+                const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+                return { id, type: 'operator', value: symbol, left: generateRandomTree(depth + 1, maxDepth), right: generateRandomTree(depth + 1, maxDepth) };
+            }
+        }
+
+        // --- Math Logic: Rotations & Distributions ---
+        
+        // 1. Commute: A + B -> B + A
+        const canCommute = (node) => node.type === 'operator' && ['+', '×'].includes(node.value);
+        function doCommute(node) {
+            return { ...node, left: node.right, right: node.left };
+        }
+
+        // 2. Associate Right: (A + B) + C -> A + (B + C)
+        // Look at LEFT child. If same op, rotate.
+        const canAssociateRight = (node) => {
+            if (node.type !== 'operator' || !['+', '×'].includes(node.value)) return false;
+            return node.left && node.left.type === 'operator' && node.left.value === node.value;
+        };
+        function doAssociateRight(node) {
+            const A = node.left.left;
+            const B = node.left.right;
+            const C = node.right;
+            const newRight = { ...node, id: generateId(), left: B, right: C };
+            return { ...node.left, id: node.id, left: A, right: newRight }; // node.left becomes root
+        }
+
+        // 3. Associate Left: A + (B + C) -> (A + B) + C
+        // Look at RIGHT child. If same op, rotate.
+        const canAssociateLeft = (node) => {
+            if (node.type !== 'operator' || !['+', '×'].includes(node.value)) return false;
+            return node.right && node.right.type === 'operator' && node.right.value === node.value;
+        };
+        function doAssociateLeft(node) {
+            const A = node.left;
+            const B = node.right.left;
+            const C = node.right.right;
+            const newLeft = { ...node, id: generateId(), left: A, right: B };
+            return { ...node.right, id: node.id, left: newLeft, right: C };
+        }
+
+        // 4. Distribute: A × (B + C) -> (A × B) + (A × C)
+        const canDistribute = (node) => {
+            if (node.type !== 'operator' || node.value !== '×') return false;
+            // Case 1: Right child is group (A * (B+C))
+            if (node.right.type === 'operator' && ['+', '-'].includes(node.right.value)) return 'right';
+            // Case 2: Left child is group ((B+C) * A)
+            if (node.left.type === 'operator' && ['+', '-'].includes(node.left.value)) return 'left';
+            return false;
+        }
+
+        function doDistribute(node) {
+            const dir = canDistribute(node);
+            if (!dir) return node;
+
+            let scalar, group;
+            if (dir === 'right') { scalar = node.left; group = node.right; }
+            else { scalar = node.right; group = node.left; }
+
+            // Clone scalar to ensure unique IDs
+            const scalarClone1 = JSON.parse(JSON.stringify(scalar)); scalarClone1.id = generateId();
+            const scalarClone2 = JSON.parse(JSON.stringify(scalar)); scalarClone2.id = generateId();
+
+            const leftMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?scalarClone1:group.left, right: dir==='right'?group.left:scalarClone1 };
+            const rightMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?scalarClone2:group.right, right: dir==='right'?group.right:scalarClone2 };
+
+            return {
+                id: node.id,
+                type: 'operator',
+                value: group.value, // The + or -
+                left: leftMult,
+                right: rightMult
+            };
+        }
+
+        // Check if ANY transform is possible
+        function getPossibleTransforms(node) {
+            const moves = [];
+            if (canCommute(node)) moves.push({ name: 'Swap', action: 'commute', icon: '⇄' });
+            if (canAssociateRight(node)) moves.push({ name: 'Rotate Right', action: 'assoc-right', icon: '⤵' });
+            if (canAssociateLeft(node)) moves.push({ name: 'Rotate Left', action: 'assoc-left', icon: '⤴' });
+            if (canDistribute(node)) moves.push({ name: 'Distribute', action: 'distribute', icon: '⑃' });
+            return moves;
+        }
+
+        // --- Core Tree Walking ---
+
+        function getExpressionString(node) {
+            if (node.type === 'operand') return node.value.d === 1 ? node.value.n : `${node.value.n}/${node.value.d}`;
+            const prec = (op) => op === '×' || op === '÷' ? 2 : 1;
+            let l = getExpressionString(node.left);
+            let r = getExpressionString(node.right);
+            if (node.left.type === 'operator' && prec(node.left.value) < prec(node.value)) l = `(${l})`;
+            if (node.right.type === 'operator' && prec(node.right.value) <= prec(node.value)) r = `(${r})`;
+            return `${l} ${node.value} ${r}`;
+        }
+
+        function getExpressionNodes(node) {
+            if (node.type === 'operand') return [{ type: 'operand', source: node }];
+            const prec = (op) => op === '×' || op === '÷' ? 2 : 1;
+            let l = getExpressionNodes(node.left);
+            let r = getExpressionNodes(node.right);
+            if (node.left.type === 'operator' && prec(node.left.value) < prec(node.value)) l = [{type:'b',v:'('}, ...l, {type:'b',v:')'}];
+            if (node.right.type === 'operator' && prec(node.right.value) <= prec(node.value)) r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+            return [...l, { type: 'operator', source: node }, ...r];
+        }
+
+        // --- Action Handlers ---
+
+        function updateTree(actionFn, targetId) {
+            saveToHistory();
+            
+            // Recursive re-builder
+            const rebuild = (node) => {
+                if (node.id === targetId) {
+                    // Logic for Evaluation vs Transformation
+                    if (interactionMode === 'simplify') {
+                         const res = fracOps[node.value](node.left.value, node.right.value);
+                         return { id: generateId(), type: 'operand', value: res };
+                    } else {
+                        // Transformation actions are passed as a specialized function
+                        return actionFn(node);
+                    }
+                }
+                if (node.type === 'operator') {
+                    return { ...node, left: rebuild(node.left), right: rebuild(node.right) };
+                }
+                return node;
+            };
+
+            treeData = rebuild(treeData);
+            render();
+        }
+
+        function handleNodeClick(e, node) {
+            e.stopPropagation();
+            hideContextMenu();
+
+            if (interactionMode === 'simplify') {
+                // Evaluation Mode
+                const canEval = node.left.type === 'operand' && node.right.type === 'operand';
+                if (canEval) updateTree(null, node.id); 
+            } else {
+                // Rearrange Mode
+                const moves = getPossibleTransforms(node);
+                if (moves.length === 0) return;
+
+                if (moves.length === 1) {
+                    // Only one move? Just do it.
+                    executeTransform(moves[0].action, node.id);
+                } else {
+                    // Multiple moves? Show menu.
+                    showContextMenu(e.clientX, e.clientY, node, moves);
+                }
+            }
+        }
+
+        function executeTransform(actionStr, nodeId) {
+            let fn = null;
+            if (actionStr === 'commute') fn = doCommute;
+            if (actionStr === 'assoc-right') fn = doAssociateRight;
+            if (actionStr === 'assoc-left') fn = doAssociateLeft;
+            if (actionStr === 'distribute') fn = doDistribute;
+            
+            if (fn) updateTree(fn, nodeId);
+        }
+
+        // --- History ---
+        function saveToHistory() {
+            historyStack.push(JSON.parse(JSON.stringify(treeData)));
+            document.getElementById('undoBtn').disabled = false;
+        }
+        function undo() {
+            if (historyStack.length === 0) return;
+            treeData = historyStack.pop();
+            document.getElementById('undoBtn').disabled = historyStack.length === 0;
+            render();
+        }
+
+        // --- Context Menu UI ---
+        const ctxMenu = document.getElementById('contextMenu');
+        
+        function showContextMenu(x, y, node, moves) {
+            // Highlight node
+            const el = document.getElementById(node.id);
+            if(el) el.classList.add('menu-open');
+
+            ctxMenu.innerHTML = '';
+            moves.forEach(m => {
+                const btn = document.createElement('button');
+                btn.className = 'menu-item';
+                btn.innerHTML = `<span>${m.icon}</span> ${m.name}`;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    executeTransform(m.action, node.id);
+                    hideContextMenu();
+                };
+                ctxMenu.appendChild(btn);
+            });
+            
+            ctxMenu.style.left = x + 'px';
+            ctxMenu.style.top = y + 'px';
+            ctxMenu.classList.remove('hidden');
+
+            // Click outside to close
+            const closer = () => { hideContextMenu(); document.removeEventListener('click', closer); };
+            setTimeout(() => document.addEventListener('click', closer), 0);
+        }
+
+        function hideContextMenu() {
+            ctxMenu.classList.add('hidden');
+            document.querySelectorAll('.menu-open').forEach(el => el.classList.remove('menu-open'));
+        }
+
+        // --- Rendering ---
+
+        function createNodeDOM(node) {
+            const div = document.createElement('div');
+            const isLeaf = node.type === 'operand';
+            
+            // Logic Checkers
+            const canEval = !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
+            const moves = !isLeaf ? getPossibleTransforms(node) : [];
+            const canTransform = moves.length > 0;
+
+            div.id = node.id; 
+            div.className = "node rounded-full flex items-center justify-center shrink-0 border-2 font-medium shadow-sm relative w-12 h-12 md:w-14 md:h-14 text-lg ";
+
+            if (isLeaf) {
+                div.className += "border-gray-300 text-gray-700";
+                const val = node.value;
+                div.innerHTML = val.d === 1 ? `<span>${val.n}</span>` : `<div class="frac"><span class="top">${val.n}</span><span class="bottom">${val.d}</span></div>`;
+            } else {
+                div.className += "node-operator ";
+                if (interactionMode === 'simplify' && canEval) div.className += "can-evaluate";
+                if (interactionMode === 'rearrange' && canTransform) div.className += "can-transform";
+                div.textContent = node.value;
+                
+                // Add click handler if actionable in current mode
+                if ((interactionMode === 'simplify' && canEval) || (interactionMode === 'rearrange' && canTransform)) {
+                    div.onclick = (e) => handleNodeClick(e, node);
+                }
+            }
+            return div;
+        }
+
+        function buildTreeDOM(node) {
+            const wrapper = document.createElement('div');
+            wrapper.className = "flex flex-col items-center";
+            wrapper.appendChild(createNodeDOM(node));
+
+            if (node.type !== 'operand') {
+                const childrenWrapper = document.createElement('div');
+                childrenWrapper.className = "flex gap-12 md:gap-24 mt-16 md:mt-20";
+                childrenWrapper.appendChild(buildTreeDOM(node.left));
+                childrenWrapper.appendChild(buildTreeDOM(node.right));
+                wrapper.appendChild(childrenWrapper);
+            }
+            return wrapper;
+        }
+
+        function drawConnectors(node) {
+            if (node.type === 'operand') return;
+            const p = document.getElementById(node.id);
+            const l = document.getElementById(node.left.id);
+            const r = document.getElementById(node.right.id);
+
+            if (p && l && r) { 
+                const svg = document.getElementById('svgConnectors');
+                const cRect = document.getElementById('treeContainer').getBoundingClientRect();
+                const draw = (e1, e2) => {
+                    const r1 = e1.getBoundingClientRect();
+                    const r2 = e2.getBoundingClientRect();
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', r1.left + r1.width/2 - cRect.left);
+                    line.setAttribute('y1', r1.top + r1.height/2 - cRect.top);
+                    line.setAttribute('x2', r2.left + r2.width/2 - cRect.left);
+                    line.setAttribute('y2', r2.top + r2.height/2 - cRect.top);
+                    line.setAttribute('class', 'connector');
+                    svg.appendChild(line);
+                };
+                draw(p, l); draw(p, r);
+            }
+            drawConnectors(node.left);
+            drawConnectors(node.right);
+        }
+
+        function render() {
+            const container = document.getElementById('treeContent');
+            const svg = document.getElementById('svgConnectors');
+            const exprText = document.getElementById('expressionText');
+
+            container.innerHTML = '';
+            svg.innerHTML = '';
+            exprText.textContent = getExpressionString(treeData);
+
+            // Apply Body Class for Modes
+            document.body.className = `mode-${interactionMode} ${currentView === 'tree' ? 'tree-view-active' : 'expression-view-active'}`;
+
+            if (treeData.type === 'operand') {
+                container.innerHTML = `<div class="text-7xl font-bold text-gray-900">${treeData.value.n}</div>`;
+                return;
+            }
+
+            if (currentView === 'tree') {
+                svg.style.display = 'block';
+                container.appendChild(buildTreeDOM(treeData));
+                requestAnimationFrame(() => drawConnectors(treeData));
+            } else {
+                svg.style.display = 'none';
+                const flat = getExpressionNodes(treeData);
+                flat.forEach(item => {
+                    if (item.type === 'b') {
+                        const s = document.createElement('span'); s.textContent = item.v; s.className = 'expression-bracket';
+                        container.appendChild(s);
+                    } else {
+                        container.appendChild(createNodeDOM(item.source));
+                    }
+                });
+            }
+        }
+
+        // --- Init & Event Listeners ---
+        window.onload = () => {
+            treeData = generateRandomTree(0, 3);
+            
+            // UI References
+            const btnSimp = document.getElementById('modeSimplifyBtn');
+            const btnRear = document.getElementById('modeRearrangeBtn');
+            
+            const setMode = (m) => {
+                interactionMode = m;
+                if(m === 'simplify') {
+                    btnSimp.className = "flex items-center gap-2 px-3 py-1.5 rounded-md shadow-sm bg-white text-blue-600 transition-all";
+                    btnRear.className = "flex items-center gap-2 px-3 py-1.5 rounded-md text-gray-500 hover:text-purple-600 transition-all";
+                } else {
+                    btnSimp.className = "flex items-center gap-2 px-3 py-1.5 rounded-md text-gray-500 hover:text-blue-600 transition-all";
+                    btnRear.className = "flex items-center gap-2 px-3 py-1.5 rounded-md shadow-sm bg-white text-purple-600 transition-all";
+                }
+                render();
+            }
+
+            btnSimp.onclick = () => setMode('simplify');
+            btnRear.onclick = () => setMode('rearrange');
+
+            document.getElementById('regenerateBtn').onclick = () => { 
+                historyStack = []; treeData = generateRandomTree(0, 3); render(); 
+                // Center view
+                const vp = document.getElementById('treeViewport');
+                const ct = document.getElementById('treeContainer');
+                vp.scrollLeft = (ct.offsetWidth - vp.offsetWidth) / 2;
+                vp.scrollTop = (ct.offsetHeight - vp.offsetHeight) / 2;
+            };
+            document.getElementById('undoBtn').onclick = undo;
+
+            document.getElementById('viewTreeBtn').onclick = () => { currentView = 'tree'; render(); };
+            document.getElementById('viewExprBtn').onclick = () => { currentView = 'expression'; render(); };
+
+            window.addEventListener('resize', () => { if(currentView==='tree') { document.getElementById('svgConnectors').innerHTML=''; drawConnectors(treeData); } });
+
+            render();
+            setTimeout(() => document.getElementById('regenerateBtn').click(), 100);
+        };
+    </script>
+</body>
+</html>
