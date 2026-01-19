@@ -451,7 +451,6 @@
 
             // Hints Toggle Logic
             const hintsBtn = document.getElementById('hintsBtn');
-            const hintsLabel = document.getElementById('hintsLabel');
             const bulbIcon = document.getElementById('bulbIcon');
 
             hintsBtn.onclick = () => {
@@ -459,11 +458,9 @@
                 if(hintsEnabled) {
                     hintsBtn.className = "flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-md border border-amber-200 bg-amber-50 text-amber-700 transition-colors";
                     bulbIcon.setAttribute('fill', 'currentColor');
-                    hintsLabel.textContent = "Hints: On";
                 } else {
                     hintsBtn.className = "flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors";
                     bulbIcon.setAttribute('fill', 'none');
-                    hintsLabel.textContent = "Hints: Off";
                 }
                 render(); // Re-render to apply class to body
             };
