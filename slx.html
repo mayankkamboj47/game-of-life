@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Algebraic Equation Generator</title>
+    <title>Interactive Equation Solver</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Lora:ital,wght@1,600&display=swap');
@@ -26,14 +26,30 @@
             z-index: 20;
         }
 
+        /* Default Operator (Inactive) */
         .node-operator {
-            border-color: #cbd5e1;
-            color: #64748b;
+            border-color: #e2e8f0;
+            color: #94a3b8;
             background-color: #f8fafc;
         }
 
+        /* Interactive Operator (Both children are numbers) */
+        .node-operator.interactive {
+            cursor: pointer;
+            border-color: #3b82f6; /* Blue-500 */
+            color: #2563eb;
+            background-color: #eff6ff;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
+        }
+
+        .node-operator.interactive:hover {
+            background-color: #3b82f6;
+            color: white;
+            transform: translateY(-2px) scale(1.05);
+        }
+
         .node-operand {
-            border-color: #94a3b8;
+            border-color: #cbd5e1;
             color: #334155;
             background-color: #ffffff;
         }
@@ -125,8 +141,8 @@
     <header class="fixed top-0 left-0 right-0 p-4 border-b bg-white/90 backdrop-blur-md z-50 flex justify-between items-center shadow-sm">
         <div class="flex items-center gap-4">
             <div class="flex flex-col">
-                <h1 class="text-sm font-bold tracking-tight text-gray-800 uppercase">Algebra Generator</h1>
-                <span class="text-[10px] text-gray-500">Find the value of x</span>
+                <h1 class="text-sm font-bold tracking-tight text-gray-800 uppercase">Algebra Solver</h1>
+                <span class="text-[10px] text-gray-500">Simplify the tree to find x</span>
             </div>
             
             <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium ml-4">
@@ -135,10 +151,15 @@
             </div>
         </div>
 
-        <button id="regenerateBtn" class="bg-violet-600 text-white px-5 py-2 rounded-md text-sm font-medium hover:bg-violet-700 transition-colors shadow-sm flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16l5-5"/><path d="M21 21v-5h-5"/></svg>
-            Generate New Equation
-        </button>
+        <div class="flex items-center gap-2">
+            <button id="undoBtn" disabled class="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                Undo
+            </button>
+            <button id="regenerateBtn" class="bg-violet-600 text-white px-5 py-2 rounded-md text-sm font-medium hover:bg-violet-700 transition-colors shadow-sm flex items-center gap-2">
+                New Equation
+            </button>
+        </div>
     </header>
 
     <main class="flex-grow relative overflow-hidden flex flex-col pt-16">
@@ -152,7 +173,7 @@
 
     <footer class="fixed bottom-0 left-0 right-0 p-6 flex justify-center z-50 pointer-events-none">
         <div class="pointer-events-auto bg-white/95 backdrop-blur border border-gray-200 p-4 rounded-xl shadow-lg max-w-3xl w-full text-center transform transition-all hover:scale-105">
-            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1 tracking-wider">The Equation</div>
+            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1 tracking-wider">Current Equation</div>
             <div id="expressionText" class="text-xl md:text-2xl font-medium text-gray-800 font-mono flex items-center justify-center gap-2"></div>
         </div>
     </footer>
@@ -161,14 +182,14 @@
         // --- Configuration ---
         const config = {
             maxDepth: 3, 
-            allowFractions: false // Set to true if you want fractional operands
+            allowFractions: false 
         };
 
         // --- Math Logic ---
         const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { a %= b; [a, b] = [b, a]; } return a; };
         
         const simplify = (n, d) => {
-            if (d === 0) return { n: 0, d: 1 }; // Safety
+            if (d === 0) return { n: 0, d: 1 };
             const common = gcd(n, d);
             let finalN = n / common;
             let finalD = d / common;
@@ -186,26 +207,25 @@
         // --- State ---
         let treeData = null;
         let finalResult = null;
+        let historyStack = [];
         let currentView = 'tree'; 
 
-        // --- Generation Logic ---
+        // --- Helpers ---
+        const generateId = () => 'node-' + Math.random().toString(36).substr(2, 9);
 
+        // --- Tree Generation ---
         function generateRandomTree(depth = 0) {
-            const id = 'node-' + Math.random().toString(36).substr(2, 9);
-            // Leaf condition
+            const id = generateId();
             const isLeaf = depth >= config.maxDepth || (depth > 0 && Math.random() > 0.4);
             
             if (isLeaf) {
-                // Generate random number
                 let val = { 
                     n: Math.floor(Math.random() * 10) + 1, 
                     d: !config.allowFractions ? 1 : (Math.random() < 0.5 ? 1 : Math.floor(Math.random() * 8) + 2) 
                 };
                 return { id, type: 'operand', value: val };
             } else {
-                // Generate Operator
                 const symbols = Object.keys(fracOps);
-                // Reduce chance of division to avoid messy fractions too often
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
                 
                 return { 
@@ -218,45 +238,75 @@
             }
         }
 
-        // Recursively calculate the total value of the tree
         function calculateTreeValue(node) {
             if (node.type === 'operand') return node.value;
-            
-            const leftVal = calculateTreeValue(node.left);
-            const rightVal = calculateTreeValue(node.right);
-            
-            return fracOps[node.value](leftVal, rightVal);
+            return fracOps[node.value](calculateTreeValue(node.left), calculateTreeValue(node.right));
         }
 
-        // Find all leaves, pick one, and turn it into 'x'
         function injectVariable(root) {
             let leaves = [];
-            
             function traverse(node) {
-                if (node.type === 'operand') {
-                    leaves.push(node);
-                } else {
-                    traverse(node.left);
-                    traverse(node.right);
-                }
+                if (node.type === 'operand') leaves.push(node);
+                else { traverse(node.left); traverse(node.right); }
             }
-            
             traverse(root);
-            
             if (leaves.length > 0) {
                 const randomLeaf = leaves[Math.floor(Math.random() * leaves.length)];
                 randomLeaf.type = 'variable';
-                randomLeaf.originalValue = randomLeaf.value;
-                randomLeaf.value = 'x'; // Value becomes string 'x'
+                randomLeaf.value = 'x'; 
             }
         }
 
-        // --- Formatting Helpers ---
+        // --- Evaluation Logic (The Core Request) ---
+        function evaluateAtNode(node, targetId) {
+            // Check if this is the target node
+            if (node.id === targetId) {
+                // GUARD: Only evaluate if BOTH children are numbers ('operand')
+                // This implicitly checks for 'x' because x has type 'variable'
+                if (node.left.type === 'operand' && node.right.type === 'operand') {
+                    const result = fracOps[node.value](node.left.value, node.right.value);
+                    return { 
+                        id: generateId(), 
+                        type: 'operand', 
+                        value: result 
+                    };
+                }
+                // If one child is 'variable' or 'operator', do nothing
+                return node;
+            }
+
+            // Recursive traversal
+            if (node.type === 'operator') {
+                return { 
+                    ...node, 
+                    left: evaluateAtNode(node.left, targetId), 
+                    right: evaluateAtNode(node.right, targetId) 
+                };
+            }
+            return node;
+        }
+
+        // --- History System ---
+        function saveToHistory() {
+            historyStack.push(JSON.parse(JSON.stringify(treeData)));
+            updateUndoBtn();
+        }
+
+        function undo() {
+            if (historyStack.length === 0) return;
+            treeData = historyStack.pop();
+            updateUndoBtn();
+            render();
+        }
+
+        function updateUndoBtn() {
+            document.getElementById('undoBtn').disabled = historyStack.length === 0;
+        }
+
+        // --- Formatting & DOM ---
         function formatFractionText(f) {
             if (f === 'x') return 'x';
-            if (typeof f === 'object') {
-                return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`;
-            }
+            if (typeof f === 'object') return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`;
             return f;
         }
 
@@ -266,7 +316,6 @@
             return 0;
         }
 
-        // --- String Generator ---
         function getExpressionString(node) {
             if (node.type === 'operand' || node.type === 'variable') {
                 return formatFractionText(node.value);
@@ -279,52 +328,37 @@
             if (node.left.type === 'operator') {
                 if (getPrecedence(node.left.value) < currentPrec) leftExpr = `(${leftExpr})`;
             }
-
-            // Handle non-associative or equal precedence on right
             if (node.right.type === 'operator') {
                 const rightPrec = getPrecedence(node.right.value);
                 if (rightPrec <= currentPrec) rightExpr = `(${rightExpr})`;
             }
-            
             return `${leftExpr} ${node.value} ${rightExpr}`;
         }
 
-        // --- Flat Node Generator (for Linear View) ---
         function getExpressionNodes(node) {
-            if (node.type === 'operand' || node.type === 'variable') {
-                return [{ type: node.type, source: node }];
-            }
+            if (node.type === 'operand' || node.type === 'variable') return [{ type: node.type, source: node }];
 
             const currentPrec = getPrecedence(node.value);
             let leftNodes = getExpressionNodes(node.left);
             let rightNodes = getExpressionNodes(node.right);
 
-            // Add brackets if needed
-            if (node.left.type === 'operator') {
-                if (getPrecedence(node.left.value) < currentPrec) {
-                    leftNodes = [{type: 'bracket', value: '('}, ...leftNodes, {type: 'bracket', value: ')'}];
-                }
+            if (node.left.type === 'operator' && getPrecedence(node.left.value) < currentPrec) {
+                leftNodes = [{type: 'bracket', value: '('}, ...leftNodes, {type: 'bracket', value: ')'}];
             }
-
-            if (node.right.type === 'operator') {
-                const rightPrec = getPrecedence(node.right.value);
-                if (rightPrec <= currentPrec) {
-                    rightNodes = [{type: 'bracket', value: '('}, ...rightNodes, {type: 'bracket', value: ')'}];
-                }
+            if (node.right.type === 'operator' && getPrecedence(node.right.value) <= currentPrec) {
+                rightNodes = [{type: 'bracket', value: '('}, ...rightNodes, {type: 'bracket', value: ')'}];
             }
             return [...leftNodes, { type: 'operator', source: node }, ...rightNodes];
         }
 
-        // --- DOM Builders ---
-
         function createNodeDOM(node) {
             const div = document.createElement('div');
-            
-            const baseClass = "node rounded-full flex items-center justify-center shrink-0 border-2 shadow-sm relative transition-transform hover:scale-110";
+            const baseClass = "node rounded-full flex items-center justify-center shrink-0 border-2 shadow-sm relative";
             const sizeClass = "w-12 h-12 md:w-16 md:h-16 text-xl md:text-2xl"; 
             
             let typeClass = "";
             let content = "";
+            let isInteractive = false;
 
             if (node.type === 'variable') {
                 typeClass = "node-variable";
@@ -334,22 +368,39 @@
                 const f = node.value;
                 content = f.d === 1 ? `<span>${f.n}</span>` : `<div class="frac"><span class="top">${f.n}</span><span class="bottom">${f.d}</span></div>`;
             } else {
-                typeClass = "node-operator";
+                // It's an operator
                 content = node.value;
+                
+                // CHECK: Is this interactive?
+                // Logic: Left is Num AND Right is Num. Neither can be 'x' (type variable) or 'operator'.
+                if (node.left.type === 'operand' && node.right.type === 'operand') {
+                    isInteractive = true;
+                    typeClass = "node-operator interactive";
+                } else {
+                    typeClass = "node-operator";
+                }
             }
 
             div.className = `${baseClass} ${sizeClass} ${typeClass}`;
             div.id = node.id;
             div.innerHTML = content;
 
+            // Click Handler
+            if (isInteractive) {
+                div.onclick = (e) => {
+                    e.stopPropagation();
+                    saveToHistory();
+                    treeData = evaluateAtNode(treeData, node.id);
+                    render();
+                };
+            }
+
             return div;
         }
 
-        // Recursive Tree DOM Builder
         function buildTreeDOM(node) {
             const wrapper = document.createElement('div');
             wrapper.className = "flex flex-col items-center";
-
             wrapper.appendChild(createNodeDOM(node));
 
             if (node.type === 'operator') {
@@ -362,10 +413,8 @@
             return wrapper;
         }
 
-        // --- SVG Connectors ---
         function drawConnectors(node) {
             if (node.type !== 'operator') return;
-            
             const p = document.getElementById(node.id);
             const l = document.getElementById(node.left.id);
             const r = document.getElementById(node.right.id);
@@ -381,7 +430,6 @@
         function drawLine(el1, el2) {
             const svg = document.getElementById('svgConnectors');
             const containerRect = document.getElementById('treeContainer').getBoundingClientRect();
-            
             const r1 = el1.getBoundingClientRect();
             const r2 = el2.getBoundingClientRect();
             
@@ -397,21 +445,17 @@
             svg.appendChild(line);
         }
 
-        // --- Main Render Function ---
         function render() {
             const container = document.getElementById('treeContent');
             const svg = document.getElementById('svgConnectors');
             const expressionText = document.getElementById('expressionText');
 
-            // Reset
             container.innerHTML = '';
             svg.innerHTML = '';
             
-            // Build Equation String
             const leftSide = getExpressionString(treeData);
             const rightSide = formatFractionText(finalResult);
             
-            // Render Footer text with highlighted parts
             expressionText.innerHTML = `
                 <span>${leftSide}</span>
                 <span class="text-violet-600 mx-2">=</span>
@@ -426,10 +470,7 @@
                 requestAnimationFrame(() => drawConnectors(treeData));
             } else {
                 svg.style.display = 'none';
-                
-                // Linear View Layout
                 const flatNodes = getExpressionNodes(treeData);
-                
                 flatNodes.forEach(item => {
                     if (item.type === 'bracket') {
                         const span = document.createElement('span');
@@ -440,8 +481,6 @@
                         container.appendChild(createNodeDOM(item.source));
                     }
                 });
-
-                // Add Equals and Result node to linear view
                 const equals = document.createElement('div');
                 equals.className = 'equals-sign';
                 equals.textContent = '=';
@@ -458,7 +497,6 @@
         function centerView() {
             const vp = document.getElementById('treeViewport');
             const content = document.getElementById('treeContainer');
-            // Slight delay to ensure layout is calculated
             setTimeout(() => {
                 vp.scrollLeft = (content.offsetWidth - vp.offsetWidth) / 2;
                 vp.scrollTop = (content.offsetHeight - vp.offsetHeight) / 2; 
@@ -466,24 +504,20 @@
         }
 
         function createNewEquation() {
-            // 1. Generate Tree (Numbers only)
+            historyStack = [];
+            updateUndoBtn();
             treeData = generateRandomTree(0);
-            
-            // 2. Evaluate it to get the "Answer"
             finalResult = calculateTreeValue(treeData);
-            
-            // 3. Swap a node for 'x'
             injectVariable(treeData);
-            
             render();
             centerView();
         }
 
-        // --- Initialization ---
         window.onload = () => {
             createNewEquation();
 
             document.getElementById('regenerateBtn').onclick = createNewEquation;
+            document.getElementById('undoBtn').onclick = undo;
 
             const btnTree = document.getElementById('viewTreeBtn');
             const btnExpr = document.getElementById('viewExprBtn');
