@@ -12,7 +12,7 @@
             background-color: #f0f2f5;
             padding: 20px;
             text-align: center;
-            padding-bottom: 140px; /* Space for fixed footer */
+            padding-bottom: 150px; /* Space for fixed footer */
         }
 
         h1 { margin-bottom: 5px; color: #2c3e50; }
@@ -231,7 +231,6 @@
                 }
 
                 // Spouse Generation (Only Main Tree nodes get spouses)
-                // 35% chance to be married
                 if (context === 'MAIN_TREE' && Math.random() > 0.35) {
                     this.assignSpouse();
                 }
@@ -402,30 +401,39 @@
             alert("Try generating a new family!");
         }
 
-        // --- TYPE 1: POINTING PUZZLES (MEET IN THE MIDDLE) ---
+        // --- TYPE 1: ADVANCED POINTING PUZZLES (Dynamic Crawler) ---
         
-        // Templates to describe path from Speaker to Pivot (RHS)
-        const RHS_TEMPLATES = [
-            { path: ['UP'], text: (p) => `my ${p.gender==='Male'?'father':'mother'}` },
-            { path: ['UP', 'UP'], text: (p) => `my ${p.gender==='Male'?'grandfather':'grandmother'}` },
-            { path: ['SPOUSE'], text: (p) => `my ${p.gender==='Male'?'husband':'wife'}` },
-            { path: ['UP', 'DOWN'], text: (p) => `my ${p.gender==='Male'?'brother':'sister'}` }, 
-            { path: ['UP', 'SIBLING'], text: (p) => `my ${p.gender==='Male'?'uncle':'aunt'}` }, 
-            { path: ['SPOUSE', 'UP'], text: (p) => `my ${p.gender==='Male'?'father-in-law':'mother-in-law'}` }
-        ];
-
-        // Templates to describe relation of Pivot to Target (LHS)
+        // 1. LHS Templates (Simple Side)
         const LHS_TEMPLATES = [
-            // Pivot IS Target
             { 
+                // "He/She is..." (Target IS the Pivot)
                 findTargetFromPivot: (pivot) => [pivot], 
                 text: (target) => `${target.gender==='Male'?'He':'She'}` 
             },
-            // Pivot is Target's Father/Mother
             { 
+                // "His/Her Father/Mother is..." (Target is Pivot's Child)
                 findTargetFromPivot: (pivot) => pivot.children, 
                 text: (target, pivot) => `${target.gender==='Male'?'His':'Her'} ${pivot.gender==='Male'?'father':'mother'}`
+            },
+            { 
+                // "His/Her Brother/Sister is..." (Target is Pivot's Sibling)
+                findTargetFromPivot: (pivot) => {
+                    if (pivot.parents.length === 0) return [];
+                    return pivot.parents[0].children.filter(c => c.id !== pivot.id);
+                },
+                text: (target, pivot) => `${target.gender==='Male'?'His':'Her'} ${pivot.gender==='Male'?'brother':'sister'}`
             }
+        ];
+
+        // 2. Dynamic Moves for the "Complex Side" (RHS)
+        const CRAWL_MOVES = [
+            { type: 'Parent',  get: (p) => p.parents, label: (p) => p.gender==='Male'?'father':'mother' },
+            { type: 'Child',   get: (p) => p.children, label: (p) => p.gender==='Male'?'son':'daughter' },
+            { type: 'Spouse',  get: (p) => p.spouse ? [p.spouse] : [], label: (p) => p.gender==='Male'?'husband':'wife' },
+            { type: 'Sibling', get: (p) => {
+                    if(p.parents.length === 0) return [];
+                    return p.parents[0].children.filter(c => c.id !== p.id);
+                }, label: (p) => p.gender==='Male'?'brother':'sister' }
         ];
 
         function generatePointingQuestion() {
@@ -433,81 +441,94 @@
             if (people.length < 2) return;
 
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
-            const shuffledRHS = [...RHS_TEMPLATES].sort(() => 0.5 - Math.random());
 
             for (const speaker of shuffledPeople) {
-                // Find a Pivot from Speaker
-                for (const rhsTmpl of shuffledRHS) {
-                    let pivots = [speaker];
-                    let validRHS = true;
+                
+                // --- STEP 1: Generate a Complex RHS Path (Speaker -> Pivot) ---
+                // We want a path of depth 2 or 3 (e.g., "My brother's wife's father")
+                const targetDepth = Math.random() > 0.5 ? 2 : 3;
+                
+                const pathData = generateRandomPath(speaker, targetDepth);
+                if (!pathData) continue; 
+                
+                const { pivot, rhsText } = pathData;
+
+                // --- STEP 2: Find a Simple LHS (Pivot -> Target) ---
+                const shuffledLHS = [...LHS_TEMPLATES].sort(() => 0.5 - Math.random());
+
+                for (const lhsTmpl of shuffledLHS) {
+                    const potentialTargets = lhsTmpl.findTargetFromPivot(pivot);
                     
-                    for (const move of rhsTmpl.path) {
-                        let nextNodes = [];
-                        pivots.forEach(node => {
-                            if (MOVES[move]) nextNodes = nextNodes.concat(MOVES[move](node));
-                        });
-                        if (nextNodes.length === 0) { validRHS = false; break; }
-                        pivots = nextNodes;
-                    }
+                    const validTargets = potentialTargets.filter(t => {
+                        if (t.id === speaker.id) return false; 
+                        
+                        // Gender Logic Check for LHS text
+                        const lhString = lhsTmpl.text(t, pivot);
+                        if (lhString.includes("father") && pivot.gender !== 'Male') return false;
+                        if (lhString.includes("mother") && pivot.gender !== 'Female') return false;
+                        if (lhString.includes("brother") && pivot.gender !== 'Male') return false;
+                        if (lhString.includes("sister") && pivot.gender !== 'Female') return false;
+                        
+                        return true;
+                    });
 
-                    if (!validRHS) continue;
+                    if (validTargets.length > 0) {
+                        const target = validTargets[Math.floor(Math.random() * validTargets.length)];
+                        const lhsText = lhsTmpl.text(target, pivot);
+                        
+                        // --- STEP 3: The Output ---
+                        const questionText = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><br>
+                        <i>"${lhsText} is <b>${rhsText}</b>."</i><br><br>
+                        Identify <b>${speaker.id}</b> in the tree.`;
 
-                    // From Pivot, find a Target
-                    for (const pivot of pivots) {
-                        let finalRHSText = rhsTmpl.text(pivot);
-                        if (rhsTmpl.path[rhsTmpl.path.length-1] === 'DOWN') {
-                             finalRHSText = applyOnlyLogic(speaker, pivot, finalRHSText);
-                        }
-
-                        const shuffledLHS = [...LHS_TEMPLATES].sort(() => 0.5 - Math.random());
-
-                        for (const lhsTmpl of shuffledLHS) {
-                            const potentialTargets = lhsTmpl.findTargetFromPivot(pivot);
-                            
-                            const validTargets = potentialTargets.filter(t => {
-                                if (t.id === speaker.id) return false;
-                                // Gender consistency check
-                                const lhString = lhsTmpl.text(t, pivot);
-                                if (lhString.includes("father") && pivot.gender !== 'Male') return false;
-                                if (lhString.includes("mother") && pivot.gender !== 'Female') return false;
-                                return true;
-                            });
-
-                            if (validTargets.length > 0) {
-                                const target = validTargets[Math.floor(Math.random() * validTargets.length)];
-                                const lhsText = lhsTmpl.text(target, pivot);
-                                
-                                const questionText = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><br>
-                                <i>"${lhsText} is <b>${finalRHSText}</b>."</i><br><br>
-                                Identify <b>${speaker.id}</b> in the tree.`;
-
-                                startQuizMode(questionText, speaker.id);
-                                return;
-                            }
-                        }
+                        startQuizMode(questionText, speaker.id);
+                        return;
                     }
                 }
             }
-            alert("Could not generate a riddle for this family. Try 'New Family'!");
+            alert("Could not generate a complex riddle. Try 'New Family'!");
         }
 
-        function applyOnlyLogic(startNode, endNode, basicText) {
-            const parents = endNode.parents;
-            if (parents.length === 0) return basicText;
-
-            const siblings = parents[0].children.filter(c => c.id !== endNode.id);
-            const sameSexSiblings = siblings.filter(c => c.gender === endNode.gender);
-
-            if (siblings.length === 0) {
-                return basicText.replace("child", "only child").replace("son", "only son").replace("daughter", "only daughter");
-            } 
-            if (sameSexSiblings.length === 0) {
-                return basicText.replace("son", "only son").replace("daughter", "only daughter");
+        // Recursive Random Walker
+        function generateRandomPath(currentNode, stepsRemaining, currentText = "my", history = []) {
+            if (stepsRemaining === 0) {
+                return { pivot: currentNode, rhsText: currentText };
             }
-            if (basicText.includes("child")) {
-                return endNode.gender === 'Male' ? "my uncle (or father)" : "my aunt (or mother)";
+
+            // Anti-Ping-Pong: Don't go back to where we just came from
+            const newHistory = [...history, currentNode.id];
+            const shuffledMoves = [...CRAWL_MOVES].sort(() => 0.5 - Math.random());
+
+            for (const move of shuffledMoves) {
+                const neighbors = move.get(currentNode);
+                
+                // Filter: Must exist AND Not in history
+                const validNeighbors = neighbors.filter(n => !newHistory.includes(n.id));
+
+                if (validNeighbors.length > 0) {
+                    const nextNode = validNeighbors[Math.floor(Math.random() * validNeighbors.length)];
+                    
+                    let label = move.label(nextNode);
+                    
+                    // "Only" Logic injection
+                    if (move.type === 'Child') {
+                        const siblings = currentNode.children.filter(c => c.id !== nextNode.id);
+                        if (siblings.length === 0) label = "only child";
+                        else {
+                            const sameSex = siblings.filter(c => c.gender === nextNode.gender);
+                            if (sameSex.length === 0) label = "only " + label;
+                        }
+                    }
+                    
+                    let nextText = "";
+                    if (currentText === "my") nextText = `my ${label}`;
+                    else nextText = `${currentText}'s ${label}`;
+
+                    const result = generateRandomPath(nextNode, stepsRemaining - 1, nextText, newHistory);
+                    if (result) return result;
+                }
             }
-            return basicText;
+            return null; 
         }
 
         // ==========================================
