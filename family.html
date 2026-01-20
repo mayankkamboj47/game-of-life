@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blood Relations Generator</title>
+    <style>
+        /* --- General Reset --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f8;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 { margin-bottom: 20px; color: #333; }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 30px;
+        }
+        button:hover { background-color: #0056b3; }
+
+        /* --- Tree Container --- */
+        .tree {
+            display: flex;
+            justify-content: center;
+            overflow-x: auto; /* Allow scrolling if tree gets wide */
+            padding-bottom: 50px;
+        }
+
+        /* --- CSS Tree Connector Logic --- */
+        .tree ul {
+            padding-top: 20px; 
+            position: relative;
+            transition: all 0.5s;
+            display: flex; /* Aligns children horizontally */
+            justify-content: center;
+        }
+
+        .tree li {
+            float: left; text-align: center;
+            list-style-type: none;
+            position: relative;
+            padding: 20px 5px 0 5px;
+            transition: all 0.5s;
+        }
+
+        /* We will use ::before and ::after to draw the connectors */
+        .tree li::before, .tree li::after{
+            content: '';
+            position: absolute; top: 0; right: 50%;
+            border-top: 2px solid #ccc;
+            width: 50%; height: 20px;
+        }
+        .tree li::after{
+            right: auto; left: 50%;
+            border-left: 2px solid #ccc;
+        }
+
+        /* We need to remove left-right connectors from elements without siblings */
+        .tree li:only-child::after, .tree li:only-child::before {
+            display: none;
+        }
+        .tree li:only-child{ padding-top: 0;}
+
+        /* Remove space from the top of single children */
+        .tree li:first-child::before, .tree li:last-child::after{
+            border: 0 none;
+        }
+        
+        /* Adding the vertical connector from the parent down */
+        .tree ul ul::before{
+            content: '';
+            position: absolute; top: 0; left: 50%;
+            border-left: 2px solid #ccc;
+            width: 0; height: 20px;
+        }
+
+        /* --- Node Styling --- */
+        .person-card {
+            border: 2px solid #ccc;
+            padding: 10px;
+            text-decoration: none;
+            color: #666;
+            font-family: arial, verdana, tahoma;
+            font-size: 14px;
+            display: inline-block;
+            border-radius: 5px;
+            background: white;
+            min-width: 60px;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Gender Styling */
+        .male { background-color: #e3f2fd; border-color: #2196f3; }
+        .female { background-color: #fce4ec; border-color: #e91e63; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Blood Relations Tree Generator</h1>
+    <button onclick="initApp()">Generate New Family</button>
+    
+    <div class="tree" id="tree-display">
+        </div>
+
+    <script>
+        // --- 1. Configuration & State ---
+        const MAX_DEPTH = 3; 
+        const MIN_CHILDREN = 0;
+        const MAX_CHILDREN = 2;
+        let globalNameIndex = 0; // To assign unique names (A, B, C...)
+
+        // --- 2. Data Structure ---
+        class Person {
+            constructor(depth) {
+                this.id = this.generateName();
+                this.gender = Math.random() > 0.5 ? 'Male' : 'Female';
+                this.children = [];
+                
+                // If we haven't hit depth 0, generate children
+                if (depth > 0) {
+                    this.generateChildren(depth);
+                }
+            }
+
+            generateName() {
+                // Generates A, B... Z, AA, AB...
+                let name = "";
+                let index = globalNameIndex++;
+                do {
+                    name = String.fromCharCode(65 + (index % 26)) + name;
+                    index = Math.floor(index / 26) - 1;
+                } while (index >= 0);
+                return name;
+            }
+
+            generateChildren(currentDepth) {
+                // Randomly decide number of children (0, 1, or 2)
+                const count = Math.floor(Math.random() * (MAX_CHILDREN - MIN_CHILDREN + 1)) + MIN_CHILDREN;
+                
+                for (let i = 0; i < count; i++) {
+                    // Recursive call with decremented depth
+                    this.children.push(new Person(currentDepth - 1));
+                }
+            }
+        }
+
+        // --- 3. Rendering Logic ---
+        
+        // Recursive function to build HTML list structure
+        function renderTreeHTML(person) {
+            const li = document.createElement('li');
+            
+            // Create the UI card for the person
+            const card = document.createElement('div');
+            card.className = `person-card ${person.gender.toLowerCase()}`;
+            card.innerHTML = `
+                <strong>${person.id}</strong><br>
+                <small>${person.gender}</small>
+            `;
+            li.appendChild(card);
+
+            // If children exist, create a nested UL
+            if (person.children.length > 0) {
+                const ul = document.createElement('ul');
+                person.children.forEach(child => {
+                    ul.appendChild(renderTreeHTML(child));
+                });
+                li.appendChild(ul);
+            }
+
+            return li;
+        }
+
+        // --- 4. Initialization ---
+        function initApp() {
+            // Reset global naming counter
+            globalNameIndex = 0;
+            
+            // Create Root Node (Depth 3 as requested)
+            // Note: The prompt says "Start with Node A and Depth 3... repeat until depth is 0"
+            // This implies the root is at 3, its children are at 2, etc.
+            const rootPerson = new Person(MAX_DEPTH);
+
+            // Render
+            const treeContainer = document.getElementById('tree-display');
+            treeContainer.innerHTML = ''; // Clear previous
+            
+            const rootUl = document.createElement('ul');
+            rootUl.appendChild(renderTreeHTML(rootPerson));
+            treeContainer.appendChild(rootUl);
+        }
+
+        // Run on load
+        initApp();
+
+    </script>
+</body>
+</html>
