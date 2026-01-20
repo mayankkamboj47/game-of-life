@@ -22,7 +22,7 @@
             display: flex; justify-content: center; gap: 12px; 
             margin-bottom: 30px; flex-wrap: wrap;
         }
-        
+
         button {
             padding: 12px 24px; font-size: 15px; color: white;
             border: none; border-radius: 8px; cursor: pointer;
@@ -30,13 +30,13 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: 600;
         }
         button:active { transform: scale(0.96); }
-        
+
         .btn-gen { background-color: #3498db; }
         .btn-gen:hover { background-color: #2980b9; }
-        
+
         .btn-ask { background-color: #27ae60; } 
         .btn-ask:hover { background-color: #219150; }
-        
+
         .btn-point { background-color: #8e44ad; } 
         .btn-point:hover { background-color: #732d91; }
 
@@ -81,7 +81,7 @@
             background: #fff; border-radius: 50%; width: 26px; height: 26px;
             line-height: 26px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 1px solid #ddd;
         }
-        
+
         .correct-card { 
             background-color: #d4edda !important; border-color: #28a745 !important; 
             transform: scale(1.15) !important; box-shadow: 0 0 15px #28a745 !important; z-index: 100;
@@ -129,7 +129,7 @@
 
     <h1>Blood Relations Master</h1>
     <p class="subtitle">Generate a family, then solve the riddles.</p>
-    
+
     <div class="controls">
         <button class="btn-gen" onclick="initApp()">🔄 New Family Tree</button>
         <button class="btn-ask" onclick="generateDirectQuestion()">❓ Direct Relation</button>
@@ -265,7 +265,7 @@
 
             const signature = moves.join('-');
             const isMale = targetNode.gender === 'Male';
-            
+
             // LOGIC FOR PATERNAL VS MATERNAL
             // We look at the immediate parent (path[1]) to decide the side.
             let side = "";
@@ -279,11 +279,11 @@
                 case 'SPOUSE': return isMale ? 'Husband' : 'Wife';
                 case 'UP-DOWN': 
                 case 'SIBLING': return isMale ? 'Brother' : 'Sister';
-                
+
                 // Grandparents
                 case 'UP-UP': return `${side} ${isMale ? 'Grandfather' : 'Grandmother'}`;
                 case 'DOWN-DOWN': return isMale ? 'Grandson' : 'Granddaughter'; // We don't usually distinguishing grandson side
-                
+
                 // Uncle/Aunt (Parent's Sibling or Parent's Sibling's Spouse)
                 // Note: 'UP-UP-DOWN' means Parent -> Grandparent -> Uncle. 
                 // The Parent (path[1]) determines the side.
@@ -291,7 +291,7 @@
                 case 'UP-UP-DOWN': 
                 case 'UP-UP-DOWN-SPOUSE': // Aunt by marriage
                     return `${side} ${isMale ? 'Uncle' : 'Aunt'}`;
-                
+
                 // Nephew/Niece
                 case 'SIBLING-DOWN': 
                 case 'UP-DOWN-DOWN': return isMale ? 'Nephew' : 'Niece';
@@ -312,7 +312,7 @@
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
-            
+
             // Simple lookup for Direct Questions
             const DIRECT_TEMPLATES = [
                 { path: ['PARENT'], label: 'Parent' }, { path: ['CHILD'], label: 'Child' },
@@ -334,11 +334,11 @@
                         currentNodes = nextNodes;
                     }
                     if (failed) continue;
-                    
+
                     const validTargets = currentNodes.filter(n => n.id !== startNode.id);
                     if (validTargets.length > 0) {
                         const targetNode = validTargets[Math.floor(Math.random() * validTargets.length)];
-                        
+
                         // Use the robust calculator to get the EXACT string (e.g. Paternal Uncle)
                         const exactRelation = determineRelationship(startNode, targetNode);
                         if (!exactRelation) continue;
@@ -377,7 +377,7 @@
                 const targetDepth = Math.random() > 0.5 ? 2 : 3;
                 const pathData = generateRandomPath(speaker, targetDepth);
                 if (!pathData) continue; 
-                
+
                 const { pivot, rhsText } = pathData;
                 const shuffledLHS = [...LHS_TEMPLATES].sort(() => 0.5 - Math.random());
                 for (const lhsTmpl of shuffledLHS) {
@@ -390,9 +390,9 @@
                         if (lhString.includes("mother") && pivot.gender !== 'Female') continue;
                         if (lhString.includes("brother") && pivot.gender !== 'Male') continue;
                         if (lhString.includes("sister") && pivot.gender !== 'Female') continue;
-                        
+
                         const actualRelation = determineRelationship(speaker, target);
-                        
+
                         if (actualRelation) {
                             const lhsText = lhsTmpl.text(target, pivot);
                             const riddle = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><br><i>"${lhsText} is <b>${rhsText}</b>."</i>`;
@@ -450,7 +450,7 @@
             bar.style.display = 'flex'; bar.style.borderTopColor = "#8e44ad";
             document.getElementById('quiz-text').innerHTML = htmlText;
             document.getElementById('quiz-feedback').innerHTML = "Select the correct relationship.";
-            
+
             const options = new Set([correctAnswerStr]);
             // Smart Distractor Generation
             while(options.size < 4) {
@@ -463,7 +463,7 @@
                     options.add(ALL_RELATIONS[Math.floor(Math.random() * ALL_RELATIONS.length)]);
                 }
             }
-            
+
             const shuffledOptions = Array.from(options).sort(() => 0.5 - Math.random());
             const optionsContainer = document.getElementById('quiz-options');
             shuffledOptions.forEach(opt => {
