@@ -223,10 +223,11 @@
             'SIBLING': (p) => p.parents.length ? p.parents[0].children.filter(c => c.id !== p.id) : []
         };
 
-        // Expanded List with Mixed Hindi/English based on Ambiguity
+        // Simplified list: Pota/Poti used blindly for grandchildren
         const ALL_RELATIONS = [
             'Papa', 'Maa', 'Beta', 'Beti', 'Bhai', 'Behen', 'Pati', 'Patni',
             'Dada', 'Nana', 'Dadi', 'Nani',
+            'Pota', 'Poti', 
             'Paternal Uncle', 'Maternal Uncle', 'Paternal Aunt', 'Maternal Aunt',
             'Nephew', 'Niece', 'Sasur', 'Saas', 'Brother-in-law', 'Sister-in-law'
         ];
@@ -279,21 +280,21 @@
                 case 'UP-DOWN': 
                 case 'SIBLING': return isMale ? 'Bhai' : 'Behen';
 
-                // Grandparents - Explicit Hindi
+                // Grandparents
                 case 'UP-UP': 
                     if (isMale) return side === "Paternal" ? "Dada" : "Nana";
                     else return side === "Paternal" ? "Dadi" : "Nani";
                 
-                // Grandchildren - Ambiguous (Pota/Nawasa), keeping English
-                case 'DOWN-DOWN': return isMale ? 'Grandson' : 'Granddaughter';
+                // Grandchildren - BLINDLY POTA/POTI
+                case 'DOWN-DOWN': return isMale ? 'Pota' : 'Poti';
 
-                // Uncle/Aunt - Ambiguous (Chacha/Tau/Mama/Mausa), keeping English
+                // Uncle/Aunt
                 case 'UP-SIBLING': 
                 case 'UP-UP-DOWN': 
                 case 'UP-UP-DOWN-SPOUSE': 
                     return `${side} ${isMale ? 'Uncle' : 'Aunt'}`;
 
-                // Nephew/Niece - Ambiguous (Bhanja/Bhatija), keeping English
+                // Nephew/Niece
                 case 'SIBLING-DOWN': 
                 case 'UP-DOWN-DOWN': return isMale ? 'Nephew' : 'Niece';
 
@@ -351,12 +352,12 @@
             alert("Nayi Family bana ke try karo!");
         }
 
-        // --- POINTING PUZZLES (Conversational Hindi Logic) ---
-        // Simple gender agreement logic for the LHS
+        // --- POINTING PUZZLES ---
+        // Added spouse template (Iski Patni / Iska Pati)
         const LHS_TEMPLATES = [
             { 
                 find: (p) => [p], 
-                text: (t) => "Yeh" // He/She -> Yeh
+                text: (t) => "Yeh" 
             },
             { 
                 find: (p) => p.children, 
@@ -365,6 +366,10 @@
             { 
                 find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], 
                 text: (t, p) => `Iska/Iski ${p.gender==='Male'?'Bhai':'Behen'}` 
+            },
+            {
+                find: (p) => p.spouse ? [p.spouse] : [],
+                text: (t, p) => t.gender === 'Male' ? 'Iska Pati' : 'Iski Patni'
             }
         ];
 
@@ -383,11 +388,7 @@
             for (const speaker of shuffledPeople) {
                 const targetDepth = Math.random() > 0.5 ? 2 : 3;
                 
-                // Initialize text based on Gender (Mere/Meri)
-                const startText = speaker.gender === 'Male' ? "Mere" : "Meri"; // Simplified Start
-                
                 const pathData = generateRandomPath(speaker, targetDepth, "Mera"); 
-                // Note: We handle the exact "Mera/Mere/Meri" grammar dynamically inside generateRandomPath now
                 
                 if (!pathData) continue; 
 
@@ -398,20 +399,18 @@
                     const validTargets = potentialTargets.filter(t => t.id !== speaker.id);
 
                     for(const target of validTargets) {
-                        // Gender check for natural language
                         const lhString = lhsTmpl.text(target, pivot);
+                        // Natural Language Filters
                         if (lhString.includes("Papa") && pivot.gender !== 'Male') continue;
                         if (lhString.includes("Maa") && pivot.gender !== 'Female') continue;
                         if (lhString.includes("Bhai") && pivot.gender !== 'Male') continue;
                         if (lhString.includes("Behen") && pivot.gender !== 'Female') continue;
+                        if (lhString.includes("Pati") && pivot.gender !== 'Female') continue;
+                        if (lhString.includes("Patni") && pivot.gender !== 'Male') continue;
 
                         const actualRelation = determineRelationship(speaker, target);
 
                         if (actualRelation) {
-                            // Fix LHS grammar for "Iska/Iski" based on Pivot Gender
-                            // If Target is M/F, we usually say "Iska/Iski" depending on Target, 
-                            // BUT "Iska Papa" means Father of Target. 
-                            // Standard Hindi: "Iska" (if Target Male) / "Iski" (if Target Female).
                             let fixedLHS = lhString;
                             if(fixedLHS.includes("Iska/Iski")) {
                                 const prefix = target.gender === 'Male' ? "Iska" : "Iski";
@@ -441,25 +440,13 @@
                     const nextNode = validNeighbors[Math.floor(Math.random() * validNeighbors.length)];
                     let label = move.label(nextNode);
 
-                    // --- HINDI GRAMMAR BUILDER ---
-                    // Logic: PrevString + Connector + Label
-                    // Connector depends on NextNode Gender: Male -> "ka", Female -> "ki"
-                    
-                    // Fix initial "Mera" to "Mere/Meri" if needed for the flow, 
-                    // but for simplicity, we append: "Mera" -> "Mera Bhai" -> "Mere Bhai ki Beti"
-                    
                     let newText = "";
                     const connector = nextNode.gender === 'Male' ? "ka" : "ki";
-
-                    // Adjustment for Oblique case (Mera -> Mere when followed by 'ka/ki')
-                    // Simple regex replace to fix previous word end
                     let prevTextOblique = currentText;
                     if (currentText.endsWith("Mera")) prevTextOblique = currentText.replace("Mera", "Mere");
-                    if (currentText.endsWith("ka")) prevTextOblique = currentText.replace("ka", "ke"); // Beta ka -> Bete ke? conversational: Beta ka is ok. "Papa ka" -> "Papa ke"
+                    if (currentText.endsWith("ka")) prevTextOblique = currentText.replace("ka", "ke");
 
-                    // Special case: First step
                     if(currentText === "Mera") {
-                        // If next is Female, change start to Meri
                         if(nextNode.gender === 'Female') newText = `Meri ${label}`;
                         else newText = `Mera ${label}`;
                     } else {
@@ -493,7 +480,6 @@
             document.getElementById('quiz-feedback').innerHTML = "Sahi rishta chuno.";
 
             const options = new Set([correctAnswerStr]);
-            // Smart Distractor Generation
             while(options.size < 4) {
                 if (correctAnswerStr.includes("Paternal") && !options.has(correctAnswerStr.replace("Paternal", "Maternal"))) {
                     options.add(correctAnswerStr.replace("Paternal", "Maternal"));
@@ -501,6 +487,8 @@
                     options.add(correctAnswerStr.replace("Maternal", "Paternal"));
                 } else if (correctAnswerStr === "Dada" && !options.has("Nana")) options.add("Nana");
                 else if (correctAnswerStr === "Nana" && !options.has("Dada")) options.add("Dada");
+                else if (correctAnswerStr === "Pota" && !options.has("Poti")) options.add("Poti");
+                else if (correctAnswerStr === "Poti" && !options.has("Pota")) options.add("Pota");
                 else {
                     options.add(ALL_RELATIONS[Math.floor(Math.random() * ALL_RELATIONS.length)]);
                 }
@@ -587,7 +575,7 @@
             let ringHTML = "";
             if (person.spouse) { classes += " has-spouse"; ringHTML = `<div class="ring-icon" title="View Spouse Family">💍</div>`; }
             card.className = classes; card.setAttribute('data-id', person.id);
-            // Keeping gender labels English/Symbolic for clarity as per "Ambiguity" instruction
+            // Keeping gender labels English/Symbolic for clarity
             card.innerHTML = `<strong>${person.id}</strong><br><small>${person.gender}</small>${ringHTML}`;
             card.onclick = (e) => {
                 e.stopPropagation();
