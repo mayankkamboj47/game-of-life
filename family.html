@@ -3,81 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blood Relations Gen</title>
+    <title>Blood Relations Puzzle</title>
     <style>
-        /* --- Reset & Layout --- */
+        /* --- 1. RESET & LAYOUT --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f6f8; padding: 20px; text-align: center; }
-        h1 { margin-bottom: 20px; color: #333; }
-        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 30px; }
-        button:hover { background: #0056b3; }
-
-        /* --- Tree CSS --- */
-        .tree { display: flex; justify-content: center; overflow-x: auto; padding-bottom: 50px; }
-        .tree ul { padding-top: 20px; position: relative; display: flex; justify-content: center; }
-        .tree li { float: left; text-align: center; list-style-type: none; position: relative; padding: 20px 5px 0 5px; }
-        
-        /* Connectors */
-        .tree li::before, .tree li::after{ content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid #ccc; width: 50%; height: 20px; }
-        .tree li::after{ right: auto; left: 50%; border-left: 2px solid #ccc; }
-        .tree li:only-child::after, .tree li:only-child::before { display: none; }
-        .tree li:only-child{ padding-top: 0;}
-        .tree li:first-child::before, .tree li:last-child::after{ border: 0 none; }
-        .tree ul ul::before{ content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid #ccc; width: 0; height: 20px; }
-
-        /* --- Cards --- */
-        .person-card {
-            border: 2px solid #ccc; padding: 10px; border-radius: 8px; background: white; 
-            min-width: 80px; position: relative; z-index: 10; cursor: default;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            padding: 20px;
+            text-align: center;
+            padding-bottom: 120px; /* Space for fixed footer */
         }
-        .male { background: #e3f2fd; border-color: #2196f3; }
-        .female { background: #fce4ec; border-color: #e91e63; }
+
+        h1 { margin-bottom: 10px; color: #2c3e50; }
+        p.subtitle { color: #7f8c8d; margin-bottom: 20px; font-size: 0.9rem; }
+
+        .controls { margin-bottom: 30px; }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button:active { transform: scale(0.98); }
+        .btn-gen { background-color: #3498db; }
+        .btn-gen:hover { background-color: #2980b9; }
+        .btn-ask { background-color: #27ae60; }
+        .btn-ask:hover { background-color: #219150; }
+
+        /* --- 2. TREE VISUALIZATION (CSS MAGIC) --- */
+        .tree {
+            display: flex;
+            justify-content: center;
+            overflow-x: auto;
+            padding: 20px 0 60px 0;
+        }
+        .tree ul {
+            padding-top: 20px; 
+            position: relative;
+            display: flex; 
+            justify-content: center;
+        }
+        .tree li {
+            float: left; text-align: center;
+            list-style-type: none;
+            position: relative;
+            padding: 20px 5px 0 5px;
+        }
+        /* Connectors */
+        .tree li::before, .tree li::after {
+            content: ''; position: absolute; top: 0; right: 50%;
+            border-top: 2px solid #ccc; width: 50%; height: 20px;
+        }
+        .tree li::after { right: auto; left: 50%; border-left: 2px solid #ccc; }
+        .tree li:only-child::after, .tree li:only-child::before { display: none; }
+        .tree li:only-child { padding-top: 0; }
+        .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
+        .tree ul ul::before {
+            content: ''; position: absolute; top: 0; left: 50%;
+            border-left: 2px solid #ccc; width: 0; height: 20px;
+        }
+
+        /* --- 3. PERSON CARD STYLING --- */
+        .person-card {
+            border: 2px solid #ccc;
+            padding: 10px;
+            border-radius: 8px;
+            background: white;
+            min-width: 70px;
+            position: relative;
+            z-index: 10;
+            transition: all 0.3s ease;
+            cursor: pointer; /* Clickable for quiz */
+            user-select: none;
+        }
+        
+        .male { background-color: #e3f2fd; border-color: #90caf9; color: #1565c0; }
+        .female { background-color: #fce4ec; border-color: #f48fb1; color: #ad1457; }
+
+        .person-card:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         
         /* Married Styling */
-        .has-spouse { cursor: pointer; border-width: 3px; }
-        .has-spouse:hover { transform: scale(1.05); transition: 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-        .ring-icon { position: absolute; top: -10px; right: -10px; font-size: 20px; background: #fff; border-radius: 50%; padding: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .has-spouse { border-width: 3px; }
+        .ring-icon {
+            position: absolute; top: -10px; right: -8px;
+            font-size: 16px; background: #fff; border-radius: 50%;
+            padding: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
 
-        /* --- Modal --- */
+        /* Quiz Feedback Styles */
+        .correct-answer { background-color: #d4edda !important; border-color: #28a745 !important; transform: scale(1.1); }
+        .wrong-answer { animation: shake 0.5s; background-color: #f8d7da !important; border-color: #dc3545 !important; }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+
+        /* --- 4. MODAL (SPOUSE TREE) --- */
         .modal {
             display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.6); overflow: auto;
+            background-color: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
         }
         .modal-content {
-            background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888;
-            width: 90%; max-width: 1000px; border-radius: 10px; position: relative; min-height: 400px;
-            text-align: center;
+            background-color: #fefefe; margin: 5vh auto; padding: 20px;
+            border: 1px solid #888; width: 95%; max-width: 900px;
+            border-radius: 12px; position: relative; overflow-x: auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         }
         .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
         .close:hover { color: black; }
-        .modal-title { font-size: 1.2rem; margin-bottom: 20px; color: #555; }
+
+        /* --- 5. QUIZ BAR (FOOTER) --- */
+        #quiz-bar {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: #fff; border-top: 1px solid #ddd;
+            padding: 20px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            display: none; /* Hidden by default */
+            z-index: 200;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #quiz-text { font-size: 1.2rem; color: #333; margin-bottom: 10px; font-weight: 500; }
+        #quiz-status { font-weight: bold; font-size: 1rem; height: 1.2rem; }
+        .status-correct { color: #28a745; }
+        .status-wrong { color: #dc3545; }
 
     </style>
 </head>
 <body>
 
     <h1>Blood Relations Generator</h1>
-    <button onclick="initApp()">Generate New Family</button>
-    <p style="color:#666; margin-bottom: 20px;">Click on cards with a 💍 to see the Spouse's family tree.</p>
+    <p class="subtitle">Click 💍 to see In-Laws. Click "Ask Question" to start a puzzle.</p>
+    
+    <div class="controls">
+        <button class="btn-gen" onclick="initApp()">🔄 New Family</button>
+        <button class="btn-ask" onclick="generateQuestion()">❓ Ask Question</button>
+    </div>
 
     <div class="tree" id="main-tree"></div>
 
     <div id="spouseModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal()">&times;</span>
-            <h2 id="modal-title" class="modal-title">Family Tree</h2>
+            <h3 id="modal-title" style="margin-bottom: 20px;">Family Tree</h3>
             <div class="tree" id="modal-tree"></div>
         </div>
     </div>
 
+    <div id="quiz-bar" style="display:none;">
+        <div id="quiz-text">Loading question...</div>
+        <div id="quiz-status"></div>
+    </div>
+
     <script>
-        // --- CONFIG ---
-        const MAIN_DEPTH = 3;
-        let globalNameIndex = 0; 
+        // ==========================================
+        // 1. CONFIGURATION
+        // ==========================================
+        const CONFIG = {
+            MAIN_DEPTH: 3,
+            SPOUSE_DEPTH: 2, // Keep in-law trees simpler
+            SURVIVOR_CHANCE: 1.0 // Root is always survivor
+        };
 
-        // --- DATA STRUCTURES ---
+        let globalNameIndex = 0;
+        let allPeopleMap = new Map(); // Global registry for O(1) lookups
+        
+        // Quiz State
+        let currentQuizAnswerId = null;
+        let isQuizActive = false;
 
+        // ==========================================
+        // 2. DATA LOGIC (The Brains)
+        // ==========================================
         class Person {
             constructor(depth, isSurvivor = false, context = 'MAIN_TREE') {
                 this.id = this.generateName();
@@ -85,15 +191,15 @@
                 this.children = [];
                 this.spouse = null;
                 this.parents = [];
-                this.familyRoot = this; // Default: I am the root of my own subtree unless updated
+                this.familyRoot = this; // Pointer to the top of my specific tree
                 
-                // Generate Children (Recursion)
+                // Recursively generate descendants
                 if (depth > 0) {
                     this.generateChildren(depth, isSurvivor, context);
                 }
 
-                // Generate Spouse (Only for Main Tree to avoid infinite loops)
-                // 30% chance to be married if in main tree
+                // Randomly assign spouse (Only Main Tree generates spouses to prevent infinite loop)
+                // 30% Chance to be married
                 if (context === 'MAIN_TREE' && Math.random() > 0.3) {
                     this.assignSpouse();
                 }
@@ -110,59 +216,59 @@
             }
 
             generateChildren(depth, isSurvivor, context) {
+                // Random 0-2 children
                 let count = Math.floor(Math.random() * 3); 
+                
+                // Rule: Survivors MUST have children to ensure tree reaches depth 0
                 if (isSurvivor && count === 0) count = 1;
                 
+                // Rule: One child inherits the survivor trait
                 let survivorChildIndex = isSurvivor ? Math.floor(Math.random() * count) : -1;
 
                 for (let i = 0; i < count; i++) {
                     const childIsSurvivor = (i === survivorChildIndex);
                     const child = new Person(depth - 1, childIsSurvivor, context);
                     
+                    // Link Parent/Child
                     child.parents.push(this);
-                    // Child belongs to same family tree as parent
                     child.familyRoot = this.familyRoot; 
-                    
                     this.children.push(child);
                 }
             }
 
             assignSpouse() {
                 const requiredGender = this.gender === 'Male' ? 'Female' : 'Male';
-                const spouseDepth = Math.random() > 0.5 ? 1 : 2; // Shallow depth for in-laws
+                const spouseDepth = Math.random() > 0.5 ? 1 : 2; 
                 
-                // Generate a separate family tree for the spouse
+                // Factory Call: Create a new family tree for the spouse
                 const spouseFamily = generateSpouseFamily(spouseDepth, requiredGender);
                 
                 if (spouseFamily.spouseNode) {
                     const newSpouse = spouseFamily.spouseNode;
                     
-                    // Link them
+                    // Link Couple
                     this.spouse = newSpouse;
                     newSpouse.spouse = this;
                     
-                    // Spouse adopts children
+                    // Merge Children: Spouse "adopts" existing children
                     newSpouse.children = this.children; 
                     this.children.forEach(c => c.parents.push(newSpouse));
                 }
             }
         }
 
-        // --- HELPER: Spouse Tree Factory ---
+        // Factory: Generates a small tree and picks a node to be the spouse
         function generateSpouseFamily(depth, targetGender) {
-            // 1. Create a temporary Root for the spouse's family
-            // Context is 'SPOUSE_TREE' so they don't generate their own spouses recursively
             const root = new Person(depth, true, 'SPOUSE_TREE');
             
-            // 2. Find a candidate
+            // Find a suitable candidate in this new tree
             const candidates = getAllDescendants(root).filter(p => p.gender === targetGender && !p.spouse);
             
             let selectedSpouse = null;
-
             if (candidates.length > 0) {
                 selectedSpouse = candidates[Math.floor(Math.random() * candidates.length)];
             } else {
-                // Force swap gender of a leaf node if luck failed us
+                // Fallback: Force gender swap on a leaf if random generation failed us
                 const allNodes = getAllDescendants(root);
                 if(allNodes.length > 0) {
                     selectedSpouse = allNodes[0];
@@ -170,64 +276,151 @@
                 }
             }
 
-            // Ensure the spouse knows their own family root (for the Modal)
-            if(selectedSpouse) {
-                // Propagate the root down to everyone in this new tree
-                // (Our simple recursion in constructor did this, but let's be safe)
-                propagateFamilyRoot(root, root);
-            }
+            // Propagate the family root for modal rendering
+            if(selectedSpouse) propagateFamilyRoot(root, root);
 
             return { rootNode: root, spouseNode: selectedSpouse };
         }
 
-        function getAllDescendants(node) {
-            let list = [node];
-            node.children.forEach(c => list = list.concat(getAllDescendants(c)));
-            return list;
+        // ==========================================
+        // 3. RELATIONSHIP ENGINE (The Solver)
+        // ==========================================
+        
+        const MOVES = {
+            'PARENT': (p) => p.parents,
+            'CHILD': (p) => p.children,
+            'SPOUSE': (p) => p.spouse ? [p.spouse] : [],
+            'SIBLING': (p) => {
+                if (p.parents.length === 0) return [];
+                let siblings = new Set();
+                p.parents.forEach(parent => {
+                    parent.children.forEach(child => {
+                        if (child.id !== p.id) siblings.add(child);
+                    });
+                });
+                return Array.from(siblings);
+            }
+        };
+
+        const RELATIONSHIP_TEMPLATES = [
+            { path: ['PARENT'], label: 'Parent' },
+            { path: ['CHILD'], label: 'Child' },
+            { path: ['SIBLING'], label: 'Sibling' },
+            { path: ['SPOUSE'], label: 'Spouse' },
+            { path: ['PARENT', 'PARENT'], label: 'Grandparent' },
+            { path: ['CHILD', 'CHILD'], label: 'Grandchild' },
+            { path: ['PARENT', 'SIBLING'], label: 'Paternal/Maternal Uncle/Aunt' },
+            { path: ['SIBLING', 'CHILD'], label: 'Nephew/Niece' },
+            { path: ['SPOUSE', 'PARENT'], label: 'Parent-in-law' },
+            { path: ['SPOUSE', 'SIBLING'], label: 'Sibling-in-law' },
+            { path: ['SIBLING', 'SPOUSE'], label: 'Sibling-in-law' }
+        ];
+
+        function formatRelationship(baseLabel, targetPerson) {
+            const isMale = targetPerson.gender === 'Male';
+            const map = {
+                'Parent': isMale ? 'Father' : 'Mother',
+                'Child': isMale ? 'Son' : 'Daughter',
+                'Sibling': isMale ? 'Brother' : 'Sister',
+                'Spouse': isMale ? 'Husband' : 'Wife',
+                'Grandparent': isMale ? 'Grandfather' : 'Grandmother',
+                'Grandchild': isMale ? 'Grandson' : 'Granddaughter',
+                'Paternal/Maternal Uncle/Aunt': isMale ? 'Uncle' : 'Aunt',
+                'Nephew/Niece': isMale ? 'Nephew' : 'Niece',
+                'Parent-in-law': isMale ? 'Father-in-law' : 'Mother-in-law',
+                'Sibling-in-law': isMale ? 'Brother-in-law' : 'Sister-in-law'
+            };
+            return map[baseLabel] || baseLabel;
         }
 
-        function propagateFamilyRoot(node, root) {
-            node.familyRoot = root;
-            node.children.forEach(c => propagateFamilyRoot(c, root));
+        function generateQuestion() {
+            const people = Array.from(allPeopleMap.values());
+            if (people.length < 2) return;
+
+            // Shuffle people and templates for randomness
+            const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
+            
+            for (const startNode of shuffledPeople) {
+                const shuffledTemplates = [...RELATIONSHIP_TEMPLATES].sort(() => 0.5 - Math.random());
+
+                for (const template of shuffledTemplates) {
+                    // Traverse
+                    let currentNodes = [startNode];
+                    let failed = false;
+
+                    for (const move of template.path) {
+                        let nextNodes = [];
+                        currentNodes.forEach(node => {
+                            if (MOVES[move]) nextNodes = nextNodes.concat(MOVES[move](node));
+                        });
+                        if (nextNodes.length === 0) { failed = true; break; }
+                        currentNodes = nextNodes;
+                    }
+
+                    if (failed) continue;
+
+                    // Filter valid targets (not self)
+                    const validTargets = currentNodes.filter(n => n.id !== startNode.id);
+                    if (validTargets.length > 0) {
+                        const targetNode = validTargets[Math.floor(Math.random() * validTargets.length)];
+                        const relName = formatRelationship(template.label, targetNode);
+                        
+                        startQuizMode(startNode, targetNode, relName);
+                        return;
+                    }
+                }
+            }
+            alert("Could not generate a tricky enough question for this family. Try 'New Family'!");
         }
 
+        // ==========================================
+        // 4. RENDERING & UI
+        // ==========================================
 
-        // --- RENDERING ---
-
-        function renderTreeHTML(person) {
+        function renderTreeHTML(person, isModal = false) {
             const li = document.createElement('li');
             const card = document.createElement('div');
             
-            // CSS Classes
             let classes = `person-card ${person.gender.toLowerCase()}`;
-            let clickAction = "";
             let ringHTML = "";
 
             if (person.spouse) {
                 classes += " has-spouse";
-                // When clicked, show the SPOUSE'S family root
-                clickAction = `onclick="openModal('${person.spouse.familyRoot.id}', '${person.spouse.id}')"`;
-                ringHTML = `<div class="ring-icon">💍</div>`;
+                ringHTML = `<div class="ring-icon" title="View Spouse Family">💍</div>`;
             }
 
             card.className = classes;
-            // Hacky way to store object reference for the modal lookup, 
-            // in a real app we'd use a Map or store by ID.
-            // For this vanilla JS demo, we'll iterate to find the ID.
-            card.innerHTML = `
-                <div ${clickAction}>
-                    ${ringHTML}
-                    <strong>${person.id}</strong><br>
-                    <small>${person.gender}</small>
-                </div>
-            `;
+            card.setAttribute('data-id', person.id); // For quiz checking
             
+            // Interaction: Quiz Click vs Modal Click
+            // If clicking the Ring Icon -> Open Modal
+            // If clicking the Card Body -> Check Answer (if quiz active)
+            
+            const cardContent = `
+                <strong>${person.id}</strong><br>
+                <small>${person.gender}</small>
+                ${ringHTML}
+            `;
+            card.innerHTML = cardContent;
+
+            // Event Delegation handling
+            card.onclick = (e) => {
+                e.stopPropagation();
+                // If clicking the ring icon specifically
+                if (e.target.classList.contains('ring-icon')) {
+                    if (person.spouse) openModal(person.spouse.familyRoot.id, person.spouse.id);
+                    return;
+                }
+                // Otherwise treat as node click
+                handleNodeClick(person.id);
+            };
+
             li.appendChild(card);
 
             if (person.children.length > 0) {
                 const ul = document.createElement('ul');
                 person.children.forEach(child => {
-                    ul.appendChild(renderTreeHTML(child));
+                    ul.appendChild(renderTreeHTML(child, isModal));
                 });
                 li.appendChild(ul);
             }
@@ -235,18 +428,62 @@
             return li;
         }
 
-        // --- GLOBAL STATE & MODAL HANDLING ---
-        
-        let allPeopleMap = new Map(); // To look up objects by ID
+        // --- UI ACTIONS ---
+
+        function handleNodeClick(id) {
+            if (!isQuizActive) return;
+
+            const card = document.querySelector(`.person-card[data-id="${id}"]`);
+            const statusDiv = document.getElementById('quiz-status');
+
+            if (id === currentQuizAnswerId) {
+                // Correct
+                card.classList.add('correct-answer');
+                statusDiv.innerHTML = "<span class='status-correct'>✅ Correct!</span>";
+                confettiEffect(); // Optional flare
+                setTimeout(() => { isQuizActive = false; document.getElementById('quiz-bar').style.display = 'none'; }, 3000);
+            } else {
+                // Wrong
+                card.classList.add('wrong-answer');
+                statusDiv.innerHTML = "<span class='status-wrong'>❌ Try again!</span>";
+                setTimeout(() => card.classList.remove('wrong-answer'), 500);
+            }
+        }
+
+        function startQuizMode(p1, target, relationship) {
+            isQuizActive = true;
+            currentQuizAnswerId = target.id;
+            
+            // Clean up previous highlights
+            document.querySelectorAll('.person-card').forEach(el => {
+                el.classList.remove('correct-answer', 'wrong-answer');
+            });
+
+            const bar = document.getElementById('quiz-bar');
+            const text = document.getElementById('quiz-text');
+            const status = document.getElementById('quiz-status');
+
+            bar.style.display = 'flex';
+            // Example: "Who is the Father of A?"
+            text.innerHTML = `Who is the <b>${relationship}</b> of <b>${p1.id}</b>?`;
+            status.innerHTML = "Click the person in the tree.";
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function confettiEffect() {
+            // Simple visual cue
+            document.body.style.backgroundColor = "#e8f5e9";
+            setTimeout(() => document.body.style.backgroundColor = "#f0f2f5", 500);
+        }
+
+        // --- APP STATE MGMT ---
 
         function cacheAllPeople(node) {
             allPeopleMap.set(node.id, node);
             node.children.forEach(c => cacheAllPeople(c));
-            if(node.spouse) {
-                 // Also cache the spouse's family tree nodes
-                 // We need to traverse the spouse's family root
-                 cacheSpouseTree(node.spouse.familyRoot);
-            }
+            if(node.spouse) cacheSpouseTree(node.spouse.familyRoot);
         }
 
         function cacheSpouseTree(node) {
@@ -256,11 +493,24 @@
             }
         }
 
+        function getAllDescendants(node) {
+            let list = [node];
+            node.children.forEach(c => list = list.concat(getAllDescendants(c)));
+            return list;
+        }
+        
+        function propagateFamilyRoot(node, root) {
+            node.familyRoot = root;
+            node.children.forEach(c => propagateFamilyRoot(c, root));
+        }
+
         function initApp() {
             globalNameIndex = 0;
             allPeopleMap.clear();
+            isQuizActive = false;
+            document.getElementById('quiz-bar').style.display = 'none';
             
-            const rootPerson = new Person(MAIN_DEPTH, true, 'MAIN_TREE');
+            const rootPerson = new Person(CONFIG.MAIN_DEPTH, true, 'MAIN_TREE');
             cacheAllPeople(rootPerson);
 
             const container = document.getElementById('main-tree');
@@ -271,10 +521,11 @@
             container.appendChild(ul);
         }
 
+        // --- MODAL CONTROLS ---
+
         function openModal(familyRootId, spouseId) {
             const rootNode = allPeopleMap.get(familyRootId);
             const spouseNode = allPeopleMap.get(spouseId);
-
             if(!rootNode) return;
 
             const modal = document.getElementById('spouseModal');
@@ -282,10 +533,10 @@
             const title = document.getElementById('modal-title');
 
             container.innerHTML = '';
-            title.innerText = `Family of Spouse ${spouseNode.id}`;
+            title.innerText = `Family Tree of Spouse ${spouseNode.id}`;
             
             const ul = document.createElement('ul');
-            ul.appendChild(renderTreeHTML(rootNode));
+            ul.appendChild(renderTreeHTML(rootNode, true)); // true = isModal
             container.appendChild(ul);
 
             modal.style.display = "block";
@@ -295,12 +546,9 @@
             document.getElementById('spouseModal').style.display = "none";
         }
         
-        // Close modal if clicking outside content
         window.onclick = function(event) {
             const modal = document.getElementById('spouseModal');
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
+            if (event.target == modal) modal.style.display = "none";
         }
 
         // Start
