@@ -115,95 +115,99 @@
         </div>
 
     <script>
-        // --- 1. Configuration & State ---
-        const MAX_DEPTH = 3; 
-        const MIN_CHILDREN = 0;
-        const MAX_CHILDREN = 2;
-        let globalNameIndex = 0; // To assign unique names (A, B, C...)
+   // --- 1. Configuration & State ---
+const MAX_DEPTH = 3; 
+const MIN_CHILDREN = 0;
+const MAX_CHILDREN = 2;
+let globalNameIndex = 0; 
 
-        // --- 2. Data Structure ---
-        class Person {
-            constructor(depth) {
-                this.id = this.generateName();
-                this.gender = Math.random() > 0.5 ? 'Male' : 'Female';
-                this.children = [];
-                
-                // If we haven't hit depth 0, generate children
-                if (depth > 0) {
-                    this.generateChildren(depth);
-                }
-            }
-
-            generateName() {
-                // Generates A, B... Z, AA, AB...
-                let name = "";
-                let index = globalNameIndex++;
-                do {
-                    name = String.fromCharCode(65 + (index % 26)) + name;
-                    index = Math.floor(index / 26) - 1;
-                } while (index >= 0);
-                return name;
-            }
-
-            generateChildren(currentDepth) {
-                // Randomly decide number of children (0, 1, or 2)
-                const count = Math.floor(Math.random() * (MAX_CHILDREN - MIN_CHILDREN + 1)) + MIN_CHILDREN;
-                
-                for (let i = 0; i < count; i++) {
-                    // Recursive call with decremented depth
-                    this.children.push(new Person(currentDepth - 1));
-                }
-            }
-        }
-
-        // --- 3. Rendering Logic ---
+// --- 2. Data Structure ---
+class Person {
+    // Added 'isSurvivor' parameter to force lineage continuity
+    constructor(depth, isSurvivor = false) {
+        this.id = this.generateName();
+        this.gender = Math.random() > 0.5 ? 'Male' : 'Female';
+        this.children = [];
         
-        // Recursive function to build HTML list structure
-        function renderTreeHTML(person) {
-            const li = document.createElement('li');
-            
-            // Create the UI card for the person
-            const card = document.createElement('div');
-            card.className = `person-card ${person.gender.toLowerCase()}`;
-            card.innerHTML = `
-                <strong>${person.id}</strong><br>
-                <small>${person.gender}</small>
-            `;
-            li.appendChild(card);
+        if (depth > 0) {
+            this.generateChildren(depth, isSurvivor);
+        }
+    }
 
-            // If children exist, create a nested UL
-            if (person.children.length > 0) {
-                const ul = document.createElement('ul');
-                person.children.forEach(child => {
-                    ul.appendChild(renderTreeHTML(child));
-                });
-                li.appendChild(ul);
-            }
+    generateName() {
+        let name = "";
+        let index = globalNameIndex++;
+        do {
+            name = String.fromCharCode(65 + (index % 26)) + name;
+            index = Math.floor(index / 26) - 1;
+        } while (index >= 0);
+        return name;
+    }
 
-            return li;
+    generateChildren(currentDepth, isSurvivor) {
+        let count = Math.floor(Math.random() * (MAX_CHILDREN - MIN_CHILDREN + 1)) + MIN_CHILDREN;
+
+        // RULE 1: If this node is a Survivor, it CANNOT have 0 children.
+        // We force at least 1 child.
+        if (isSurvivor && count === 0) {
+            count = 1;
         }
 
-        // --- 4. Initialization ---
-        function initApp() {
-            // Reset global naming counter
-            globalNameIndex = 0;
-            
-            // Create Root Node (Depth 3 as requested)
-            // Note: The prompt says "Start with Node A and Depth 3... repeat until depth is 0"
-            // This implies the root is at 3, its children are at 2, etc.
-            const rootPerson = new Person(MAX_DEPTH);
-
-            // Render
-            const treeContainer = document.getElementById('tree-display');
-            treeContainer.innerHTML = ''; // Clear previous
-            
-            const rootUl = document.createElement('ul');
-            rootUl.appendChild(renderTreeHTML(rootPerson));
-            treeContainer.appendChild(rootUl);
+        // RULE 2: If this is a Survivor node, one of its children must also be a Survivor
+        // to carry the torch to the next level. We pick that child randomly.
+        let survivorChildIndex = -1;
+        if (isSurvivor) {
+            survivorChildIndex = Math.floor(Math.random() * count);
         }
 
-        // Run on load
-        initApp();
+        for (let i = 0; i < count; i++) {
+            // Only the chosen child inherits the survivor status
+            const childIsSurvivor = (i === survivorChildIndex);
+            this.children.push(new Person(currentDepth - 1, childIsSurvivor));
+        }
+    }
+}
+
+// --- 3. Rendering Logic (Same as before) ---
+function renderTreeHTML(person) {
+    const li = document.createElement('li');
+    
+    const card = document.createElement('div');
+    card.className = `person-card ${person.gender.toLowerCase()}`;
+    card.innerHTML = `
+        <strong>${person.id}</strong><br>
+        <small>${person.gender}</small>
+    `;
+    li.appendChild(card);
+
+    if (person.children.length > 0) {
+        const ul = document.createElement('ul');
+        person.children.forEach(child => {
+            ul.appendChild(renderTreeHTML(child));
+        });
+        li.appendChild(ul);
+    }
+
+    return li;
+}
+
+// --- 4. Initialization ---
+function initApp() {
+    globalNameIndex = 0;
+    
+    // We start the root as a "Survivor" (true) so the tree is guaranteed to start
+    const rootPerson = new Person(MAX_DEPTH, true);
+
+    const treeContainer = document.getElementById('tree-display');
+    treeContainer.innerHTML = '';
+    
+    const rootUl = document.createElement('ul');
+    rootUl.appendChild(renderTreeHTML(rootPerson));
+    treeContainer.appendChild(rootUl);
+}
+
+// Run on load
+initApp();
 
     </script>
 </body>
