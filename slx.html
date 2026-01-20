@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algebraic Equation Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Lora:ital,wght@1,600&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1a1a1a;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* --- Node Styles --- */
+        .node {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: white;
+            user-select: none;
+            z-index: 20;
+        }
+
+        .node-operator {
+            border-color: #cbd5e1;
+            color: #64748b;
+            background-color: #f8fafc;
+        }
+
+        .node-operand {
+            border-color: #94a3b8;
+            color: #334155;
+            background-color: #ffffff;
+        }
+
+        /* The Variable X Style */
+        .node-variable {
+            border-color: #7c3aed; /* Violet-600 */
+            color: #7c3aed;
+            background-color: #f5f3ff; /* Violet-50 */
+            font-family: 'Lora', serif;
+            font-style: italic;
+            font-weight: 600;
+            box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.1);
+        }
+
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            vertical-align: middle;
+            text-align: center;
+            line-height: 1.1;
+            font-size: 0.85em;
+        }
+        .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
+
+        /* --- Canvas --- */
+        .tree-viewport { overflow: auto; background-color: #f8fafc; }
+        
+        #treeContainer {
+            min-width: 2000px; 
+            min-height: 1500px;
+            display: grid;
+            place-items: center;
+            padding: 100px;
+        }
+
+        .connector {
+            stroke: #cbd5e1;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        /* --- Expression View --- */
+        .expression-view-active #treeContainer {
+            display: flex;
+            min-width: auto;
+            min-height: auto;
+            height: 100%;
+            width: 100%;
+            background: none;
+        }
+
+        .expression-view-active #treeContent {
+            display: flex;
+            flex-wrap: wrap; 
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            max-width: 1000px;
+        }
+
+        .expression-bracket {
+            font-size: 2.5rem;
+            color: #94a3b8;
+            font-weight: 300;
+        }
+        
+        .equals-sign {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #334155;
+            margin: 0 20px;
+        }
+
+        .result-display {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #0f172a;
+            padding: 10px 20px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <header class="fixed top-0 left-0 right-0 p-4 border-b bg-white/90 backdrop-blur-md z-50 flex justify-between items-center shadow-sm">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col">
+                <h1 class="text-sm font-bold tracking-tight text-gray-800 uppercase">Algebra Generator</h1>
+                <span class="text-[10px] text-gray-500">Find the value of x</span>
+            </div>
+            
+            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium ml-4">
+                <button id="viewTreeBtn" class="px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all">Tree View</button>
+                <button id="viewExprBtn" class="px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all">Linear View</button>
+            </div>
+        </div>
+
+        <button id="regenerateBtn" class="bg-violet-600 text-white px-5 py-2 rounded-md text-sm font-medium hover:bg-violet-700 transition-colors shadow-sm flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16l5-5"/><path d="M21 21v-5h-5"/></svg>
+            Generate New Equation
+        </button>
+    </header>
+
+    <main class="flex-grow relative overflow-hidden flex flex-col pt-16">
+        <div id="treeViewport" class="tree-viewport flex-grow overflow-auto relative w-full cursor-grab active:cursor-grabbing">
+            <div id="treeContainer" class="relative">
+                <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+                <div id="treeContent" class="relative z-10"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 p-6 flex justify-center z-50 pointer-events-none">
+        <div class="pointer-events-auto bg-white/95 backdrop-blur border border-gray-200 p-4 rounded-xl shadow-lg max-w-3xl w-full text-center transform transition-all hover:scale-105">
+            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1 tracking-wider">The Equation</div>
+            <div id="expressionText" class="text-xl md:text-2xl font-medium text-gray-800 font-mono flex items-center justify-center gap-2"></div>
+        </div>
+    </footer>
+
+    <script>
+        // --- Configuration ---
+        const config = {
+            maxDepth: 3, 
+            allowFractions: false // Set to true if you want fractional operands
+        };
+
+        // --- Math Logic ---
+        const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { a %= b; [a, b] = [b, a]; } return a; };
+        
+        const simplify = (n, d) => {
+            if (d === 0) return { n: 0, d: 1 }; // Safety
+            const common = gcd(n, d);
+            let finalN = n / common;
+            let finalD = d / common;
+            if (finalD < 0) { finalN = -finalN; finalD = -finalD; }
+            return { n: finalN, d: finalD };
+        };
+
+        const fracOps = {
+            '+': (a, b) => simplify(a.n * b.d + b.n * a.d, a.d * b.d),
+            '-': (a, b) => simplify(a.n * b.d - b.n * a.d, a.d * b.d),
+            '×': (a, b) => simplify(a.n * b.n, a.d * b.d),
+            '÷': (a, b) => simplify(a.n * b.d, a.d * b.n)
+        };
+
+        // --- State ---
+        let treeData = null;
+        let finalResult = null;
+        let currentView = 'tree'; 
+
+        // --- Generation Logic ---
+
+        function generateRandomTree(depth = 0) {
+            const id = 'node-' + Math.random().toString(36).substr(2, 9);
+            // Leaf condition
+            const isLeaf = depth >= config.maxDepth || (depth > 0 && Math.random() > 0.4);
+            
+            if (isLeaf) {
+                // Generate random number
+                let val = { 
+                    n: Math.floor(Math.random() * 10) + 1, 
+                    d: !config.allowFractions ? 1 : (Math.random() < 0.5 ? 1 : Math.floor(Math.random() * 8) + 2) 
+                };
+                return { id, type: 'operand', value: val };
+            } else {
+                // Generate Operator
+                const symbols = Object.keys(fracOps);
+                // Reduce chance of division to avoid messy fractions too often
+                const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+                
+                return { 
+                    id, 
+                    type: 'operator', 
+                    value: symbol, 
+                    left: generateRandomTree(depth + 1), 
+                    right: generateRandomTree(depth + 1) 
+                };
+            }
+        }
+
+        // Recursively calculate the total value of the tree
+        function calculateTreeValue(node) {
+            if (node.type === 'operand') return node.value;
+            
+            const leftVal = calculateTreeValue(node.left);
+            const rightVal = calculateTreeValue(node.right);
+            
+            return fracOps[node.value](leftVal, rightVal);
+        }
+
+        // Find all leaves, pick one, and turn it into 'x'
+        function injectVariable(root) {
+            let leaves = [];
+            
+            function traverse(node) {
+                if (node.type === 'operand') {
+                    leaves.push(node);
+                } else {
+                    traverse(node.left);
+                    traverse(node.right);
+                }
+            }
+            
+            traverse(root);
+            
+            if (leaves.length > 0) {
+                const randomLeaf = leaves[Math.floor(Math.random() * leaves.length)];
+                randomLeaf.type = 'variable';
+                randomLeaf.originalValue = randomLeaf.value;
+                randomLeaf.value = 'x'; // Value becomes string 'x'
+            }
+        }
+
+        // --- Formatting Helpers ---
+        function formatFractionText(f) {
+            if (f === 'x') return 'x';
+            if (typeof f === 'object') {
+                return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`;
+            }
+            return f;
+        }
+
+        function getPrecedence(op) {
+            if (op === '×' || op === '÷') return 2;
+            if (op === '+' || op === '-') return 1;
+            return 0;
+        }
+
+        // --- String Generator ---
+        function getExpressionString(node) {
+            if (node.type === 'operand' || node.type === 'variable') {
+                return formatFractionText(node.value);
+            }
+            
+            const currentPrec = getPrecedence(node.value);
+            let leftExpr = getExpressionString(node.left);
+            let rightExpr = getExpressionString(node.right);
+
+            if (node.left.type === 'operator') {
+                if (getPrecedence(node.left.value) < currentPrec) leftExpr = `(${leftExpr})`;
+            }
+
+            // Handle non-associative or equal precedence on right
+            if (node.right.type === 'operator') {
+                const rightPrec = getPrecedence(node.right.value);
+                if (rightPrec <= currentPrec) rightExpr = `(${rightExpr})`;
+            }
+            
+            return `${leftExpr} ${node.value} ${rightExpr}`;
+        }
+
+        // --- Flat Node Generator (for Linear View) ---
+        function getExpressionNodes(node) {
+            if (node.type === 'operand' || node.type === 'variable') {
+                return [{ type: node.type, source: node }];
+            }
+
+            const currentPrec = getPrecedence(node.value);
+            let leftNodes = getExpressionNodes(node.left);
+            let rightNodes = getExpressionNodes(node.right);
+
+            // Add brackets if needed
+            if (node.left.type === 'operator') {
+                if (getPrecedence(node.left.value) < currentPrec) {
+                    leftNodes = [{type: 'bracket', value: '('}, ...leftNodes, {type: 'bracket', value: ')'}];
+                }
+            }
+
+            if (node.right.type === 'operator') {
+                const rightPrec = getPrecedence(node.right.value);
+                if (rightPrec <= currentPrec) {
+                    rightNodes = [{type: 'bracket', value: '('}, ...rightNodes, {type: 'bracket', value: ')'}];
+                }
+            }
+            return [...leftNodes, { type: 'operator', source: node }, ...rightNodes];
+        }
+
+        // --- DOM Builders ---
+
+        function createNodeDOM(node) {
+            const div = document.createElement('div');
+            
+            const baseClass = "node rounded-full flex items-center justify-center shrink-0 border-2 shadow-sm relative transition-transform hover:scale-110";
+            const sizeClass = "w-12 h-12 md:w-16 md:h-16 text-xl md:text-2xl"; 
+            
+            let typeClass = "";
+            let content = "";
+
+            if (node.type === 'variable') {
+                typeClass = "node-variable";
+                content = "x";
+            } else if (node.type === 'operand') {
+                typeClass = "node-operand";
+                const f = node.value;
+                content = f.d === 1 ? `<span>${f.n}</span>` : `<div class="frac"><span class="top">${f.n}</span><span class="bottom">${f.d}</span></div>`;
+            } else {
+                typeClass = "node-operator";
+                content = node.value;
+            }
+
+            div.className = `${baseClass} ${sizeClass} ${typeClass}`;
+            div.id = node.id;
+            div.innerHTML = content;
+
+            return div;
+        }
+
+        // Recursive Tree DOM Builder
+        function buildTreeDOM(node) {
+            const wrapper = document.createElement('div');
+            wrapper.className = "flex flex-col items-center";
+
+            wrapper.appendChild(createNodeDOM(node));
+
+            if (node.type === 'operator') {
+                const childrenWrapper = document.createElement('div');
+                childrenWrapper.className = "flex gap-8 md:gap-16 mt-16 md:mt-24";
+                childrenWrapper.appendChild(buildTreeDOM(node.left));
+                childrenWrapper.appendChild(buildTreeDOM(node.right));
+                wrapper.appendChild(childrenWrapper);
+            }
+            return wrapper;
+        }
+
+        // --- SVG Connectors ---
+        function drawConnectors(node) {
+            if (node.type !== 'operator') return;
+            
+            const p = document.getElementById(node.id);
+            const l = document.getElementById(node.left.id);
+            const r = document.getElementById(node.right.id);
+
+            if (p && l && r) { 
+                drawLine(p, l); 
+                drawLine(p, r); 
+            }
+            drawConnectors(node.left); 
+            drawConnectors(node.right);
+        }
+
+        function drawLine(el1, el2) {
+            const svg = document.getElementById('svgConnectors');
+            const containerRect = document.getElementById('treeContainer').getBoundingClientRect();
+            
+            const r1 = el1.getBoundingClientRect();
+            const r2 = el2.getBoundingClientRect();
+            
+            const x1 = r1.left + r1.width / 2 - containerRect.left; 
+            const y1 = r1.top + r1.height / 2 - containerRect.top;
+            const x2 = r2.left + r2.width / 2 - containerRect.left; 
+            const y2 = r2.top + r2.height / 2 - containerRect.top;
+
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+            line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+            line.setAttribute('class', 'connector');
+            svg.appendChild(line);
+        }
+
+        // --- Main Render Function ---
+        function render() {
+            const container = document.getElementById('treeContent');
+            const svg = document.getElementById('svgConnectors');
+            const expressionText = document.getElementById('expressionText');
+
+            // Reset
+            container.innerHTML = '';
+            svg.innerHTML = '';
+            
+            // Build Equation String
+            const leftSide = getExpressionString(treeData);
+            const rightSide = formatFractionText(finalResult);
+            
+            // Render Footer text with highlighted parts
+            expressionText.innerHTML = `
+                <span>${leftSide}</span>
+                <span class="text-violet-600 mx-2">=</span>
+                <span class="font-bold">${rightSide}</span>
+            `;
+
+            document.body.className = currentView === 'tree' ? 'tree-view-active' : 'expression-view-active';
+
+            if (currentView === 'tree') {
+                svg.style.display = 'block';
+                container.appendChild(buildTreeDOM(treeData));
+                requestAnimationFrame(() => drawConnectors(treeData));
+            } else {
+                svg.style.display = 'none';
+                
+                // Linear View Layout
+                const flatNodes = getExpressionNodes(treeData);
+                
+                flatNodes.forEach(item => {
+                    if (item.type === 'bracket') {
+                        const span = document.createElement('span');
+                        span.textContent = item.value;
+                        span.className = 'expression-bracket';
+                        container.appendChild(span);
+                    } else {
+                        container.appendChild(createNodeDOM(item.source));
+                    }
+                });
+
+                // Add Equals and Result node to linear view
+                const equals = document.createElement('div');
+                equals.className = 'equals-sign';
+                equals.textContent = '=';
+                container.appendChild(equals);
+
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'result-display';
+                const f = finalResult;
+                resultDiv.innerHTML = f.d === 1 ? f.n : `<div class="frac"><span class="top">${f.n}</span><span class="bottom">${f.d}</span></div>`;
+                container.appendChild(resultDiv);
+            }
+        }
+
+        function centerView() {
+            const vp = document.getElementById('treeViewport');
+            const content = document.getElementById('treeContainer');
+            // Slight delay to ensure layout is calculated
+            setTimeout(() => {
+                vp.scrollLeft = (content.offsetWidth - vp.offsetWidth) / 2;
+                vp.scrollTop = (content.offsetHeight - vp.offsetHeight) / 2; 
+            }, 10);
+        }
+
+        function createNewEquation() {
+            // 1. Generate Tree (Numbers only)
+            treeData = generateRandomTree(0);
+            
+            // 2. Evaluate it to get the "Answer"
+            finalResult = calculateTreeValue(treeData);
+            
+            // 3. Swap a node for 'x'
+            injectVariable(treeData);
+            
+            render();
+            centerView();
+        }
+
+        // --- Initialization ---
+        window.onload = () => {
+            createNewEquation();
+
+            document.getElementById('regenerateBtn').onclick = createNewEquation;
+
+            const btnTree = document.getElementById('viewTreeBtn');
+            const btnExpr = document.getElementById('viewExprBtn');
+
+            const updateViewUI = () => {
+                if (currentView === 'tree') {
+                    btnTree.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
+                    btnExpr.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
+                } else {
+                    btnTree.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
+                    btnExpr.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
+                }
+            };
+
+            btnTree.onclick = () => { currentView = 'tree'; updateViewUI(); render(); centerView(); };
+            btnExpr.onclick = () => { currentView = 'expression'; updateViewUI(); render(); centerView(); };
+
+            window.addEventListener('resize', () => {
+                if (currentView === 'tree') {
+                    const svg = document.getElementById('svgConnectors');
+                    svg.innerHTML = '';
+                    drawConnectors(treeData);
+                }
+            });
+        };
+    </script>
+</body>
+</html>
