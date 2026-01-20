@@ -75,15 +75,16 @@
         }
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
-        /* --- Canvas --- */
+        /* --- Canvas (Unified for Both Views) --- */
         .tree-viewport { overflow: auto; background-color: #f8fafc; }
         
         #treeContainer {
-            min-width: 2000px; 
-            min-height: 1500px;
+            min-width: 2500px; 
+            min-height: 2000px;
             display: grid;
             place-items: center;
             padding: 100px;
+            /* Grid handles centering for both tree and linear content now */
         }
 
         .connector {
@@ -92,23 +93,19 @@
             fill: none;
         }
 
-        /* --- Expression View --- */
-        .expression-view-active #treeContainer {
-            display: flex;
-            min-width: auto;
-            min-height: auto;
-            height: 100%;
-            width: 100%;
-            background: none;
-        }
-
+        /* --- View Specifics --- */
+        
+        /* Tree View: Column layout handled by JS DOM builder */
+        
+        /* Linear View: We force the content container to flow horizontally */
         .expression-view-active #treeContent {
             display: flex;
             flex-wrap: wrap; 
             gap: 12px;
             align-items: center;
             justify-content: center;
-            max-width: 1000px;
+            /* No max-width, let it expand in the large canvas */
+            width: auto; 
         }
 
         .expression-bracket {
@@ -133,6 +130,26 @@
             border: 1px solid #e2e8f0;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Footer Utilities */
+        .answer-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #ecfccb;
+            color: #3f6212;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            border: 1px solid #d9f99d;
+            font-weight: 600;
+            font-size: 0.9rem;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -172,9 +189,20 @@
     </main>
 
     <footer class="fixed bottom-0 left-0 right-0 p-6 flex justify-center z-50 pointer-events-none">
-        <div class="pointer-events-auto bg-white/95 backdrop-blur border border-gray-200 p-4 rounded-xl shadow-lg max-w-3xl w-full text-center transform transition-all hover:scale-105">
-            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1 tracking-wider">Current Equation</div>
-            <div id="expressionText" class="text-xl md:text-2xl font-medium text-gray-800 font-mono flex items-center justify-center gap-2"></div>
+        <div class="pointer-events-auto bg-white/95 backdrop-blur border border-gray-200 p-4 rounded-xl shadow-lg max-w-4xl w-full flex flex-col md:flex-row items-center justify-between gap-4 transition-all">
+            
+            <div class="flex flex-col items-center md:items-start flex-grow">
+                <div class="text-[10px] font-bold uppercase text-gray-400 mb-1 tracking-wider">Current Equation</div>
+                <div id="expressionText" class="text-xl md:text-2xl font-medium text-gray-800 font-mono flex items-center gap-2 flex-wrap justify-center md:justify-start"></div>
+            </div>
+
+            <div class="flex items-center gap-3 pl-4 md:border-l border-gray-200">
+                <div id="answerContainer"></div>
+                <button id="showAnswerBtn" class="text-xs font-semibold text-violet-600 border border-violet-200 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-md transition-colors">
+                    Show Answer
+                </button>
+            </div>
+
         </div>
     </footer>
 
@@ -207,6 +235,8 @@
         // --- State ---
         let treeData = null;
         let finalResult = null;
+        let solutionValue = null; // Stores the value of x
+        let isAnswerShown = false;
         let historyStack = [];
         let currentView = 'tree'; 
 
@@ -252,17 +282,16 @@
             traverse(root);
             if (leaves.length > 0) {
                 const randomLeaf = leaves[Math.floor(Math.random() * leaves.length)];
+                // Store the solution before overwriting
+                solutionValue = randomLeaf.value; 
                 randomLeaf.type = 'variable';
                 randomLeaf.value = 'x'; 
             }
         }
 
-        // --- Evaluation Logic (The Core Request) ---
+        // --- Evaluation Logic ---
         function evaluateAtNode(node, targetId) {
-            // Check if this is the target node
             if (node.id === targetId) {
-                // GUARD: Only evaluate if BOTH children are numbers ('operand')
-                // This implicitly checks for 'x' because x has type 'variable'
                 if (node.left.type === 'operand' && node.right.type === 'operand') {
                     const result = fracOps[node.value](node.left.value, node.right.value);
                     return { 
@@ -271,11 +300,9 @@
                         value: result 
                     };
                 }
-                // If one child is 'variable' or 'operator', do nothing
                 return node;
             }
 
-            // Recursive traversal
             if (node.type === 'operator') {
                 return { 
                     ...node, 
@@ -368,11 +395,7 @@
                 const f = node.value;
                 content = f.d === 1 ? `<span>${f.n}</span>` : `<div class="frac"><span class="top">${f.n}</span><span class="bottom">${f.d}</span></div>`;
             } else {
-                // It's an operator
                 content = node.value;
-                
-                // CHECK: Is this interactive?
-                // Logic: Left is Num AND Right is Num. Neither can be 'x' (type variable) or 'operator'.
                 if (node.left.type === 'operand' && node.right.type === 'operand') {
                     isInteractive = true;
                     typeClass = "node-operator interactive";
@@ -385,7 +408,6 @@
             div.id = node.id;
             div.innerHTML = content;
 
-            // Click Handler
             if (isInteractive) {
                 div.onclick = (e) => {
                     e.stopPropagation();
@@ -445,14 +467,19 @@
             svg.appendChild(line);
         }
 
+        // --- Render Main ---
         function render() {
             const container = document.getElementById('treeContent');
             const svg = document.getElementById('svgConnectors');
             const expressionText = document.getElementById('expressionText');
+            const answerContainer = document.getElementById('answerContainer');
+            const showAnswerBtn = document.getElementById('showAnswerBtn');
 
+            // Reset Content
             container.innerHTML = '';
             svg.innerHTML = '';
             
+            // 1. Footer Equation
             const leftSide = getExpressionString(treeData);
             const rightSide = formatFractionText(finalResult);
             
@@ -462,6 +489,18 @@
                 <span class="font-bold">${rightSide}</span>
             `;
 
+            // 2. Footer Answer Logic
+            if (isAnswerShown && solutionValue) {
+                const val = solutionValue;
+                const valStr = val.d === 1 ? val.n : `${val.n}/${val.d}`;
+                answerContainer.innerHTML = `<div class="answer-pill">x = ${valStr}</div>`;
+                showAnswerBtn.textContent = "Hide Answer";
+            } else {
+                answerContainer.innerHTML = '';
+                showAnswerBtn.textContent = "Show Answer";
+            }
+
+            // 3. View Handling
             document.body.className = currentView === 'tree' ? 'tree-view-active' : 'expression-view-active';
 
             if (currentView === 'tree') {
@@ -469,8 +508,10 @@
                 container.appendChild(buildTreeDOM(treeData));
                 requestAnimationFrame(() => drawConnectors(treeData));
             } else {
+                // Linear View - Uses same large container, but builds flat list
                 svg.style.display = 'none';
                 const flatNodes = getExpressionNodes(treeData);
+                
                 flatNodes.forEach(item => {
                     if (item.type === 'bracket') {
                         const span = document.createElement('span');
@@ -481,6 +522,7 @@
                         container.appendChild(createNodeDOM(item.source));
                     }
                 });
+
                 const equals = document.createElement('div');
                 equals.className = 'equals-sign';
                 equals.textContent = '=';
@@ -505,6 +547,7 @@
 
         function createNewEquation() {
             historyStack = [];
+            isAnswerShown = false; // Reset answer visibility
             updateUndoBtn();
             treeData = generateRandomTree(0);
             finalResult = calculateTreeValue(treeData);
@@ -518,6 +561,12 @@
 
             document.getElementById('regenerateBtn').onclick = createNewEquation;
             document.getElementById('undoBtn').onclick = undo;
+            
+            // Answer Toggle
+            document.getElementById('showAnswerBtn').onclick = () => {
+                isAnswerShown = !isAnswerShown;
+                render();
+            };
 
             const btnTree = document.getElementById('viewTreeBtn');
             const btnExpr = document.getElementById('viewExprBtn');
@@ -532,8 +581,19 @@
                 }
             };
 
-            btnTree.onclick = () => { currentView = 'tree'; updateViewUI(); render(); centerView(); };
-            btnExpr.onclick = () => { currentView = 'expression'; updateViewUI(); render(); centerView(); };
+            btnTree.onclick = () => { 
+                currentView = 'tree'; 
+                updateViewUI(); 
+                render(); 
+                centerView(); 
+            };
+            
+            btnExpr.onclick = () => { 
+                currentView = 'expression'; 
+                updateViewUI(); 
+                render(); 
+                centerView(); 
+            };
 
             window.addEventListener('resize', () => {
                 if (currentView === 'tree') {
