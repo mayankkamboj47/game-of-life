@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blood Relations Master</title>
+    <title>Rishton Ka Master</title>
     <style>
         /* --- 1. RESET & LAYOUT --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -127,13 +127,13 @@
 </head>
 <body>
 
-    <h1>Blood Relations Master</h1>
-    <p class="subtitle">Generate a family, then solve the riddles.</p>
+    <h1>Rishton Ka Master</h1>
+    <p class="subtitle">Family banao, phir paheliyan suljhao.</p>
 
     <div class="controls">
-        <button class="btn-gen" onclick="initApp()">🔄 New Family Tree</button>
-        <button class="btn-ask" onclick="generateDirectQuestion()">❓ Direct Relation</button>
-        <button class="btn-point" onclick="generatePointingQuestion()">☝️ Pointing Riddle</button>
+        <button class="btn-gen" onclick="initApp()">🔄 Nayi Family</button>
+        <button class="btn-ask" onclick="generateDirectQuestion()">❓ Seedha Rishta</button>
+        <button class="btn-point" onclick="generatePointingQuestion()">☝️ Ishare Wali Paheli</button>
     </div>
 
     <div class="tree" id="main-tree"></div>
@@ -147,7 +147,7 @@
     </div>
 
     <div id="quiz-bar">
-        <div id="quiz-text">Loading question...</div>
+        <div id="quiz-text">Sawaal load ho raha hai...</div>
         <div id="quiz-options"></div>
         <div id="quiz-feedback"></div>
     </div>
@@ -223,12 +223,12 @@
             'SIBLING': (p) => p.parents.length ? p.parents[0].children.filter(c => c.id !== p.id) : []
         };
 
-        // Expanded List for Distractors
+        // Expanded List with Mixed Hindi/English based on Ambiguity
         const ALL_RELATIONS = [
-            'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Husband', 'Wife',
-            'Paternal Grandfather', 'Maternal Grandfather', 'Paternal Grandmother', 'Maternal Grandmother',
+            'Papa', 'Maa', 'Beta', 'Beti', 'Bhai', 'Behen', 'Pati', 'Patni',
+            'Dada', 'Nana', 'Dadi', 'Nani',
             'Paternal Uncle', 'Maternal Uncle', 'Paternal Aunt', 'Maternal Aunt',
-            'Nephew', 'Niece', 'Father-in-law', 'Mother-in-law', 'Brother-in-law', 'Sister-in-law'
+            'Nephew', 'Niece', 'Sasur', 'Saas', 'Brother-in-law', 'Sister-in-law'
         ];
 
         // --- RELATIONSHIP LOGIC ---
@@ -267,37 +267,38 @@
             const isMale = targetNode.gender === 'Male';
 
             // LOGIC FOR PATERNAL VS MATERNAL
-            // We look at the immediate parent (path[1]) to decide the side.
             let side = "";
             if (path.length > 1 && path[1]) {
                 side = path[1].gender === 'Male' ? "Paternal" : "Maternal";
             }
 
             switch(signature) {
-                case 'UP': return isMale ? 'Father' : 'Mother';
-                case 'DOWN': return isMale ? 'Son' : 'Daughter';
-                case 'SPOUSE': return isMale ? 'Husband' : 'Wife';
+                case 'UP': return isMale ? 'Papa' : 'Maa';
+                case 'DOWN': return isMale ? 'Beta' : 'Beti';
+                case 'SPOUSE': return isMale ? 'Pati' : 'Patni';
                 case 'UP-DOWN': 
-                case 'SIBLING': return isMale ? 'Brother' : 'Sister';
+                case 'SIBLING': return isMale ? 'Bhai' : 'Behen';
 
-                // Grandparents
-                case 'UP-UP': return `${side} ${isMale ? 'Grandfather' : 'Grandmother'}`;
-                case 'DOWN-DOWN': return isMale ? 'Grandson' : 'Granddaughter'; // We don't usually distinguishing grandson side
+                // Grandparents - Explicit Hindi
+                case 'UP-UP': 
+                    if (isMale) return side === "Paternal" ? "Dada" : "Nana";
+                    else return side === "Paternal" ? "Dadi" : "Nani";
+                
+                // Grandchildren - Ambiguous (Pota/Nawasa), keeping English
+                case 'DOWN-DOWN': return isMale ? 'Grandson' : 'Granddaughter';
 
-                // Uncle/Aunt (Parent's Sibling or Parent's Sibling's Spouse)
-                // Note: 'UP-UP-DOWN' means Parent -> Grandparent -> Uncle. 
-                // The Parent (path[1]) determines the side.
+                // Uncle/Aunt - Ambiguous (Chacha/Tau/Mama/Mausa), keeping English
                 case 'UP-SIBLING': 
                 case 'UP-UP-DOWN': 
-                case 'UP-UP-DOWN-SPOUSE': // Aunt by marriage
+                case 'UP-UP-DOWN-SPOUSE': 
                     return `${side} ${isMale ? 'Uncle' : 'Aunt'}`;
 
-                // Nephew/Niece
+                // Nephew/Niece - Ambiguous (Bhanja/Bhatija), keeping English
                 case 'SIBLING-DOWN': 
                 case 'UP-DOWN-DOWN': return isMale ? 'Nephew' : 'Niece';
 
                 // In Laws
-                case 'SPOUSE-UP': return isMale ? 'Father-in-law' : 'Mother-in-law';
+                case 'SPOUSE-UP': return isMale ? 'Sasur' : 'Saas';
                 case 'SPOUSE-UP-DOWN': 
                 case 'SPOUSE-SIBLING':
                 case 'UP-DOWN-SPOUSE': 
@@ -313,11 +314,9 @@
             if (people.length < 2) return;
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
 
-            // Simple lookup for Direct Questions
             const DIRECT_TEMPLATES = [
                 { path: ['PARENT'], label: 'Parent' }, { path: ['CHILD'], label: 'Child' },
                 { path: ['SIBLING'], label: 'Sibling' }, { path: ['SPOUSE'], label: 'Spouse' },
-                // Use generic names here, the determineRelationship function will calculate the specific Paternal/Maternal name later
                 { path: ['PARENT', 'PARENT'], label: 'Grandparent' }, 
                 { path: ['PARENT', 'SIBLING'], label: 'Uncle/Aunt' }
             ];
@@ -338,34 +337,42 @@
                     const validTargets = currentNodes.filter(n => n.id !== startNode.id);
                     if (validTargets.length > 0) {
                         const targetNode = validTargets[Math.floor(Math.random() * validTargets.length)];
-
-                        // Use the robust calculator to get the EXACT string (e.g. Paternal Uncle)
                         const exactRelation = determineRelationship(startNode, targetNode);
                         if (!exactRelation) continue;
 
                         startDirectQuiz(
-                            `Who is the <b>${exactRelation}</b> of <span class="highlight-name">${startNode.id}</span>?`,
+                            `<span class="highlight-name">${startNode.id}</span> ka/ki <b>${exactRelation}</b> kaun hai?`,
                             targetNode.id
                         );
                         return;
                     }
                 }
             }
-            alert("Try generating a new family!");
+            alert("Nayi Family bana ke try karo!");
         }
 
-        // --- POINTING PUZZLES ---
+        // --- POINTING PUZZLES (Conversational Hindi Logic) ---
+        // Simple gender agreement logic for the LHS
         const LHS_TEMPLATES = [
-            { find: (p) => [p], text: (t) => `${t.gender==='Male'?'He':'She'}` },
-            { find: (p) => p.children, text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'father':'mother'}` },
-            { find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'brother':'sister'}` }
+            { 
+                find: (p) => [p], 
+                text: (t) => "Yeh" // He/She -> Yeh
+            },
+            { 
+                find: (p) => p.children, 
+                text: (t, p) => `Iska/Iski ${p.gender==='Male'?'Papa':'Maa'}` 
+            },
+            { 
+                find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], 
+                text: (t, p) => `Iska/Iski ${p.gender==='Male'?'Bhai':'Behen'}` 
+            }
         ];
 
         const CRAWL_MOVES = [
-            { type: 'Parent',  get: (p) => p.parents, label: (p) => p.gender==='Male'?'father':'mother' },
-            { type: 'Child',   get: (p) => p.children, label: (p) => p.gender==='Male'?'son':'daughter' },
-            { type: 'Spouse',  get: (p) => p.spouse ? [p.spouse] : [], label: (p) => p.gender==='Male'?'husband':'wife' },
-            { type: 'Sibling', get: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], label: (p) => p.gender==='Male'?'brother':'sister' }
+            { type: 'Parent',  get: (p) => p.parents, label: (p) => p.gender==='Male'?'Papa':'Maa' },
+            { type: 'Child',   get: (p) => p.children, label: (p) => p.gender==='Male'?'Beta':'Beti' },
+            { type: 'Spouse',  get: (p) => p.spouse ? [p.spouse] : [], label: (p) => p.gender==='Male'?'Pati':'Patni' },
+            { type: 'Sibling', get: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], label: (p) => p.gender==='Male'?'Bhai':'Behen' }
         ];
 
         function generatePointingQuestion() {
@@ -375,7 +382,13 @@
 
             for (const speaker of shuffledPeople) {
                 const targetDepth = Math.random() > 0.5 ? 2 : 3;
-                const pathData = generateRandomPath(speaker, targetDepth);
+                
+                // Initialize text based on Gender (Mere/Meri)
+                const startText = speaker.gender === 'Male' ? "Mere" : "Meri"; // Simplified Start
+                
+                const pathData = generateRandomPath(speaker, targetDepth, "Mera"); 
+                // Note: We handle the exact "Mera/Mere/Meri" grammar dynamically inside generateRandomPath now
+                
                 if (!pathData) continue; 
 
                 const { pivot, rhsText } = pathData;
@@ -385,47 +398,75 @@
                     const validTargets = potentialTargets.filter(t => t.id !== speaker.id);
 
                     for(const target of validTargets) {
+                        // Gender check for natural language
                         const lhString = lhsTmpl.text(target, pivot);
-                        if (lhString.includes("father") && pivot.gender !== 'Male') continue;
-                        if (lhString.includes("mother") && pivot.gender !== 'Female') continue;
-                        if (lhString.includes("brother") && pivot.gender !== 'Male') continue;
-                        if (lhString.includes("sister") && pivot.gender !== 'Female') continue;
+                        if (lhString.includes("Papa") && pivot.gender !== 'Male') continue;
+                        if (lhString.includes("Maa") && pivot.gender !== 'Female') continue;
+                        if (lhString.includes("Bhai") && pivot.gender !== 'Male') continue;
+                        if (lhString.includes("Behen") && pivot.gender !== 'Female') continue;
 
                         const actualRelation = determineRelationship(speaker, target);
 
                         if (actualRelation) {
-                            const lhsText = lhsTmpl.text(target, pivot);
-                            const riddle = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><br><i>"${lhsText} is <b>${rhsText}</b>."</i>`;
-                            const question = `${riddle}<br><br>How is <b>${speaker.id}</b> related to ${target.id}?`;
+                            // Fix LHS grammar for "Iska/Iski" based on Pivot Gender
+                            // If Target is M/F, we usually say "Iska/Iski" depending on Target, 
+                            // BUT "Iska Papa" means Father of Target. 
+                            // Standard Hindi: "Iska" (if Target Male) / "Iski" (if Target Female).
+                            let fixedLHS = lhString;
+                            if(fixedLHS.includes("Iska/Iski")) {
+                                const prefix = target.gender === 'Male' ? "Iska" : "Iski";
+                                fixedLHS = fixedLHS.replace("Iska/Iski", prefix);
+                            }
+
+                            const riddle = `<span class="highlight-name">${target.id}</span> ki taraf ishara karte hue, <span class="highlight-name">${speaker.id}</span> ne kaha:<br><br><i>"${fixedLHS}, <b>${rhsText}</b> hai."</i>`;
+                            const question = `${riddle}<br><br><b>${speaker.id}</b> ka ${target.id} se kya rishta hai?`;
                             startMCQQuiz(question, actualRelation);
                             return;
                         }
                     }
                 }
             }
-            alert("Could not generate a solvable riddle. Try 'New Family'!");
+            alert("Paheli nahi ban payi. 'Nayi Family' try karo!");
         }
 
-        function generateRandomPath(currentNode, stepsRemaining, currentText = "my", history = []) {
+        function generateRandomPath(currentNode, stepsRemaining, currentText = "Mera", history = []) {
             if (stepsRemaining === 0) return { pivot: currentNode, rhsText: currentText };
             const newHistory = [...history, currentNode.id];
             const shuffledMoves = [...CRAWL_MOVES].sort(() => 0.5 - Math.random());
+            
             for (const move of shuffledMoves) {
                 const neighbors = move.get(currentNode);
                 const validNeighbors = neighbors.filter(n => !newHistory.includes(n.id));
                 if (validNeighbors.length > 0) {
                     const nextNode = validNeighbors[Math.floor(Math.random() * validNeighbors.length)];
                     let label = move.label(nextNode);
-                    if (move.type === 'Child') {
-                        const siblings = currentNode.children.filter(c => c.id !== nextNode.id);
-                        if (siblings.length === 0) label = "only child";
-                        else {
-                            const sameSex = siblings.filter(c => c.gender === nextNode.gender);
-                            if (sameSex.length === 0) label = "only " + label;
-                        }
+
+                    // --- HINDI GRAMMAR BUILDER ---
+                    // Logic: PrevString + Connector + Label
+                    // Connector depends on NextNode Gender: Male -> "ka", Female -> "ki"
+                    
+                    // Fix initial "Mera" to "Mere/Meri" if needed for the flow, 
+                    // but for simplicity, we append: "Mera" -> "Mera Bhai" -> "Mere Bhai ki Beti"
+                    
+                    let newText = "";
+                    const connector = nextNode.gender === 'Male' ? "ka" : "ki";
+
+                    // Adjustment for Oblique case (Mera -> Mere when followed by 'ka/ki')
+                    // Simple regex replace to fix previous word end
+                    let prevTextOblique = currentText;
+                    if (currentText.endsWith("Mera")) prevTextOblique = currentText.replace("Mera", "Mere");
+                    if (currentText.endsWith("ka")) prevTextOblique = currentText.replace("ka", "ke"); // Beta ka -> Bete ke? conversational: Beta ka is ok. "Papa ka" -> "Papa ke"
+
+                    // Special case: First step
+                    if(currentText === "Mera") {
+                        // If next is Female, change start to Meri
+                        if(nextNode.gender === 'Female') newText = `Meri ${label}`;
+                        else newText = `Mera ${label}`;
+                    } else {
+                        newText = `${prevTextOblique} ${connector} ${label}`;
                     }
-                    let nextText = currentText === "my" ? `my ${label}` : `${currentText}'s ${label}`;
-                    const result = generateRandomPath(nextNode, stepsRemaining - 1, nextText, newHistory);
+
+                    const result = generateRandomPath(nextNode, stepsRemaining - 1, newText, newHistory);
                     if (result) return result;
                 }
             }
@@ -439,7 +480,7 @@
             const bar = document.getElementById('quiz-bar');
             bar.style.display = 'flex'; bar.style.borderTopColor = "#3498db";
             document.getElementById('quiz-text').innerHTML = htmlText;
-            document.getElementById('quiz-feedback').innerHTML = "Click the person in the tree above.";
+            document.getElementById('quiz-feedback').innerHTML = "Upar tree mein uss insaan ko click karo.";
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -449,17 +490,18 @@
             const bar = document.getElementById('quiz-bar');
             bar.style.display = 'flex'; bar.style.borderTopColor = "#8e44ad";
             document.getElementById('quiz-text').innerHTML = htmlText;
-            document.getElementById('quiz-feedback').innerHTML = "Select the correct relationship.";
+            document.getElementById('quiz-feedback').innerHTML = "Sahi rishta chuno.";
 
             const options = new Set([correctAnswerStr]);
             // Smart Distractor Generation
             while(options.size < 4) {
-                // If answer is "Paternal Uncle", ensure "Maternal Uncle" is a choice if possible
                 if (correctAnswerStr.includes("Paternal") && !options.has(correctAnswerStr.replace("Paternal", "Maternal"))) {
                     options.add(correctAnswerStr.replace("Paternal", "Maternal"));
                 } else if (correctAnswerStr.includes("Maternal") && !options.has(correctAnswerStr.replace("Maternal", "Paternal"))) {
                     options.add(correctAnswerStr.replace("Maternal", "Paternal"));
-                } else {
+                } else if (correctAnswerStr === "Dada" && !options.has("Nana")) options.add("Nana");
+                else if (correctAnswerStr === "Nana" && !options.has("Dada")) options.add("Dada");
+                else {
                     options.add(ALL_RELATIONS[Math.floor(Math.random() * ALL_RELATIONS.length)]);
                 }
             }
@@ -479,12 +521,12 @@
             if(!isQuizActive || quizType !== 'MCQ') return;
             if (selected === currentQuizAnswer) {
                 btn.classList.add('mcq-correct');
-                document.getElementById('quiz-feedback').innerHTML = `✅ Correct! The answer is ${currentQuizAnswer}.`;
+                document.getElementById('quiz-feedback').innerHTML = `✅ Sahi Jawab! Rishta hai: ${currentQuizAnswer}.`;
                 document.getElementById('quiz-bar').style.borderTopColor = "#28a745";
                 disableAllMCQ(); isQuizActive = false;
             } else {
                 btn.classList.add('mcq-wrong');
-                document.getElementById('quiz-feedback').innerHTML = "❌ Incorrect. Try again.";
+                document.getElementById('quiz-feedback').innerHTML = "❌ Galat Jawab. Phir se try karo.";
             }
         }
         function disableAllMCQ() {
@@ -500,11 +542,11 @@
             const bar = document.getElementById('quiz-bar');
             if (id === currentQuizAnswer) {
                 if(card) card.classList.add('correct-card');
-                statusDiv.innerHTML = "✅ Correct! Well done.";
+                statusDiv.innerHTML = "✅ Sahi Jawab! Bahut badhiya.";
                 bar.style.borderTopColor = "#28a745"; isQuizActive = false;
             } else {
                 if(card) { card.classList.add('wrong-answer'); setTimeout(() => card.classList.remove('wrong-answer'), 500); }
-                statusDiv.innerHTML = "❌ Incorrect. Try again!";
+                statusDiv.innerHTML = "❌ Galat Jawab. Phir se try karo!";
             }
         }
         function resetUI() {
@@ -545,6 +587,7 @@
             let ringHTML = "";
             if (person.spouse) { classes += " has-spouse"; ringHTML = `<div class="ring-icon" title="View Spouse Family">💍</div>`; }
             card.className = classes; card.setAttribute('data-id', person.id);
+            // Keeping gender labels English/Symbolic for clarity as per "Ambiguity" instruction
             card.innerHTML = `<strong>${person.id}</strong><br><small>${person.gender}</small>${ringHTML}`;
             card.onclick = (e) => {
                 e.stopPropagation();
