@@ -3,211 +3,308 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blood Relations Generator</title>
+    <title>Blood Relations Gen</title>
     <style>
-        /* --- General Reset --- */
+        /* --- Reset & Layout --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f6f8;
-            padding: 20px;
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f6f8; padding: 20px; text-align: center; }
+        h1 { margin-bottom: 20px; color: #333; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 30px; }
+        button:hover { background: #0056b3; }
+
+        /* --- Tree CSS --- */
+        .tree { display: flex; justify-content: center; overflow-x: auto; padding-bottom: 50px; }
+        .tree ul { padding-top: 20px; position: relative; display: flex; justify-content: center; }
+        .tree li { float: left; text-align: center; list-style-type: none; position: relative; padding: 20px 5px 0 5px; }
+        
+        /* Connectors */
+        .tree li::before, .tree li::after{ content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid #ccc; width: 50%; height: 20px; }
+        .tree li::after{ right: auto; left: 50%; border-left: 2px solid #ccc; }
+        .tree li:only-child::after, .tree li:only-child::before { display: none; }
+        .tree li:only-child{ padding-top: 0;}
+        .tree li:first-child::before, .tree li:last-child::after{ border: 0 none; }
+        .tree ul ul::before{ content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid #ccc; width: 0; height: 20px; }
+
+        /* --- Cards --- */
+        .person-card {
+            border: 2px solid #ccc; padding: 10px; border-radius: 8px; background: white; 
+            min-width: 80px; position: relative; z-index: 10; cursor: default;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .male { background: #e3f2fd; border-color: #2196f3; }
+        .female { background: #fce4ec; border-color: #e91e63; }
+        
+        /* Married Styling */
+        .has-spouse { cursor: pointer; border-width: 3px; }
+        .has-spouse:hover { transform: scale(1.05); transition: 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .ring-icon { position: absolute; top: -10px; right: -10px; font-size: 20px; background: #fff; border-radius: 50%; padding: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+
+        /* --- Modal --- */
+        .modal {
+            display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.6); overflow: auto;
+        }
+        .modal-content {
+            background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888;
+            width: 90%; max-width: 1000px; border-radius: 10px; position: relative; min-height: 400px;
             text-align: center;
         }
-
-        h1 { margin-bottom: 20px; color: #333; }
-        
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-bottom: 30px;
-        }
-        button:hover { background-color: #0056b3; }
-
-        /* --- Tree Container --- */
-        .tree {
-            display: flex;
-            justify-content: center;
-            overflow-x: auto; /* Allow scrolling if tree gets wide */
-            padding-bottom: 50px;
-        }
-
-        /* --- CSS Tree Connector Logic --- */
-        .tree ul {
-            padding-top: 20px; 
-            position: relative;
-            transition: all 0.5s;
-            display: flex; /* Aligns children horizontally */
-            justify-content: center;
-        }
-
-        .tree li {
-            float: left; text-align: center;
-            list-style-type: none;
-            position: relative;
-            padding: 20px 5px 0 5px;
-            transition: all 0.5s;
-        }
-
-        /* We will use ::before and ::after to draw the connectors */
-        .tree li::before, .tree li::after{
-            content: '';
-            position: absolute; top: 0; right: 50%;
-            border-top: 2px solid #ccc;
-            width: 50%; height: 20px;
-        }
-        .tree li::after{
-            right: auto; left: 50%;
-            border-left: 2px solid #ccc;
-        }
-
-        /* We need to remove left-right connectors from elements without siblings */
-        .tree li:only-child::after, .tree li:only-child::before {
-            display: none;
-        }
-        .tree li:only-child{ padding-top: 0;}
-
-        /* Remove space from the top of single children */
-        .tree li:first-child::before, .tree li:last-child::after{
-            border: 0 none;
-        }
-        
-        /* Adding the vertical connector from the parent down */
-        .tree ul ul::before{
-            content: '';
-            position: absolute; top: 0; left: 50%;
-            border-left: 2px solid #ccc;
-            width: 0; height: 20px;
-        }
-
-        /* --- Node Styling --- */
-        .person-card {
-            border: 2px solid #ccc;
-            padding: 10px;
-            text-decoration: none;
-            color: #666;
-            font-family: arial, verdana, tahoma;
-            font-size: 14px;
-            display: inline-block;
-            border-radius: 5px;
-            background: white;
-            min-width: 60px;
-            position: relative;
-            z-index: 10;
-        }
-
-        /* Gender Styling */
-        .male { background-color: #e3f2fd; border-color: #2196f3; }
-        .female { background-color: #fce4ec; border-color: #e91e63; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: black; }
+        .modal-title { font-size: 1.2rem; margin-bottom: 20px; color: #555; }
 
     </style>
 </head>
 <body>
 
-    <h1>Blood Relations Tree Generator</h1>
+    <h1>Blood Relations Generator</h1>
     <button onclick="initApp()">Generate New Family</button>
-    
-    <div class="tree" id="tree-display">
+    <p style="color:#666; margin-bottom: 20px;">Click on cards with a 💍 to see the Spouse's family tree.</p>
+
+    <div class="tree" id="main-tree"></div>
+
+    <div id="spouseModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title" class="modal-title">Family Tree</h2>
+            <div class="tree" id="modal-tree"></div>
         </div>
+    </div>
 
     <script>
-   // --- 1. Configuration & State ---
-const MAX_DEPTH = 3; 
-const MIN_CHILDREN = 0;
-const MAX_CHILDREN = 2;
-let globalNameIndex = 0; 
+        // --- CONFIG ---
+        const MAIN_DEPTH = 3;
+        let globalNameIndex = 0; 
 
-// --- 2. Data Structure ---
-class Person {
-    // Added 'isSurvivor' parameter to force lineage continuity
-    constructor(depth, isSurvivor = false) {
-        this.id = this.generateName();
-        this.gender = Math.random() > 0.5 ? 'Male' : 'Female';
-        this.children = [];
+        // --- DATA STRUCTURES ---
+
+        class Person {
+            constructor(depth, isSurvivor = false, context = 'MAIN_TREE') {
+                this.id = this.generateName();
+                this.gender = Math.random() > 0.5 ? 'Male' : 'Female';
+                this.children = [];
+                this.spouse = null;
+                this.parents = [];
+                this.familyRoot = this; // Default: I am the root of my own subtree unless updated
+                
+                // Generate Children (Recursion)
+                if (depth > 0) {
+                    this.generateChildren(depth, isSurvivor, context);
+                }
+
+                // Generate Spouse (Only for Main Tree to avoid infinite loops)
+                // 30% chance to be married if in main tree
+                if (context === 'MAIN_TREE' && Math.random() > 0.3) {
+                    this.assignSpouse();
+                }
+            }
+
+            generateName() {
+                let name = "";
+                let index = globalNameIndex++;
+                do {
+                    name = String.fromCharCode(65 + (index % 26)) + name;
+                    index = Math.floor(index / 26) - 1;
+                } while (index >= 0);
+                return name;
+            }
+
+            generateChildren(depth, isSurvivor, context) {
+                let count = Math.floor(Math.random() * 3); 
+                if (isSurvivor && count === 0) count = 1;
+                
+                let survivorChildIndex = isSurvivor ? Math.floor(Math.random() * count) : -1;
+
+                for (let i = 0; i < count; i++) {
+                    const childIsSurvivor = (i === survivorChildIndex);
+                    const child = new Person(depth - 1, childIsSurvivor, context);
+                    
+                    child.parents.push(this);
+                    // Child belongs to same family tree as parent
+                    child.familyRoot = this.familyRoot; 
+                    
+                    this.children.push(child);
+                }
+            }
+
+            assignSpouse() {
+                const requiredGender = this.gender === 'Male' ? 'Female' : 'Male';
+                const spouseDepth = Math.random() > 0.5 ? 1 : 2; // Shallow depth for in-laws
+                
+                // Generate a separate family tree for the spouse
+                const spouseFamily = generateSpouseFamily(spouseDepth, requiredGender);
+                
+                if (spouseFamily.spouseNode) {
+                    const newSpouse = spouseFamily.spouseNode;
+                    
+                    // Link them
+                    this.spouse = newSpouse;
+                    newSpouse.spouse = this;
+                    
+                    // Spouse adopts children
+                    newSpouse.children = this.children; 
+                    this.children.forEach(c => c.parents.push(newSpouse));
+                }
+            }
+        }
+
+        // --- HELPER: Spouse Tree Factory ---
+        function generateSpouseFamily(depth, targetGender) {
+            // 1. Create a temporary Root for the spouse's family
+            // Context is 'SPOUSE_TREE' so they don't generate their own spouses recursively
+            const root = new Person(depth, true, 'SPOUSE_TREE');
+            
+            // 2. Find a candidate
+            const candidates = getAllDescendants(root).filter(p => p.gender === targetGender && !p.spouse);
+            
+            let selectedSpouse = null;
+
+            if (candidates.length > 0) {
+                selectedSpouse = candidates[Math.floor(Math.random() * candidates.length)];
+            } else {
+                // Force swap gender of a leaf node if luck failed us
+                const allNodes = getAllDescendants(root);
+                if(allNodes.length > 0) {
+                    selectedSpouse = allNodes[0];
+                    selectedSpouse.gender = targetGender;
+                }
+            }
+
+            // Ensure the spouse knows their own family root (for the Modal)
+            if(selectedSpouse) {
+                // Propagate the root down to everyone in this new tree
+                // (Our simple recursion in constructor did this, but let's be safe)
+                propagateFamilyRoot(root, root);
+            }
+
+            return { rootNode: root, spouseNode: selectedSpouse };
+        }
+
+        function getAllDescendants(node) {
+            let list = [node];
+            node.children.forEach(c => list = list.concat(getAllDescendants(c)));
+            return list;
+        }
+
+        function propagateFamilyRoot(node, root) {
+            node.familyRoot = root;
+            node.children.forEach(c => propagateFamilyRoot(c, root));
+        }
+
+
+        // --- RENDERING ---
+
+        function renderTreeHTML(person) {
+            const li = document.createElement('li');
+            const card = document.createElement('div');
+            
+            // CSS Classes
+            let classes = `person-card ${person.gender.toLowerCase()}`;
+            let clickAction = "";
+            let ringHTML = "";
+
+            if (person.spouse) {
+                classes += " has-spouse";
+                // When clicked, show the SPOUSE'S family root
+                clickAction = `onclick="openModal('${person.spouse.familyRoot.id}', '${person.spouse.id}')"`;
+                ringHTML = `<div class="ring-icon">💍</div>`;
+            }
+
+            card.className = classes;
+            // Hacky way to store object reference for the modal lookup, 
+            // in a real app we'd use a Map or store by ID.
+            // For this vanilla JS demo, we'll iterate to find the ID.
+            card.innerHTML = `
+                <div ${clickAction}>
+                    ${ringHTML}
+                    <strong>${person.id}</strong><br>
+                    <small>${person.gender}</small>
+                </div>
+            `;
+            
+            li.appendChild(card);
+
+            if (person.children.length > 0) {
+                const ul = document.createElement('ul');
+                person.children.forEach(child => {
+                    ul.appendChild(renderTreeHTML(child));
+                });
+                li.appendChild(ul);
+            }
+
+            return li;
+        }
+
+        // --- GLOBAL STATE & MODAL HANDLING ---
         
-        if (depth > 0) {
-            this.generateChildren(depth, isSurvivor);
-        }
-    }
+        let allPeopleMap = new Map(); // To look up objects by ID
 
-    generateName() {
-        let name = "";
-        let index = globalNameIndex++;
-        do {
-            name = String.fromCharCode(65 + (index % 26)) + name;
-            index = Math.floor(index / 26) - 1;
-        } while (index >= 0);
-        return name;
-    }
-
-    generateChildren(currentDepth, isSurvivor) {
-        let count = Math.floor(Math.random() * (MAX_CHILDREN - MIN_CHILDREN + 1)) + MIN_CHILDREN;
-
-        // RULE 1: If this node is a Survivor, it CANNOT have 0 children.
-        // We force at least 1 child.
-        if (isSurvivor && count === 0) {
-            count = 1;
+        function cacheAllPeople(node) {
+            allPeopleMap.set(node.id, node);
+            node.children.forEach(c => cacheAllPeople(c));
+            if(node.spouse) {
+                 // Also cache the spouse's family tree nodes
+                 // We need to traverse the spouse's family root
+                 cacheSpouseTree(node.spouse.familyRoot);
+            }
         }
 
-        // RULE 2: If this is a Survivor node, one of its children must also be a Survivor
-        // to carry the torch to the next level. We pick that child randomly.
-        let survivorChildIndex = -1;
-        if (isSurvivor) {
-            survivorChildIndex = Math.floor(Math.random() * count);
+        function cacheSpouseTree(node) {
+            if(!allPeopleMap.has(node.id)) {
+                allPeopleMap.set(node.id, node);
+                node.children.forEach(c => cacheSpouseTree(c));
+            }
         }
 
-        for (let i = 0; i < count; i++) {
-            // Only the chosen child inherits the survivor status
-            const childIsSurvivor = (i === survivorChildIndex);
-            this.children.push(new Person(currentDepth - 1, childIsSurvivor));
+        function initApp() {
+            globalNameIndex = 0;
+            allPeopleMap.clear();
+            
+            const rootPerson = new Person(MAIN_DEPTH, true, 'MAIN_TREE');
+            cacheAllPeople(rootPerson);
+
+            const container = document.getElementById('main-tree');
+            container.innerHTML = '';
+            
+            const ul = document.createElement('ul');
+            ul.appendChild(renderTreeHTML(rootPerson));
+            container.appendChild(ul);
         }
-    }
-}
 
-// --- 3. Rendering Logic (Same as before) ---
-function renderTreeHTML(person) {
-    const li = document.createElement('li');
-    
-    const card = document.createElement('div');
-    card.className = `person-card ${person.gender.toLowerCase()}`;
-    card.innerHTML = `
-        <strong>${person.id}</strong><br>
-        <small>${person.gender}</small>
-    `;
-    li.appendChild(card);
+        function openModal(familyRootId, spouseId) {
+            const rootNode = allPeopleMap.get(familyRootId);
+            const spouseNode = allPeopleMap.get(spouseId);
 
-    if (person.children.length > 0) {
-        const ul = document.createElement('ul');
-        person.children.forEach(child => {
-            ul.appendChild(renderTreeHTML(child));
-        });
-        li.appendChild(ul);
-    }
+            if(!rootNode) return;
 
-    return li;
-}
+            const modal = document.getElementById('spouseModal');
+            const container = document.getElementById('modal-tree');
+            const title = document.getElementById('modal-title');
 
-// --- 4. Initialization ---
-function initApp() {
-    globalNameIndex = 0;
-    
-    // We start the root as a "Survivor" (true) so the tree is guaranteed to start
-    const rootPerson = new Person(MAX_DEPTH, true);
+            container.innerHTML = '';
+            title.innerText = `Family of Spouse ${spouseNode.id}`;
+            
+            const ul = document.createElement('ul');
+            ul.appendChild(renderTreeHTML(rootNode));
+            container.appendChild(ul);
 
-    const treeContainer = document.getElementById('tree-display');
-    treeContainer.innerHTML = '';
-    
-    const rootUl = document.createElement('ul');
-    rootUl.appendChild(renderTreeHTML(rootPerson));
-    treeContainer.appendChild(rootUl);
-}
+            modal.style.display = "block";
+        }
 
-// Run on load
-initApp();
+        function closeModal() {
+            document.getElementById('spouseModal').style.display = "none";
+        }
+        
+        // Close modal if clicking outside content
+        window.onclick = function(event) {
+            const modal = document.getElementById('spouseModal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // Start
+        initApp();
 
     </script>
 </body>
