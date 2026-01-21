@@ -186,7 +186,7 @@
             constructor(depth, isSurvivor = false, context = 'MAIN_TREE') {
                 this.gender = Math.random() > 0.5 ? 'Male' : 'Female';
                 this.id = this.assignName(this.gender); // Assign real name
-                
+
                 this.children = [];
                 this.spouse = null;
                 this.parents = [];
@@ -211,9 +211,9 @@
             generateChildren(depth, isSurvivor, context) {
                 let count = Math.floor(Math.random() * 3); 
                 if (isSurvivor && count === 0) count = 1;
-                
+
                 let survivorChildIndex = isSurvivor ? Math.floor(Math.random() * count) : -1;
-                
+
                 for (let i = 0; i < count; i++) {
                     const child = new Person(depth - 1, (i === survivorChildIndex), context);
                     child.parents.push(this);
@@ -225,7 +225,7 @@
             assignSpouse() {
                 const requiredGender = this.gender === 'Male' ? 'Female' : 'Male';
                 const spouseFamily = generateSpouseFamily(Math.random() > 0.5 ? 1 : 2, requiredGender);
-                
+
                 if (spouseFamily.spouseNode) {
                     const newSpouse = spouseFamily.spouseNode;
                     this.spouse = newSpouse;
@@ -238,11 +238,11 @@
 
         function generateSpouseFamily(depth, targetGender) {
             const root = new Person(depth, true, 'SPOUSE_TREE');
-            
+
             // Try to find a natural candidate
             const candidates = getAllDescendants(root).filter(p => p.gender === targetGender && !p.spouse);
             let selectedSpouse = null;
-            
+
             if (candidates.length > 0) {
                 selectedSpouse = candidates[Math.floor(Math.random() * candidates.length)];
             } else {
@@ -259,7 +259,7 @@
                     }
                 }
             }
-            
+
             if(selectedSpouse) propagateFamilyRoot(root, root);
             return { rootNode: root, spouseNode: selectedSpouse };
         }
@@ -269,11 +269,19 @@
             'SIBLING': (p) => p.parents.length ? p.parents[0].children.filter(c => c.id !== p.id) : []
         };
 
-        const ALL_RELATIONS = [
-            'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Husband', 'Wife',
-            'Paternal Grandfather', 'Maternal Grandfather', 'Paternal Grandmother', 'Maternal Grandmother',
-            'Paternal Uncle', 'Maternal Uncle', 'Paternal Aunt', 'Maternal Aunt',
-            'Nephew', 'Niece', 'Father-in-law', 'Mother-in-law', 'Brother-in-law', 'Sister-in-law'
+        // --- NEW: SPLIT RELATIONS BY GENDER ---
+        const MALE_RELATIONS = [
+            'Father', 'Son', 'Brother', 'Husband',
+            'Paternal Grandfather', 'Maternal Grandfather',
+            'Paternal Uncle', 'Maternal Uncle',
+            'Nephew', 'Father-in-law', 'Brother-in-law'
+        ];
+
+        const FEMALE_RELATIONS = [
+            'Mother', 'Daughter', 'Sister', 'Wife',
+            'Paternal Grandmother', 'Maternal Grandmother',
+            'Paternal Aunt', 'Maternal Aunt',
+            'Niece', 'Mother-in-law', 'Sister-in-law'
         ];
 
         // --- RELATIONSHIP LOGIC ---
@@ -422,11 +430,11 @@
 
                         if (actualRelation) {
                             const lhsText = lhsTmpl.text(target, pivot);
-                            
-                            // Pointing Riddle Construction using real names
                             const riddle = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><br><i>"${lhsText} is <b>${rhsText}</b>."</i>`;
                             const question = `${riddle}<br><br>How is <b>${target.id}</b> related to ${speaker.id}?`;
-                            startMCQQuiz(question, actualRelation);
+                            
+                            // UPDATED: Pass target gender to startMCQQuiz
+                            startMCQQuiz(question, actualRelation, target.gender);
                             return;
                         }
                     }
@@ -472,7 +480,8 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function startMCQQuiz(htmlText, correctAnswerStr) {
+        // UPDATED: Accepts targetGender to filter distractors
+        function startMCQQuiz(htmlText, correctAnswerStr, targetGender) {
             isQuizActive = true; quizType = 'MCQ'; currentQuizAnswer = correctAnswerStr;
             resetUI();
             const bar = document.getElementById('quiz-bar');
@@ -481,13 +490,23 @@
             document.getElementById('quiz-feedback').innerHTML = "Select the correct relationship.";
 
             const options = new Set([correctAnswerStr]);
+            const relationPool = (targetGender === 'Male') ? MALE_RELATIONS : FEMALE_RELATIONS;
+
             while(options.size < 4) {
-                if (correctAnswerStr.includes("Paternal") && !options.has(correctAnswerStr.replace("Paternal", "Maternal"))) {
-                    options.add(correctAnswerStr.replace("Paternal", "Maternal"));
-                } else if (correctAnswerStr.includes("Maternal") && !options.has(correctAnswerStr.replace("Maternal", "Paternal"))) {
-                    options.add(correctAnswerStr.replace("Maternal", "Paternal"));
-                } else {
-                    options.add(ALL_RELATIONS[Math.floor(Math.random() * ALL_RELATIONS.length)]);
+                // Priority logic: If answer is Paternal, show Maternal equivalent as distractor (and vice versa)
+                let addedDistractor = false;
+                if (correctAnswerStr.includes("Paternal")) {
+                    const swap = correctAnswerStr.replace("Paternal", "Maternal");
+                    if (!options.has(swap)) { options.add(swap); addedDistractor = true; }
+                } else if (correctAnswerStr.includes("Maternal")) {
+                    const swap = correctAnswerStr.replace("Maternal", "Paternal");
+                    if (!options.has(swap)) { options.add(swap); addedDistractor = true; }
+                } 
+                
+                // If we didn't add a priority swap distractor, or we still need more options
+                if (!addedDistractor || options.size < 4) {
+                    const randomRel = relationPool[Math.floor(Math.random() * relationPool.length)];
+                    options.add(randomRel);
                 }
             }
 
