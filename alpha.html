@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BODMAS Engine - Menu Fix</title>
+    <title>BODMAS Engine - Hints Toggle</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -64,22 +64,30 @@
             background-color: #f9fafb;
         }
 
-        /* Simplify Mode */
-        body.mode-simplify .node-operator.can-evaluate {
-            cursor: pointer;
+        /* --- Interactive States (Only active when hints are ON) --- */
+        
+        /* Base pointer for interactive elements regardless of hints */
+        body.mode-simplify .node-operator.can-evaluate,
+        body.mode-rearrange .node-operator.can-transform {
+            cursor: pointer; 
+        }
+
+        /* Simplify Mode - Highlighting */
+        body.mode-simplify.hints-active .node-operator.can-evaluate {
             border-color: #2563eb;
             color: #2563eb;
             background-color: #eff6ff;
         }
+        /* Active click state works regardless of hints for feedback */
         body.mode-simplify .node-operator.can-evaluate:active {
             background-color: #2563eb;
             color: #ffffff;
             transform: scale(0.95);
+            border-color: #2563eb;
         }
 
-        /* Rearrange Mode */
-        body.mode-rearrange .node-operator.can-transform {
-            cursor: pointer;
+        /* Rearrange Mode - Highlighting */
+        body.mode-rearrange.hints-active .node-operator.can-transform {
             border-color: #9333ea;
             color: #9333ea;
             background-color: #f3e8ff;
@@ -88,6 +96,7 @@
             background-color: #9333ea;
             color: #ffffff;
             transform: scale(0.95);
+            border-color: #9333ea;
         }
 
         /* Active Menu State */
@@ -127,7 +136,7 @@
         }
         .expression-bracket { font-size: 2rem; color: #94a3b8; font-weight: 300; margin: 0 2px; }
 
-        /* --- Context Menu (Polished) --- */
+        /* --- Context Menu --- */
         #contextMenu {
             position: fixed;
             z-index: 1000;
@@ -144,7 +153,7 @@
             opacity: 0;
             transform: scale(0.95);
             transition: opacity 0.1s, transform 0.1s;
-            pointer-events: none; /* Hidden by default */
+            pointer-events: none;
         }
         
         #contextMenu.active {
@@ -183,9 +192,7 @@
 
     </style>
 </head>
-<body class="mode-simplify">
-
-    <header class="bg-white border-b border-gray-200 shadow-sm p-3">
+<body class="mode-simplify"> <header class="bg-white border-b border-gray-200 shadow-sm p-3">
         <div class="max-w-4xl mx-auto flex flex-col gap-3">
 
             <div class="flex justify-between items-center gap-2">
@@ -204,13 +211,19 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-                <button id="undoBtn" disabled class="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-gray-50 transition-all disabled:opacity-40 disabled:bg-gray-50 touch-manipulation">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-                    Undo
-                </button>
-                <button id="regenerateBtn" class="flex items-center justify-center bg-gray-900 text-white px-4 py-2.5 rounded-lg text-sm font-bold active:bg-gray-700 transition-colors touch-manipulation shadow-sm">
-                    New Question
+            <div class="flex justify-between items-center gap-3">
+                <div class="flex gap-3 w-full">
+                    <button id="undoBtn" disabled class="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-gray-50 transition-all disabled:opacity-40 disabled:bg-gray-50 touch-manipulation flex-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                        Undo
+                    </button>
+                    <button id="regenerateBtn" class="flex items-center justify-center bg-gray-900 text-white px-4 py-2.5 rounded-lg text-sm font-bold active:bg-gray-700 transition-colors touch-manipulation shadow-sm flex-1">
+                        New
+                    </button>
+                </div>
+                <button id="hintsBtn" class="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all touch-manipulation border border-gray-200 text-gray-500 hover:text-gray-900">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5A2.5 2.5 0 0 1 11 6"/></svg>
+                    Hints
                 </button>
             </div>
 
@@ -257,8 +270,9 @@
         let historyStack = []; 
         let currentView = 'tree'; 
         let interactionMode = 'simplify'; 
-        
-        // --- Tree Logic ---
+        let showHints = false; // Default OFF
+
+        // --- Tree Generation ---
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = generateId();
             const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
@@ -348,7 +362,7 @@
             return [...l, { type: 'operator', source: node }, ...r];
         }
 
-        // --- Core Update Logic ---
+        // --- Logic ---
         function updateTree(actionFn, targetId) {
             saveToHistory();
             const rebuild = (node) => {
@@ -370,10 +384,7 @@
         }
 
         function handleNodeClick(e, node) {
-            // STOP propagation so we don't immediately trigger global click closers
             e.stopPropagation();
-            
-            // If a menu is already open, close it first
             hideContextMenu();
 
             if (interactionMode === 'simplify') {
@@ -382,12 +393,9 @@
             } else {
                 const moves = getPossibleTransforms(node);
                 if (moves.length === 0) return;
-                
-                // If only one move, do it instantly
                 if (moves.length === 1) {
                     executeTransform(moves[0].action, node.id);
                 } else {
-                    // Otherwise show menu
                     showContextMenu(e.clientX, e.clientY, node, moves);
                 }
             }
@@ -402,53 +410,44 @@
             if (fn) updateTree(fn, nodeId);
         }
 
-        // --- Context Menu Management ---
+        // --- Context Menu ---
         const ctxMenu = document.getElementById('contextMenu');
         
-        // This is the listener that detects clicks outside the menu
         const handleGlobalClick = (e) => {
             const menu = document.getElementById('contextMenu');
-            // If clicking INSIDE the menu, do nothing (let menu item click handler work)
             if (menu.contains(e.target)) return;
             hideContextMenu();
         };
 
         function showContextMenu(x, y, node, moves) {
-            // 1. Highlight the node
             const el = document.getElementById(node.id);
             if(el) el.classList.add('menu-open');
 
-            // 2. Build Menu Content
             ctxMenu.innerHTML = '';
             moves.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = 'menu-item';
                 btn.innerHTML = `<span class="menu-item-icon">${m.icon}</span> ${m.name}`;
                 btn.onclick = (e) => {
-                    e.stopPropagation(); // Don't trigger global click
+                    e.stopPropagation();
                     executeTransform(m.action, node.id);
                     hideContextMenu();
                 };
                 ctxMenu.appendChild(btn);
             });
 
-            // 3. Position Calculation
             let finalX = x;
-            let finalY = y + 10; // Offset slightly below finger/cursor
-            const menuRect = { width: 200, height: moves.length * 50 + 20 }; // Approximation
+            let finalY = y + 10;
+            const menuRect = { width: 200, height: moves.length * 50 + 20 };
             
-            // Boundary checks
             if (finalX + menuRect.width > window.innerWidth) finalX = window.innerWidth - menuRect.width - 16;
             if (finalY + menuRect.height > window.innerHeight) finalY = y - menuRect.height - 10;
             if (finalX < 16) finalX = 16;
 
             ctxMenu.style.left = finalX + 'px';
             ctxMenu.style.top = finalY + 'px';
-            
-            // 4. Show Menu
             ctxMenu.classList.add('active');
 
-            // 5. Add Global Listener (with slight delay to avoid immediate trigger from opening click)
             setTimeout(() => {
                 document.addEventListener('click', handleGlobalClick);
             }, 50);
@@ -456,11 +455,7 @@
 
         function hideContextMenu() {
             ctxMenu.classList.remove('active');
-            
-            // Remove highlighting
             document.querySelectorAll('.menu-open').forEach(el => el.classList.remove('menu-open'));
-            
-            // Clean up global listener
             document.removeEventListener('click', handleGlobalClick);
         }
 
@@ -552,7 +547,9 @@
             svg.innerHTML = '';
             exprText.textContent = getExpressionString(treeData);
 
-            document.body.className = `mode-${interactionMode} ${currentView === 'tree' ? 'tree-view-active' : 'expression-view-active'}`;
+            // Add 'hints-active' class to body if enabled
+            const hintsClass = showHints ? 'hints-active' : '';
+            document.body.className = `mode-${interactionMode} ${currentView === 'tree' ? 'tree-view-active' : 'expression-view-active'} ${hintsClass}`;
 
             if (treeData.type === 'operand') {
                 container.innerHTML = `<div class="text-7xl font-bold text-gray-900">${treeData.value.n}</div>`;
@@ -584,9 +581,9 @@
             const btnRear = document.getElementById('modeRearrangeBtn');
             const btnViewTree = document.getElementById('viewTreeBtn');
             const btnViewExpr = document.getElementById('viewExprBtn');
+            const btnHints = document.getElementById('hintsBtn');
             const viewport = document.getElementById('treeViewport');
 
-            // Close menu on scroll
             viewport.addEventListener('scroll', () => {
                 if (ctxMenu.classList.contains('active')) hideContextMenu();
             });
@@ -604,6 +601,7 @@
                 const activeModePurple = "bg-white text-purple-600 shadow-sm ring-1 ring-gray-200";
                 const inactive = "text-gray-500 hover:text-gray-900 bg-transparent";
 
+                // Mode Buttons
                 if(interactionMode === 'simplify') {
                     btnSimp.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${activeMode}`;
                     btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
@@ -612,6 +610,7 @@
                     btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${activeModePurple}`;
                 }
 
+                // View Buttons
                 if(currentView === 'tree') {
                     btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation bg-white text-gray-900 shadow-sm ring-1 ring-gray-200`;
                     btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
@@ -619,8 +618,15 @@
                     btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
                     btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation bg-white text-gray-900 shadow-sm ring-1 ring-gray-200`;
                 }
+
+                // Hints Button
+                if(showHints) {
+                    btnHints.className = "flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all touch-manipulation border border-amber-200 bg-amber-50 text-amber-700 shadow-sm";
+                } else {
+                    btnHints.className = "flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all touch-manipulation border border-gray-200 text-gray-500 hover:text-gray-900";
+                }
                 
-                hideContextMenu(); // Close menu on mode switch
+                hideContextMenu();
                 render();
             }
 
@@ -636,6 +642,11 @@
                 currentView = 'expression'; 
                 updateUI(); 
                 setTimeout(centerViewport, 10);
+            };
+
+            btnHints.onclick = () => {
+                showHints = !showHints;
+                updateUI();
             };
 
             document.getElementById('regenerateBtn').onclick = () => { 
