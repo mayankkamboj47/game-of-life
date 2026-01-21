@@ -425,7 +425,7 @@
                             
                             // Pointing Riddle Construction using real names
                             const riddle = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><br><i>"${lhsText} is <b>${rhsText}</b>."</i>`;
-                            const question = `${riddle}<br><br>How is <b>${speaker.id}</b> related to ${target.id}?`;
+                            const question = `${riddle}<br><br>How is <b>${target.id}</b> related to ${speaker.id}?`;
                             startMCQQuiz(question, actualRelation);
                             return;
                         }
