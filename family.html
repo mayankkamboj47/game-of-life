@@ -68,7 +68,7 @@
         /* --- 3. CARDS --- */
         .person-card {
             border: 2px solid #b0bec5; padding: 10px; border-radius: 10px;
-            background: white; min-width: 70px; position: relative; z-index: 10;
+            background: white; min-width: 85px; position: relative; z-index: 10;
             transition: all 0.2s ease; cursor: pointer; user-select: none;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
@@ -154,37 +154,66 @@
 
     <script>
         const CONFIG = { MAIN_DEPTH: 3 };
-        let globalNameIndex = 0;
         let allPeopleMap = new Map(); 
         let currentQuizAnswer = null;
         let isQuizActive = false;
         let quizType = 'DIRECT';
 
+        // --- NAME REPOSITORIES ---
+        const MALE_NAMES = [
+            "Aarav", "Vihaan", "Aditya", "Sai", "Arjun", "Rohan", "Suresh", "Ramesh", 
+            "Rahul", "Vikram", "Amit", "Karan", "Nikhil", "Sanjay", "Raj", "Varun", 
+            "Anil", "Deepak", "Sunil", "Prakash", "Manish", "Kartik", "Rishi", "Vivek",
+            "Ashish", "Mohan", "Gopal", "Harish", "Kabir", "Aryan"
+        ];
+        const FEMALE_NAMES = [
+            "Diya", "Saanvi", "Ananya", "Aadhya", "Pari", "Neha", "Priya", "Pooja", 
+            "Sneha", "Anjali", "Rita", "Sushma", "Kavita", "Meena", "Rekha", "Suman", 
+            "Anita", "Sunita", "Rani", "Geeta", "Seema", "Tanvi", "Ishita", "Riya",
+            "Swati", "Nisha", "Maya", "Kiran", "Tara", "Veda"
+        ];
+
+        let availableMaleNames = [];
+        let availableFemaleNames = [];
+
+        function resetNames() {
+            availableMaleNames = [...MALE_NAMES].sort(() => 0.5 - Math.random());
+            availableFemaleNames = [...FEMALE_NAMES].sort(() => 0.5 - Math.random());
+        }
+
         // --- DATA MODEL ---
         class Person {
             constructor(depth, isSurvivor = false, context = 'MAIN_TREE') {
-                this.id = this.generateName();
                 this.gender = Math.random() > 0.5 ? 'Male' : 'Female';
+                this.id = this.assignName(this.gender); // Assign real name
+                
                 this.children = [];
                 this.spouse = null;
                 this.parents = [];
                 this.familyRoot = this; 
+
                 if (depth > 0) this.generateChildren(depth, isSurvivor, context);
                 if (context === 'MAIN_TREE' && Math.random() > 0.35) this.assignSpouse();
             }
-            generateName() {
+
+            assignName(gender) {
                 let name = "";
-                let index = globalNameIndex++;
-                do {
-                    name = String.fromCharCode(65 + (index % 26)) + name;
-                    index = Math.floor(index / 26) - 1;
-                } while (index >= 0);
+                if (gender === 'Male') {
+                    name = availableMaleNames.pop();
+                    if (!name) name = "Mr. " + Math.floor(Math.random() * 1000); // Fallback if out of names
+                } else {
+                    name = availableFemaleNames.pop();
+                    if (!name) name = "Ms. " + Math.floor(Math.random() * 1000);
+                }
                 return name;
             }
+
             generateChildren(depth, isSurvivor, context) {
                 let count = Math.floor(Math.random() * 3); 
                 if (isSurvivor && count === 0) count = 1;
+                
                 let survivorChildIndex = isSurvivor ? Math.floor(Math.random() * count) : -1;
+                
                 for (let i = 0; i < count; i++) {
                     const child = new Person(depth - 1, (i === survivorChildIndex), context);
                     child.parents.push(this);
@@ -192,9 +221,11 @@
                     this.children.push(child);
                 }
             }
+
             assignSpouse() {
                 const requiredGender = this.gender === 'Male' ? 'Female' : 'Male';
                 const spouseFamily = generateSpouseFamily(Math.random() > 0.5 ? 1 : 2, requiredGender);
+                
                 if (spouseFamily.spouseNode) {
                     const newSpouse = spouseFamily.spouseNode;
                     this.spouse = newSpouse;
@@ -207,13 +238,28 @@
 
         function generateSpouseFamily(depth, targetGender) {
             const root = new Person(depth, true, 'SPOUSE_TREE');
+            
+            // Try to find a natural candidate
             const candidates = getAllDescendants(root).filter(p => p.gender === targetGender && !p.spouse);
             let selectedSpouse = null;
-            if (candidates.length > 0) selectedSpouse = candidates[Math.floor(Math.random() * candidates.length)];
-            else {
+            
+            if (candidates.length > 0) {
+                selectedSpouse = candidates[Math.floor(Math.random() * candidates.length)];
+            } else {
+                // If no natural candidate, pick the first node and force switch gender AND name
                 const allNodes = getAllDescendants(root);
-                if(allNodes.length > 0) { selectedSpouse = allNodes[0]; selectedSpouse.gender = targetGender; }
+                if(allNodes.length > 0) { 
+                    selectedSpouse = allNodes[0]; 
+                    if (selectedSpouse.gender !== targetGender) {
+                        selectedSpouse.gender = targetGender;
+                        // Important: Re-assign name because gender changed
+                        selectedSpouse.id = (targetGender === 'Male') ? 
+                            (availableMaleNames.pop() || "Mr. X") : 
+                            (availableFemaleNames.pop() || "Ms. Y");
+                    }
+                }
             }
+            
             if(selectedSpouse) propagateFamilyRoot(root, root);
             return { rootNode: root, spouseNode: selectedSpouse };
         }
@@ -223,7 +269,6 @@
             'SIBLING': (p) => p.parents.length ? p.parents[0].children.filter(c => c.id !== p.id) : []
         };
 
-        // Expanded List for Distractors
         const ALL_RELATIONS = [
             'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Husband', 'Wife',
             'Paternal Grandfather', 'Maternal Grandfather', 'Paternal Grandmother', 'Maternal Grandmother',
@@ -265,9 +310,6 @@
 
             const signature = moves.join('-');
             const isMale = targetNode.gender === 'Male';
-
-            // LOGIC FOR PATERNAL VS MATERNAL
-            // We look at the immediate parent (path[1]) to decide the side.
             let side = "";
             if (path.length > 1 && path[1]) {
                 side = path[1].gender === 'Male' ? "Paternal" : "Maternal";
@@ -279,30 +321,18 @@
                 case 'SPOUSE': return isMale ? 'Husband' : 'Wife';
                 case 'UP-DOWN': 
                 case 'SIBLING': return isMale ? 'Brother' : 'Sister';
-
-                // Grandparents
                 case 'UP-UP': return `${side} ${isMale ? 'Grandfather' : 'Grandmother'}`;
-                case 'DOWN-DOWN': return isMale ? 'Grandson' : 'Granddaughter'; // We don't usually distinguishing grandson side
-
-                // Uncle/Aunt (Parent's Sibling or Parent's Sibling's Spouse)
-                // Note: 'UP-UP-DOWN' means Parent -> Grandparent -> Uncle. 
-                // The Parent (path[1]) determines the side.
+                case 'DOWN-DOWN': return isMale ? 'Grandson' : 'Granddaughter'; 
                 case 'UP-SIBLING': 
                 case 'UP-UP-DOWN': 
-                case 'UP-UP-DOWN-SPOUSE': // Aunt by marriage
-                    return `${side} ${isMale ? 'Uncle' : 'Aunt'}`;
-
-                // Nephew/Niece
+                case 'UP-UP-DOWN-SPOUSE': return `${side} ${isMale ? 'Uncle' : 'Aunt'}`;
                 case 'SIBLING-DOWN': 
                 case 'UP-DOWN-DOWN': return isMale ? 'Nephew' : 'Niece';
-
-                // In Laws
                 case 'SPOUSE-UP': return isMale ? 'Father-in-law' : 'Mother-in-law';
                 case 'SPOUSE-UP-DOWN': 
                 case 'SPOUSE-SIBLING':
                 case 'UP-DOWN-SPOUSE': 
                 case 'SIBLING-SPOUSE': return isMale ? 'Brother-in-law' : 'Sister-in-law';
-
                 default: return null; 
             }
         }
@@ -313,11 +343,9 @@
             if (people.length < 2) return;
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
 
-            // Simple lookup for Direct Questions
             const DIRECT_TEMPLATES = [
                 { path: ['PARENT'], label: 'Parent' }, { path: ['CHILD'], label: 'Child' },
                 { path: ['SIBLING'], label: 'Sibling' }, { path: ['SPOUSE'], label: 'Spouse' },
-                // Use generic names here, the determineRelationship function will calculate the specific Paternal/Maternal name later
                 { path: ['PARENT', 'PARENT'], label: 'Grandparent' }, 
                 { path: ['PARENT', 'SIBLING'], label: 'Uncle/Aunt' }
             ];
@@ -338,8 +366,6 @@
                     const validTargets = currentNodes.filter(n => n.id !== startNode.id);
                     if (validTargets.length > 0) {
                         const targetNode = validTargets[Math.floor(Math.random() * validTargets.length)];
-
-                        // Use the robust calculator to get the EXACT string (e.g. Paternal Uncle)
                         const exactRelation = determineRelationship(startNode, targetNode);
                         if (!exactRelation) continue;
 
@@ -386,6 +412,7 @@
 
                     for(const target of validTargets) {
                         const lhString = lhsTmpl.text(target, pivot);
+                        // Grammar/Gender checks
                         if (lhString.includes("father") && pivot.gender !== 'Male') continue;
                         if (lhString.includes("mother") && pivot.gender !== 'Female') continue;
                         if (lhString.includes("brother") && pivot.gender !== 'Male') continue;
@@ -395,6 +422,8 @@
 
                         if (actualRelation) {
                             const lhsText = lhsTmpl.text(target, pivot);
+                            
+                            // Pointing Riddle Construction using real names
                             const riddle = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><br><i>"${lhsText} is <b>${rhsText}</b>."</i>`;
                             const question = `${riddle}<br><br>How is <b>${speaker.id}</b> related to ${target.id}?`;
                             startMCQQuiz(question, actualRelation);
@@ -452,9 +481,7 @@
             document.getElementById('quiz-feedback').innerHTML = "Select the correct relationship.";
 
             const options = new Set([correctAnswerStr]);
-            // Smart Distractor Generation
             while(options.size < 4) {
-                // If answer is "Paternal Uncle", ensure "Maternal Uncle" is a choice if possible
                 if (correctAnswerStr.includes("Paternal") && !options.has(correctAnswerStr.replace("Paternal", "Maternal"))) {
                     options.add(correctAnswerStr.replace("Paternal", "Maternal"));
                 } else if (correctAnswerStr.includes("Maternal") && !options.has(correctAnswerStr.replace("Maternal", "Paternal"))) {
@@ -529,7 +556,8 @@
             node.familyRoot = root; node.children.forEach(c => propagateFamilyRoot(c, root));
         }
         function initApp() {
-            globalNameIndex = 0; allPeopleMap.clear(); isQuizActive = false;
+            resetNames(); // Resets available names
+            allPeopleMap.clear(); isQuizActive = false;
             document.getElementById('quiz-bar').style.display = 'none';
             const rootPerson = new Person(CONFIG.MAIN_DEPTH, true, 'MAIN_TREE');
             cacheAllPeople(rootPerson);
