@@ -276,13 +276,18 @@
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = generateId();
             const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
+            let node;
+            
             if (isLeaf) {
-                return { id, type: 'operand', value: { n: Math.floor(Math.random() * 12) + 1, d: 1 } };
+                node = { id, type: 'operand', value: { n: Math.floor(Math.random() * 12) + 1, d: 1 } };
             } else {
                 const symbols = ['+', '-', '×'];
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
-                return { id, type: 'operator', value: symbol, left: generateRandomTree(depth + 1, maxDepth), right: generateRandomTree(depth + 1, maxDepth) };
+                node = { id, type: 'operator', value: symbol, left: generateRandomTree(depth + 1, maxDepth), right: generateRandomTree(depth + 1, maxDepth) };
             }
+
+            // Apply auto-left association logic on generation
+            return applyAutoLeftAssociativity(node);
         }
 
         // --- Transforms ---
@@ -332,6 +337,24 @@
             return { id: node.id, type: 'operator', value: group.value, left: leftMult, right: rightMult };
         }
 
+        /* --- Auto Association Logic --- */
+        function applyAutoLeftAssociativity(node) {
+            if (node.type === 'operand') return node;
+
+            // Recursively process children first (Post-order traversal)
+            // This ensures we fix issues deep in the tree before fixing the top level
+            node.left = applyAutoLeftAssociativity(node.left);
+            node.right = applyAutoLeftAssociativity(node.right);
+
+            // While this node can associate left (e.g., A + (B + C)), automatically do it
+            while (canAssociateLeft(node)) {
+                node = doAssociateLeft(node);
+                // Note: We continue the loop because the rotation might bring up 
+                // another operator that also needs to be associated left.
+            }
+            return node;
+        }
+
         function getPossibleTransforms(node) {
             const moves = [];
             if (canCommute(node)) moves.push({ name: 'Swap', action: 'commute', icon: '⇄' });
@@ -379,7 +402,13 @@
                 }
                 return node;
             };
-            treeData = rebuild(treeData);
+            
+            let newTree = rebuild(treeData);
+            
+            // Enforce automatic left associativity on the updated tree
+            newTree = applyAutoLeftAssociativity(newTree);
+
+            treeData = newTree;
             render();
         }
 
