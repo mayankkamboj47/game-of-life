@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BODMAS Engine - Large Canvas Fix</title>
+    <title>BODMAS Engine - Menu Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -13,23 +13,17 @@
             font-family: 'Inter', sans-serif;
             background-color: #ffffff;
             color: #1a1a1a;
-            /* Flex Column: Header takes space it needs, Main takes the rest */
             display: flex;
             flex-direction: column;
             height: 100vh; 
             width: 100vw;
-            overflow: hidden; /* Prevent body scroll */
+            overflow: hidden;
         }
 
-        /* --- Header --- */
-        header {
-            flex: none; /* Do not shrink */
-            z-index: 50;
-        }
+        header { flex: none; z-index: 50; }
 
-        /* --- Main Canvas Area --- */
         main {
-            flex: 1; /* Take remaining height */
+            flex: 1;
             position: relative;
             overflow: hidden;
             display: flex;
@@ -42,13 +36,12 @@
             position: relative;
             touch-action: pan-x pan-y;
             background-color: #fcfcfc;
-            /* Dot Grid Background */
             background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
             background-size: 24px 24px;
         }
 
         #treeContainer {
-            min-width: 1500px; /* Large canvas for both modes */
+            min-width: 1500px;
             min-height: 1200px;
             display: grid;
             place-items: center;
@@ -102,7 +95,8 @@
             background-color: #1f2937 !important;
             border-color: #1f2937 !important;
             color: white !important;
-            box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.2);
+            box-shadow: 0 0 0 4px rgba(31, 41, 55, 0.15);
+            transform: scale(1.05);
         }
 
         .frac {
@@ -122,35 +116,42 @@
         }
 
         /* --- Expression View --- */
-        /* MODIFIED: Removed min-width/height reset to keep large canvas */
         .expression-view-active #treeContainer { 
             background: none; 
             display: flex; 
             align-items: center; 
             justify-content: center;
         }
-        
         .expression-view-active #treeContent {
             display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 20px;
         }
         .expression-bracket { font-size: 2rem; color: #94a3b8; font-weight: 300; margin: 0 2px; }
 
-        /* --- Context Menu --- */
+        /* --- Context Menu (Polished) --- */
         #contextMenu {
             position: fixed;
             z-index: 1000;
-            background: white;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
             border: 1px solid #e5e7eb;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
             border-radius: 12px;
             padding: 6px;
             display: flex;
             flex-direction: column;
-            gap: 4px;
-            min-width: 160px;
-            animation: fadeIn 0.15s ease-out;
+            gap: 2px;
+            min-width: 180px;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.1s, transform 0.1s;
+            pointer-events: none; /* Hidden by default */
         }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        
+        #contextMenu.active {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
 
         .menu-item {
             display: flex;
@@ -158,17 +159,27 @@
             gap: 12px;
             width: 100%;
             text-align: left;
-            padding: 12px 16px;
-            font-size: 1rem; /* Larger text for mobile */
+            padding: 10px 12px;
+            font-size: 0.95rem;
             font-weight: 500;
             color: #374151;
             border-radius: 8px;
             background: transparent;
             border: none;
             cursor: pointer;
+            transition: background-color 0.1s;
         }
-        .menu-item:active { background-color: #f3f4f6; color: #111827; }
-        .menu-item-icon { width: 20px; text-align: center; color: #6b7280; font-weight: bold; }
+        .menu-item:active { background-color: #f3f4f6; }
+        @media (hover: hover) {
+            .menu-item:hover { background-color: #f9fafb; }
+        }
+        .menu-item-icon { 
+            width: 24px; height: 24px; 
+            display: flex; align-items: center; justify-content: center;
+            background: #f3f4f6; 
+            border-radius: 6px;
+            color: #4b5563; font-weight: bold; font-size: 1.1em;
+        }
 
     </style>
 </head>
@@ -215,7 +226,7 @@
         </div>
     </main>
 
-    <div id="contextMenu" class="hidden"></div>
+    <div id="contextMenu"></div>
 
     <footer class="absolute bottom-6 left-0 right-0 px-4 flex justify-center z-40 pointer-events-none">
         <div class="pointer-events-auto bg-white/95 backdrop-blur border border-gray-200 px-4 py-3 rounded-xl shadow-lg max-w-lg w-full text-center">
@@ -246,9 +257,8 @@
         let historyStack = []; 
         let currentView = 'tree'; 
         let interactionMode = 'simplify'; 
-        let activeMenuCloser = null;
-
-        // --- Tree Generation ---
+        
+        // --- Tree Logic ---
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = generateId();
             const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
@@ -338,7 +348,7 @@
             return [...l, { type: 'operator', source: node }, ...r];
         }
 
-        // --- Logic ---
+        // --- Core Update Logic ---
         function updateTree(actionFn, targetId) {
             saveToHistory();
             const rebuild = (node) => {
@@ -360,7 +370,10 @@
         }
 
         function handleNodeClick(e, node) {
+            // STOP propagation so we don't immediately trigger global click closers
             e.stopPropagation();
+            
+            // If a menu is already open, close it first
             hideContextMenu();
 
             if (interactionMode === 'simplify') {
@@ -369,9 +382,12 @@
             } else {
                 const moves = getPossibleTransforms(node);
                 if (moves.length === 0) return;
+                
+                // If only one move, do it instantly
                 if (moves.length === 1) {
                     executeTransform(moves[0].action, node.id);
                 } else {
+                    // Otherwise show menu
                     showContextMenu(e.clientX, e.clientY, node, moves);
                 }
             }
@@ -386,53 +402,66 @@
             if (fn) updateTree(fn, nodeId);
         }
 
-        // --- Context Menu ---
+        // --- Context Menu Management ---
         const ctxMenu = document.getElementById('contextMenu');
+        
+        // This is the listener that detects clicks outside the menu
+        const handleGlobalClick = (e) => {
+            const menu = document.getElementById('contextMenu');
+            // If clicking INSIDE the menu, do nothing (let menu item click handler work)
+            if (menu.contains(e.target)) return;
+            hideContextMenu();
+        };
 
         function showContextMenu(x, y, node, moves) {
+            // 1. Highlight the node
             const el = document.getElementById(node.id);
             if(el) el.classList.add('menu-open');
 
+            // 2. Build Menu Content
             ctxMenu.innerHTML = '';
             moves.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = 'menu-item';
                 btn.innerHTML = `<span class="menu-item-icon">${m.icon}</span> ${m.name}`;
                 btn.onclick = (e) => {
-                    e.stopPropagation();
+                    e.stopPropagation(); // Don't trigger global click
                     executeTransform(m.action, node.id);
                     hideContextMenu();
                 };
                 ctxMenu.appendChild(btn);
             });
 
-            // Smart Positioning (keep within bounds)
+            // 3. Position Calculation
             let finalX = x;
-            let finalY = y;
-            const menuW = 180;
-            const menuH = moves.length * 50;
-
-            if (finalX + menuW > window.innerWidth) finalX = window.innerWidth - menuW - 10;
-            if (finalY + menuH > window.innerHeight) finalY = y - menuH;
+            let finalY = y + 10; // Offset slightly below finger/cursor
+            const menuRect = { width: 200, height: moves.length * 50 + 20 }; // Approximation
+            
+            // Boundary checks
+            if (finalX + menuRect.width > window.innerWidth) finalX = window.innerWidth - menuRect.width - 16;
+            if (finalY + menuRect.height > window.innerHeight) finalY = y - menuRect.height - 10;
+            if (finalX < 16) finalX = 16;
 
             ctxMenu.style.left = finalX + 'px';
             ctxMenu.style.top = finalY + 'px';
-            ctxMenu.classList.remove('hidden');
+            
+            // 4. Show Menu
+            ctxMenu.classList.add('active');
 
-            ctxMenu.onclick = (e) => e.stopPropagation();
-
-            if (activeMenuCloser) document.removeEventListener('click', activeMenuCloser);
-            activeMenuCloser = () => hideContextMenu();
-            setTimeout(() => document.addEventListener('click', activeMenuCloser), 0);
+            // 5. Add Global Listener (with slight delay to avoid immediate trigger from opening click)
+            setTimeout(() => {
+                document.addEventListener('click', handleGlobalClick);
+            }, 50);
         }
 
         function hideContextMenu() {
-            ctxMenu.classList.add('hidden');
+            ctxMenu.classList.remove('active');
+            
+            // Remove highlighting
             document.querySelectorAll('.menu-open').forEach(el => el.classList.remove('menu-open'));
-            if (activeMenuCloser) {
-                document.removeEventListener('click', activeMenuCloser);
-                activeMenuCloser = null;
-            }
+            
+            // Clean up global listener
+            document.removeEventListener('click', handleGlobalClick);
         }
 
         // --- History ---
@@ -555,14 +584,18 @@
             const btnRear = document.getElementById('modeRearrangeBtn');
             const btnViewTree = document.getElementById('viewTreeBtn');
             const btnViewExpr = document.getElementById('viewExprBtn');
+            const viewport = document.getElementById('treeViewport');
 
-            // Define centering first
+            // Close menu on scroll
+            viewport.addEventListener('scroll', () => {
+                if (ctxMenu.classList.contains('active')) hideContextMenu();
+            });
+
             const centerViewport = () => {
-                const vp = document.getElementById('treeViewport');
                 const ct = document.getElementById('treeContainer');
-                if(vp && ct) {
-                    vp.scrollLeft = (ct.offsetWidth - vp.offsetWidth) / 2;
-                    vp.scrollTop = (ct.offsetHeight - vp.offsetHeight) / 2 - 50;
+                if(viewport && ct) {
+                    viewport.scrollLeft = (ct.offsetWidth - viewport.offsetWidth) / 2;
+                    viewport.scrollTop = (ct.offsetHeight - viewport.offsetHeight) / 2 - 50;
                 }
             };
 
@@ -586,13 +619,14 @@
                     btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
                     btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation bg-white text-gray-900 shadow-sm ring-1 ring-gray-200`;
                 }
+                
+                hideContextMenu(); // Close menu on mode switch
                 render();
             }
 
             btnSimp.onclick = () => { interactionMode = 'simplify'; updateUI(); };
             btnRear.onclick = () => { interactionMode = 'rearrange'; updateUI(); };
             
-            // MODIFIED: trigger centerViewport on view switch
             btnViewTree.onclick = () => { 
                 currentView = 'tree'; 
                 updateUI(); 
