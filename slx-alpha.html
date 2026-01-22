@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Algebra Engine</title>
+    <title>Algebra Engine - Enhanced</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Crimson+Pro:ital,wght@1,600&display=swap');
@@ -88,7 +88,7 @@
 
         /* Expression View */
         .expression-view-active #equationContainer { background: none; flex-direction: row; gap: 20px; }
-        
+
         /* FIX: Added flex-direction: row to override the .tree-wrapper column direction */
         .expression-view-active #lhsContent, .expression-view-active #rhsContent {
             display: flex; 
@@ -98,7 +98,7 @@
             align-items: center; 
             justify-content: center;
         }
-        
+
         .expression-bracket { font-size: 2rem; color: #94a3b8; font-weight: 300; margin: 0 2px; }
 
         /* Context Menu */
@@ -159,11 +159,11 @@
         <div id="treeViewport" class="tree-viewport cursor-grab active:cursor-grabbing">
             <div id="equationContainer">
                 <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 10;"></svg>
-                
+
                 <div id="lhsContent" class="tree-wrapper relative z-20"></div>
-                
+
                 <div class="equals-sign relative z-20">=</div>
-                
+
                 <div id="rhsContent" class="tree-wrapper relative z-20"></div>
             </div>
         </div>
@@ -230,7 +230,7 @@
         function initEquation() {
             // Generate LHS as complex tree
             let tempTree = generateNumericTree(0, 3);
-            
+
             // Calculate Result
             const finalVal = evaluateNumericTree(tempTree);
 
@@ -256,6 +256,16 @@
 
         // --- Deep Copy Helper ---
         const deepCopy = (obj) => JSON.parse(JSON.stringify(obj));
+
+        // Recursively regenerate IDs for a tree (used when moving subtrees to avoid ID conflicts)
+        function regenerateIds(node) {
+            node.id = generateId();
+            if (node.type === 'operator') {
+                regenerateIds(node.left);
+                regenerateIds(node.right);
+            }
+            return node;
+        }
 
         // --- Transform Logic (Applied to Nodes) ---
         const canCommute = (node) => node.type === 'operator' && ['+', '×'].includes(node.value);
@@ -297,8 +307,8 @@
             let scalar, group;
             if (dir === 'right') { scalar = node.left; group = node.right; }
             else { scalar = node.right; group = node.left; }
-            const s1 = deepCopy(scalar); s1.id = generateId();
-            const s2 = deepCopy(scalar); s2.id = generateId();
+            const s1 = deepCopy(scalar); regenerateIds(s1);
+            const s2 = deepCopy(scalar); regenerateIds(s2);
             const leftMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s1:group.left, right: dir==='right'?group.left:s1 };
             const rightMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s2:group.right, right: dir==='right'?group.right:s2 };
             return { id: node.id, type: 'operator', value: group.value, left: leftMult, right: rightMult };
@@ -311,19 +321,22 @@
         }
 
         // --- Eliminate Logic ---
-        const isLiteral = (n) => n.type === 'operand' && n.value !== 'x';
-        
+        // New logic: We allow any node (leaf or tree) to be moved, as long as it is NOT the variable 'x'.
+        const canMoveNode = (n) => !(n.type === 'operand' && n.value === 'x');
+
         function checkEliminate(node, isRoot) {
             if (!isRoot) return null; // Only root nodes can be eliminated
-            
+
             // Commutative Ops (+, *)
             if (node.value === '+' || node.value === '×') {
-                if (isLiteral(node.left)) return { op: node.value, literal: node.left, keep: node.right };
-                if (isLiteral(node.right)) return { op: node.value, literal: node.right, keep: node.left };
+                // If the right side is movable, default to moving that (convention).
+                if (canMoveNode(node.right)) return { op: node.value, literal: node.right, keep: node.left };
+                // If right side wasn't movable (e.g. it was 'x'), try the left side.
+                if (canMoveNode(node.left)) return { op: node.value, literal: node.left, keep: node.right };
             }
             // Non-Commutative Ops (-, /) - Only right side
             if (node.value === '-' || node.value === '÷') {
-                if (isLiteral(node.right)) return { op: node.value, literal: node.right, keep: node.left };
+                if (canMoveNode(node.right)) return { op: node.value, literal: node.right, keep: node.left };
             }
             return null;
         }
@@ -339,7 +352,7 @@
         }
 
         // --- Core Interactions ---
-        
+
         // Helper to find if a node ID exists in a tree
         function findInTree(tree, id) {
             if (tree.id === id) return true;
@@ -372,12 +385,12 @@
 
         function handleEliminate(side) {
             saveToHistory();
-            
+
             const sourceTree = side === 'lhs' ? lhsTree : rhsTree;
             const otherTree = side === 'lhs' ? rhsTree : lhsTree;
-            
+
             const plan = checkEliminate(sourceTree, true);
-            if (!plan) return; // Should not happen if button was clickable
+            if (!plan) return; 
 
             // 1. Update Source Tree (it becomes the child that was kept)
             const newSourceTree = plan.keep;
@@ -385,12 +398,13 @@
             // 2. Update Other Tree (build inverse operation)
             // Create a Deep Copy of the literal to move
             const movedLiteral = deepCopy(plan.literal);
-            movedLiteral.id = generateId(); // New ID for the copy
-            
+            // VITAL: Regenerate IDs for the moved tree to avoid duplicate IDs in the DOM (connectors break otherwise)
+            regenerateIds(movedLiteral);
+
             // Inverse Map
             const invMap = { '+': '-', '-': '+', '×': '÷', '÷': '×' };
             const newOp = invMap[plan.op];
-            
+
             // Construct new Other Tree:  (OldOther) [Op] (Literal)
             const newOtherTree = {
                 id: generateId(),
@@ -433,7 +447,7 @@
                 // Eliminate logic is strictly for Root nodes
                 const isRootLHS = (lhsTree.id === node.id);
                 const isRootRHS = (rhsTree.id === node.id);
-                
+
                 if ((isRootLHS || isRootRHS) && checkEliminate(node, true)) {
                     handleEliminate(isRootLHS ? 'lhs' : 'rhs');
                 }
@@ -442,7 +456,7 @@
                 // Move Mode
                 const moves = getPossibleTransforms(node);
                 if (moves.length === 0) return;
-                
+
                 const runMove = (action) => {
                     saveToHistory();
                     let fn = null;
@@ -451,7 +465,7 @@
                     if (action === 'assoc-left') fn = doAssociateLeft;
                     if (action === 'distribute') fn = doDistribute;
                     if (action === 'rewrite-sub') fn = doRewriteSub;
-                    
+
                     if(fn) {
                         if(inLHS) lhsTree = updateTreeGeneric(lhsTree, node.id, fn, 'move');
                         if(inRHS) rhsTree = updateTreeGeneric(rhsTree, node.id, fn, 'move');
@@ -555,7 +569,7 @@
         function createNodeDOM(node, isRoot) {
             const div = document.createElement('div');
             const isLeaf = node.type === 'operand';
-            
+
             let canEval = false;
             let canElim = false;
             let canTransform = false;
@@ -565,7 +579,7 @@
                 const leftIsNum = node.left.type === 'operand' && node.left.value !== 'x';
                 const rightIsNum = node.right.type === 'operand' && node.right.value !== 'x';
                 canEval = leftIsNum && rightIsNum;
-                
+
                 // Eliminate (Only if root)
                 canElim = isRoot && !!checkEliminate(node, true);
 
@@ -593,7 +607,7 @@
                 if (interactionMode === 'eliminate' && canElim) div.className += "can-eliminate";
 
                 div.textContent = node.value;
-                
+
                 if ( (interactionMode === 'simplify' && canEval) ||
                      (interactionMode === 'rearrange' && canTransform) ||
                      (interactionMode === 'eliminate' && canElim) ) {
@@ -651,17 +665,17 @@
             lhsContainer.innerHTML = '';
             rhsContainer.innerHTML = '';
             svg.innerHTML = '';
-            
+
             const lhsStr = getExpressionString(lhsTree);
             const rhsStr = getExpressionString(rhsTree);
             const hiddenAnsString = hiddenAnswer.d === 1 ? hiddenAnswer.n : `${hiddenAnswer.n}/${hiddenAnswer.d}`;
-            
+
             exprText.innerHTML = `${lhsStr} = ${rhsStr}`;
             const badge = document.createElement('span');
             badge.className = 'answer-badge';
             badge.innerText = `x = ${hiddenAnsString}`;
             exprText.appendChild(badge);
-            
+
             if(isAnswerShown) document.body.classList.add('answer-visible');
             else document.body.classList.remove('answer-visible');
 
@@ -670,7 +684,7 @@
 
             if (currentView === 'tree') {
                 document.getElementById('svgConnectors').style.display = 'block';
-                
+
                 lhsContainer.appendChild(buildTreeDOM(lhsTree, true));
                 rhsContainer.appendChild(buildTreeDOM(rhsTree, true));
 
@@ -685,7 +699,7 @@
 
             } else {
                 document.getElementById('svgConnectors').style.display = 'none';
-                
+
                 getExpressionNodes(lhsTree).forEach(item => {
                     if (item.type === 'b') {
                         const s = document.createElement('span'); s.textContent = item.v; s.className = 'expression-bracket';
@@ -746,7 +760,7 @@
                 btns.expr.className = `px-3 py-2 rounded-md transition-all ${currentView === 'expression' ? active.gray : inactive}`;
 
                 btns.hint.className = `flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${showHints ? "border border-amber-200 bg-amber-50 text-amber-700 shadow-sm" : "border border-gray-200 text-gray-500 hover:text-gray-900"}`;
-                
+
                 btns.ans.className = `px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${isAnswerShown ? "border border-pink-200 bg-pink-50 text-pink-700 shadow-sm" : "border border-pink-200 text-pink-600 hover:bg-pink-50"}`;
                 btns.ans.innerText = isAnswerShown ? "Hide Answer" : "Show Answer";
 
@@ -757,13 +771,13 @@
             btns.simp.onclick = () => { interactionMode = 'simplify'; updateUI(); };
             btns.rear.onclick = () => { interactionMode = 'rearrange'; updateUI(); };
             btns.elim.onclick = () => { interactionMode = 'eliminate'; updateUI(); };
-            
+
             btns.tree.onclick = () => { currentView = 'tree'; updateUI(); setTimeout(centerViewport, 10); };
             btns.expr.onclick = () => { currentView = 'expression'; updateUI(); setTimeout(centerViewport, 10); };
-            
+
             btns.hint.onclick = () => { showHints = !showHints; updateUI(); };
             btns.ans.onclick = () => { isAnswerShown = !isAnswerShown; updateUI(); };
-            
+
             btns.new.onclick = () => { initEquation(); render(); centerViewport(); };
             btns.undo.onclick = undo;
 
