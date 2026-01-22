@@ -88,9 +88,17 @@
 
         /* Expression View */
         .expression-view-active #equationContainer { background: none; flex-direction: column; gap: 20px; }
+        
+        /* FIX: Added flex-direction: row to override the .tree-wrapper column direction */
         .expression-view-active #lhsContent, .expression-view-active #rhsContent {
-            display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center;
+            display: flex; 
+            flex-direction: row; /* <--- THIS IS THE FIX */
+            flex-wrap: wrap; 
+            gap: 8px; 
+            align-items: center; 
+            justify-content: center;
         }
+        
         .expression-bracket { font-size: 2rem; color: #94a3b8; font-weight: 300; margin: 0 2px; }
 
         /* Context Menu */
