@@ -553,7 +553,7 @@
             document.body.className = `mode-${interactionMode} ${currentView === 'tree' ? 'tree-view-active' : 'expression-view-active'} ${hintsClass}`;
 
             if (treeData.type === 'operand') {
-                container.innerHTML = `<div class="text-7xl font-bold text-gray-900">${treeData.value.n}${treeData.value.d === 1 ? '' : treeData.value.d}</div>`;
+                container.innerHTML = `<div class="text-7xl font-bold text-gray-900">${treeData.value.n}${treeData.value.d === 1 ? '' : '/' + treeData.value.d}</div>`;
                 return;
             }
 
