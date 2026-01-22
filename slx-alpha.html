@@ -187,7 +187,8 @@
         const simplifyVal = (n, d) => {
             if (d === 0) return { n, d };
             const common = gcd(n, d);
-            return { n: n/common, d: d/common };
+            const sign = d < 0 ? -1 : 1;
+            return { n: n*sign/common, d: d*sign/common };
         };
 
         const fracOps = {
