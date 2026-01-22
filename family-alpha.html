@@ -270,7 +270,7 @@
 
     <div class="controls">
         <button class="btn-gen" onclick="initApp()">🔄 New Tree</button>
-        <button class="btn-ask" onclick="generateDirectQuestion()">❓ Direct</button>
+        <button class="btn-ask" onclick="generateDirectQuestion()">❓ Path Trace</button>
         <button class="btn-point" onclick="generatePointingQuestion()">☝️ Pointing</button>
         <button class="btn-code" onclick="generateCodedQuestion()">🔢 Coded</button>
         <button class="btn-jumble" onclick="generateJumbledQuestion()">🧩 Jumbled</button>
@@ -352,7 +352,6 @@
             }
             assignSpouse() {
                 const requiredGender = this.gender === 'Male' ? 'Female' : 'Male';
-                // CHANGED: Increased depth range for spouse family to allow deeper "in-law" walking
                 const spouseFamily = generateSpouseFamily(Math.random() > 0.5 ? 2 : 3, requiredGender);
                 if (spouseFamily.spouseNode) {
                     const newSpouse = spouseFamily.spouseNode;
@@ -382,7 +381,6 @@
             return { rootNode: root, spouseNode: selectedSpouse };
         }
 
-        const MOVES = { 'PARENT': (p) => p.parents, 'CHILD': (p) => p.children, 'SPOUSE': (p) => p.spouse ? [p.spouse] : [], 'SIBLING': (p) => p.parents.length ? p.parents[0].children.filter(c => c.id !== p.id) : [] };
         const MALE_RELATIONS = ['Father', 'Son', 'Brother', 'Husband', 'Paternal Grandfather', 'Maternal Grandfather', 'Paternal Uncle', 'Maternal Uncle', 'Nephew', 'Father-in-law', 'Brother-in-law', 'Grandson'];
         const FEMALE_RELATIONS = ['Mother', 'Daughter', 'Sister', 'Wife', 'Paternal Grandmother', 'Maternal Grandmother', 'Paternal Aunt', 'Maternal Aunt', 'Niece', 'Mother-in-law', 'Sister-in-law', 'Granddaughter'];
 
@@ -431,16 +429,17 @@
             }
         }
 
-        // --- NEW: Random Walk Helper for "Scenic Routes" ---
+        // --- CORE: RANDOM WALK LOGIC (The "Scenic Route" Engine) ---
         function randomWalk(startNode, steps) {
             let currentNode = startNode;
-            let pathLog = [startNode];
             let codeString = startNode.id;
+            let textPath = []; // For Direct Quiz (names of relations)
+            let facts = [];    // For Jumbled Quiz
             let visited = new Set([startNode.id]); 
 
             for (let i = 0; i < steps; i++) {
                 let options = [];
-                // Collect valid moves. Excluding siblings intentionally to make path longer (Parent->Child is 2 steps, Sibling is 1)
+                // Collect valid moves (Parent, Child, Spouse)
                 currentNode.parents.forEach(p => options.push({ node: p })); 
                 currentNode.children.forEach(c => options.push({ node: c })); 
                 if (currentNode.spouse) options.push({ node: currentNode.spouse });
@@ -456,44 +455,38 @@
                 const symbolDef = SYMBOL_DEFS.find(def => def.check(currentNode, nextNode));
                 if (!symbolDef) return null;
 
+                // Build outputs
                 codeString += ` <b>${symbolDef.symbol}</b> ${nextNode.id}`;
-                pathLog.push(nextNode);
+                facts.push(`${currentNode.id} <b>${symbolDef.symbol}</b> ${nextNode.id}`);
+                textPath.push(symbolDef.id); // e.g. "Father", "Wife"
+
                 visited.add(nextNode.id);
                 currentNode = nextNode;
             }
-            return { targetNode: currentNode, pathLog, codeString };
+            return { targetNode: currentNode, codeString, facts, textPath };
         }
 
         // --- PUZZLE GENERATORS ---
 
-        // CHANGED: New Logic using Random Walk (Scenic Route)
+        // 1. Coded Question (Winded Path -> Simple Relation)
         function generateCodedQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
-            
-            // Try up to 50 times to find a valid complex path
             for(let attempt = 0; attempt < 50; attempt++) {
                 const startNode = people[Math.floor(Math.random() * people.length)];
-                
-                // 1. Generate a "Scenic Route" (4 to 5 steps)
                 const walkData = randomWalk(startNode, Math.random() > 0.5 ? 4 : 5);
                 if (!walkData) continue;
                 
                 const { targetNode, codeString } = walkData;
-
-                // 2. Determine the Simple Relationship (Short Path)
                 const exactRelation = determineRelationship(startNode, targetNode);
 
-                // 3. Validate (Must be a standard relationship, not self, not null)
                 if (exactRelation && startNode.id !== targetNode.id) {
                     const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
-                    
                     const question = `
                         <div class="legend-box">${legendItems}</div>
                         Based on the sequence: <span style="background:#fef3c7; padding:4px 8px; font-weight:bold; letter-spacing:1px; border-radius:4px;">${codeString}</span><br>
                         How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?
                     `;
-                    
                     startMCQQuiz(question, exactRelation, targetNode.gender, 'type-mcq');
                     return;
                 }
@@ -501,72 +494,59 @@
             alert("Could not generate a complex path. Try New Tree.");
         }
 
-        // Minor update to Jumbled to allow slightly longer paths if found
+        // 2. Jumbled Question (Winded Facts -> Simple Relation)
         function generateJumbledQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
-            const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
-            for (const startNode of shuffledPeople) {
-                const potentialTargets = people.filter(p => p.id !== startNode.id).sort(() => 0.5 - Math.random());
-                for (const targetNode of potentialTargets) {
-                    const path = getPathNodes(startNode, targetNode);
-                    // ALLOW PATHS UP TO 6 NODES NOW
-                    if (!path || path.length < 3 || path.length > 6) continue;
-                    let facts = [], isPathValid = true;
-                    for (let i = 0; i < path.length - 1; i++) {
-                        const symbolDef = SYMBOL_DEFS.find(def => def.check(path[i], path[i+1]));
-                        if (!symbolDef) { isPathValid = false; break; }
-                        facts.push(`${path[i].id} <b>${symbolDef.symbol}</b> ${path[i+1].id}`);
-                    }
-                    if (isPathValid) {
-                        const exactRelation = determineRelationship(startNode, targetNode);
-                        if (exactRelation) {
-                            facts.sort(() => Math.random() - 0.5);
-                            const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
-                            const question = `<div class="legend-box">${legendItems}</div>Facts:<div class="fact-box">${facts.map(f => `• ${f}`).join('<br>')}</div>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`;
-                            startMCQQuiz(question, exactRelation, targetNode.gender, 'type-jumble');
-                            return;
-                        }
-                    }
+            for(let attempt = 0; attempt < 50; attempt++) {
+                const startNode = people[Math.floor(Math.random() * people.length)];
+                // Create a long chain of facts
+                const walkData = randomWalk(startNode, Math.random() > 0.5 ? 4 : 5);
+                if (!walkData) continue;
+
+                const { targetNode, facts } = walkData;
+                const exactRelation = determineRelationship(startNode, targetNode);
+
+                if (exactRelation && startNode.id !== targetNode.id) {
+                    // Shuffle the facts to make it "Jumbled"
+                    facts.sort(() => Math.random() - 0.5);
+                    const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
+                    const question = `
+                        <div class="legend-box">${legendItems}</div>
+                        <b>Given the Facts:</b><div class="fact-box">${facts.map(f => `• ${f}`).join('<br>')}</div>
+                        How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?
+                    `;
+                    startMCQQuiz(question, exactRelation, targetNode.gender, 'type-jumble');
+                    return;
                 }
             }
             alert("No puzzle found. Try New Tree.");
         }
 
+        // 3. Direct/Trace Question (Winded Description -> Find Person)
         function generateDirectQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
-            const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
-            const DIRECT_TEMPLATES = [{path:['PARENT'],label:'Parent'},{path:['CHILD'],label:'Child'},{path:['SIBLING'],label:'Sibling'},{path:['SPOUSE'],label:'Spouse'},{path:['PARENT','PARENT'],label:'Grandparent'},{path:['PARENT','SIBLING'],label:'Uncle/Aunt'}];
-            for (const startNode of shuffledPeople) {
-                const shuffledTemplates = [...DIRECT_TEMPLATES].sort(() => 0.5 - Math.random());
-                for (const template of shuffledTemplates) {
-                    let currentNodes = [startNode], failed = false;
-                    for (const move of template.path) {
-                        let nextNodes = [];
-                        currentNodes.forEach(node => { if (MOVES[move]) nextNodes = nextNodes.concat(MOVES[move](node)); });
-                        if (nextNodes.length === 0) { failed = true; break; }
-                        currentNodes = nextNodes;
-                    }
-                    if (failed) continue;
-                    const validTargets = currentNodes.filter(n => n.id !== startNode.id);
-                    if (validTargets.length > 0) {
-                        const targetNode = validTargets[Math.floor(Math.random() * validTargets.length)];
-                        const exactRelation = determineRelationship(startNode, targetNode);
-                        if (!exactRelation) continue;
-                        startDirectQuiz(`Who is the <b>${exactRelation}</b> of <span class="highlight-name">${startNode.id}</span>?`, targetNode.id);
-                        return;
-                    }
-                }
+            for(let attempt = 0; attempt < 50; attempt++) {
+                const startNode = people[Math.floor(Math.random() * people.length)];
+                // Walk 3-4 steps (too long is hard to hold in memory for direct selection)
+                const walkData = randomWalk(startNode, Math.random() > 0.5 ? 3 : 4);
+                if (!walkData) continue;
+
+                const { targetNode, textPath } = walkData;
+                // e.g., "Father's Sister's Husband"
+                const pathDescription = textPath.join("'s ") + (textPath.length > 0 ? "" : "");
+                
+                // We ask them to trace the path.
+                const question = `Starting from <span class="highlight-name">${startNode.id}</span>, go to their <b>${textPath[0]}</b>, then <i>that</i> person's <b>${textPath[1]}</b>${textPath[2] ? `, then <i>that</i> person's <b>${textPath[2]}</b>` : ''}${textPath[3] ? `, then <b>${textPath[3]}</b>` : ''}.<br><br>Who do you reach?`;
+                
+                startDirectQuiz(question, targetNode.id);
+                return;
             }
             alert("Try generating a new family!");
         }
 
-        const LHS_TEMPLATES = [
-            { find: (p) => [p], text: (t) => `${t.gender==='Male'?'He':'She'}` },
-            { find: (p) => p.children, text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'father':'mother'}` },
-            { find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'brother':'sister'}` }
-        ];
+        // 4. Pointing Question (Recursive Crawl -> Simple Relation)
         const CRAWL_MOVES = [
             { type: 'Parent',  get: (p) => p.parents, label: (p) => p.gender==='Male'?'father':'mother' },
             { type: 'Child',   get: (p) => p.children, label: (p) => p.gender==='Male'?'son':'daughter' },
@@ -579,23 +559,18 @@
             if (people.length < 2) return;
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
             for (const speaker of shuffledPeople) {
-                const pathData = generateRandomPath(speaker, Math.random() > 0.5 ? 2 : 3);
+                // Increased depth to 3 or 4 for winded logic
+                const pathData = generateRandomPath(speaker, Math.random() > 0.5 ? 3 : 4);
                 if (!pathData) continue; 
                 const { pivot, rhsText } = pathData;
-                const shuffledLHS = [...LHS_TEMPLATES].sort(() => 0.5 - Math.random());
-                for (const lhsTmpl of shuffledLHS) {
-                    const potentialTargets = lhsTmpl.find(pivot).filter(t => t.id !== speaker.id);
-                    for(const target of potentialTargets) {
-                        const lhString = lhsTmpl.text(target, pivot);
-                        if ((lhString.includes("father")||lhString.includes("brother")) && pivot.gender !== 'Male') continue;
-                        if ((lhString.includes("mother")||lhString.includes("sister")) && pivot.gender !== 'Female') continue;
-                        const actualRelation = determineRelationship(speaker, target);
-                        if (actualRelation) {
-                            const riddle = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><i>"${lhString} is <b>${rhsText}</b>."</i>`;
-                            startMCQQuiz(`${riddle}<br>How is <b>${target.id}</b> related to ${speaker.id}?`, actualRelation, target.gender, 'type-mcq');
-                            return;
-                        }
-                    }
+                
+                // We use a simple template: "He/She is [Winded Description]"
+                const actualRelation = determineRelationship(speaker, pivot);
+                
+                if (actualRelation && pivot.id !== speaker.id) {
+                    const riddle = `Pointing to a person, <span class="highlight-name">${speaker.id}</span> said:<br><i>"This person is <b>${rhsText}</b>."</i>`;
+                    startMCQQuiz(`${riddle}<br>How is that person (<span class="highlight-name">${pivot.id}</span>) related to ${speaker.id}?`, actualRelation, pivot.gender, 'type-mcq');
+                    return;
                 }
             }
             alert("No puzzle found. Try New Tree.");
@@ -636,7 +611,7 @@
             resetUI();
             setBarType('type-direct');
             document.getElementById('quiz-text').innerHTML = htmlText;
-            document.getElementById('quiz-feedback').innerHTML = "👇 Tap the person in the tree.";
+            document.getElementById('quiz-feedback').innerHTML = "👇 Tap the correct person in the tree.";
         }
 
         function startMCQQuiz(htmlText, correctAnswerStr, targetGender, typeClass) {
