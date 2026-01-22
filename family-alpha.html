@@ -40,9 +40,12 @@
         .btn-point { background-color: #8e44ad; } 
         .btn-point:hover { background-color: #732d91; }
 
-        /* NEW BUTTON STYLE */
         .btn-code { background-color: #e67e22; }
         .btn-code:hover { background-color: #d35400; }
+
+        /* NEW BUTTON STYLE */
+        .btn-jumble { background-color: #16a085; }
+        .btn-jumble:hover { background-color: #1abc9c; }
 
         /* --- 2. TREE VISUALIZATION --- */
         .tree {
@@ -127,12 +130,18 @@
         .mcq-correct { background-color: #d4edda !important; border-color: #28a745 !important; color: #155724 !important; }
         .mcq-wrong { background-color: #f8d7da !important; border-color: #dc3545 !important; color: #721c24 !important; opacity: 0.6; }
         #quiz-feedback { margin-top: 10px; font-weight: bold; font-size: 1.1rem; min-height: 1.5rem; }
-        
+
         /* Legend Box for Coded Relations */
         .legend-box {
             background: #fff3e0; border: 1px solid #ffcc80; padding: 10px;
             border-radius: 6px; font-size: 0.9rem; margin-bottom: 15px;
             display: inline-block; text-align: left;
+        }
+        /* Box for Jumbled/Disjointed facts */
+        .fact-box {
+            background: #e8f6f3; border: 1px solid #1abc9c; padding: 15px;
+            border-radius: 6px; display: inline-block; text-align: left;
+            margin-top: 10px; line-height: 1.8;
         }
     </style>
 </head>
@@ -146,6 +155,7 @@
         <button class="btn-ask" onclick="generateDirectQuestion()">❓ Direct Relation</button>
         <button class="btn-point" onclick="generatePointingQuestion()">☝️ Pointing Riddle</button>
         <button class="btn-code" onclick="generateCodedQuestion()">🔢 Coded Relations</button>
+        <button class="btn-jumble" onclick="generateJumbledQuestion()">🧩 Jumbled Facts</button>
     </div>
 
     <div class="tree" id="main-tree"></div>
@@ -171,7 +181,7 @@
         let isQuizActive = false;
         let quizType = 'DIRECT';
 
-        // --- NEW: SYMBOL DEFINITIONS FOR CODED PUZZLES ---
+        // --- SYMBOL DEFINITIONS FOR CODED PUZZLES ---
         const SYMBOL_DEFS = [
             { id: 'Father', symbol: '+', check: (a, b) => a.gender === 'Male' && b.parents.includes(a) },
             { id: 'Mother', symbol: '-', check: (a, b) => a.gender === 'Female' && b.parents.includes(a) },
@@ -362,34 +372,29 @@
             }
         }
 
-        // --- NEW: CODED RELATION GENERATOR ---
+        // --- CODED RELATION GENERATOR ---
         function generateCodedQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
 
             for (const startNode of shuffledPeople) {
-                // Find a path of 2-3 hops for a good equation
                 const potentialTargets = people.filter(p => p.id !== startNode.id);
                 const shuffledTargets = potentialTargets.sort(() => 0.5 - Math.random());
 
                 for (const targetNode of shuffledTargets) {
                     const path = getPathNodes(startNode, targetNode);
-                    
-                    // Filter: path length 3 (A-B-C) or 4 (A-B-C-D) are best for equations
+
                     if (!path || path.length < 3 || path.length > 4) continue;
 
                     let equation = `${startNode.id}`;
                     let isPathValid = true;
 
-                    // Validate every step has a symbol
                     for (let i = 0; i < path.length - 1; i++) {
                         const curr = path[i];
                         const next = path[i+1];
-                        
-                        // Find a matching symbol for the link curr -> next
                         const symbolDef = SYMBOL_DEFS.find(def => def.check(curr, next));
-                        
+
                         if (!symbolDef) {
                             isPathValid = false;
                             break;
@@ -400,11 +405,10 @@
                     if (isPathValid) {
                         const exactRelation = determineRelationship(startNode, targetNode);
                         if (exactRelation) {
-                            // Build Legend HTML
                             const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
                             const legendHtml = `<div class="legend-box">${legendItems}</div>`;
-                            
-                            const question = `${legendHtml}<br>Based on the equation: <br><span style="font-size:1.2rem; background:#eee; padding:5px 10px; border-radius:5px;">${equation}</span><br><br>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`; // Wait, standard format is usually "How is FIRST related to LAST"
+
+                            const question = `${legendHtml}<br>Based on the equation: <br><span style="font-size:1.2rem; background:#eee; padding:5px 10px; border-radius:5px;">${equation}</span><br><br>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`;
 
                             startMCQQuiz(question, exactRelation, targetNode.gender);
                             return;
@@ -413,6 +417,64 @@
                 }
             }
             alert("Could not find a clean equation path. Try 'New Family Tree'!");
+        }
+
+        // --- NEW: JUMBLED/DISJOINTED GENERATOR ---
+        function generateJumbledQuestion() {
+            const people = Array.from(allPeopleMap.values());
+            if (people.length < 2) return;
+            const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
+
+            for (const startNode of shuffledPeople) {
+                const potentialTargets = people.filter(p => p.id !== startNode.id);
+                const shuffledTargets = potentialTargets.sort(() => 0.5 - Math.random());
+
+                for (const targetNode of shuffledTargets) {
+                    const path = getPathNodes(startNode, targetNode);
+
+                    // Prefer length 3 or 4 for good puzzles
+                    if (!path || path.length < 3 || path.length > 5) continue;
+
+                    let facts = [];
+                    let isPathValid = true;
+
+                    for (let i = 0; i < path.length - 1; i++) {
+                        const curr = path[i];
+                        const next = path[i+1];
+                        const symbolDef = SYMBOL_DEFS.find(def => def.check(curr, next));
+
+                        if (!symbolDef) {
+                            isPathValid = false;
+                            break;
+                        }
+                        // Create disjointed fact string
+                        facts.push(`${curr.id} <b>${symbolDef.symbol}</b> ${next.id}`);
+                    }
+
+                    if (isPathValid) {
+                        const exactRelation = determineRelationship(startNode, targetNode);
+                        if (exactRelation) {
+                            // Shuffle the facts
+                            facts.sort(() => Math.random() - 0.5);
+
+                            const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
+                            const legendHtml = `<div class="legend-box">${legendItems}</div>`;
+                            
+                            // Create the unordered fact list
+                            const factListHtml = facts.map(f => `• ${f}`).join('<br>');
+                            const factBox = `<div class="fact-box">${factListHtml}</div>`;
+
+                            const question = `${legendHtml}<br>Consider the following facts:<br>${factBox}<br><br>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`;
+
+                            startMCQQuiz(question, exactRelation, targetNode.gender);
+                            // Change bar color for Jumbled quiz
+                            document.getElementById('quiz-bar').style.borderTopColor = "#16a085"; 
+                            return;
+                        }
+                    }
+                }
+            }
+            alert("Could not find a solvable set of facts. Try 'New Family Tree'!");
         }
 
         // --- GENERATORS ---
