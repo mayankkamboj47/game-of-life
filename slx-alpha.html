@@ -322,7 +322,7 @@
 
         // --- Eliminate Logic ---
         // New logic: We allow any node (leaf or tree) to be moved, as long as it is NOT the variable 'x'.
-        const canMoveNode = (n) => !(n.type === 'operand' && n.value === 'x');
+        const canMoveNode = (n) => true
 
         function checkEliminate(node, isRoot) {
             if (!isRoot) return null; // Only root nodes can be eliminated
