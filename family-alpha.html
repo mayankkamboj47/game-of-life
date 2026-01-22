@@ -4,167 +4,373 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blood Relations Master</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* --- 1. RESET & LAYOUT --- */
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
-            padding: 20px;
-            text-align: center;
-            padding-bottom: 200px;
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --line-color: #cbd5e1;
+            
+            /* Gender Colors */
+            --male-bg: #eff6ff;
+            --male-border: #3b82f6;
+            --male-text: #1e40af;
+            
+            --female-bg: #fdf2f8;
+            --female-border: #ec4899;
+            --female-text: #9d174d;
+
+            /* Action Buttons */
+            --btn-gen: #2563eb;
+            --btn-ask: #059669;
+            --btn-point: #7c3aed;
+            --btn-code: #ea580c;
+            --btn-jumble: #0d9488;
         }
 
-        h1 { margin-bottom: 5px; color: #2c3e50; }
-        p.subtitle { color: #7f8c8d; margin-bottom: 25px; font-size: 0.95rem; }
+        /* --- 1. RESET & LAYOUT --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 20px;
+            padding-bottom: 240px; /* Space for HUD */
+            text-align: center;
+            min-height: 100vh;
+        }
 
+        /* Header */
+        header {
+            margin-bottom: 40px;
+            animation: fadeIn 0.8s ease-out;
+        }
+        
+        h1 { 
+            font-size: 2.5rem; 
+            font-weight: 700; 
+            color: #111827;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+        
+        p.subtitle { 
+            color: var(--text-sub); 
+            font-size: 1.05rem; 
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Controls Grid */
         .controls { 
-            display: flex; justify-content: center; gap: 12px; 
-            margin-bottom: 30px; flex-wrap: wrap;
+            display: flex; 
+            justify-content: center; 
+            gap: 15px; 
+            margin-bottom: 40px; 
+            flex-wrap: wrap;
+            animation: slideDown 0.6s ease-out;
         }
 
         button {
-            padding: 12px 24px; font-size: 15px; color: white;
-            border: none; border-radius: 8px; cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.2s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: 600;
+            padding: 12px 20px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        button:active { transform: scale(0.96); }
 
-        .btn-gen { background-color: #3498db; }
-        .btn-gen:hover { background-color: #2980b9; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); filter: brightness(110%); }
+        button:active { transform: translateY(0); }
 
-        .btn-ask { background-color: #27ae60; } 
-        .btn-ask:hover { background-color: #219150; }
-
-        .btn-point { background-color: #8e44ad; } 
-        .btn-point:hover { background-color: #732d91; }
-
-        .btn-code { background-color: #e67e22; }
-        .btn-code:hover { background-color: #d35400; }
-
-        /* NEW BUTTON STYLE */
-        .btn-jumble { background-color: #16a085; }
-        .btn-jumble:hover { background-color: #1abc9c; }
+        .btn-gen { background-color: var(--btn-gen); }
+        .btn-ask { background-color: var(--btn-ask); } 
+        .btn-point { background-color: var(--btn-point); } 
+        .btn-code { background-color: var(--btn-code); }
+        .btn-jumble { background-color: var(--btn-jumble); }
 
         /* --- 2. TREE VISUALIZATION --- */
+        .tree-container {
+            overflow-x: auto;
+            padding-bottom: 40px;
+            cursor: grab;
+        }
+        .tree-container:active { cursor: grabbing; }
+
         .tree {
-            display: flex; justify-content: center; overflow-x: auto;
-            padding: 20px 0 60px 0; min-height: 300px;
+            display: inline-flex;
+            justify-content: center;
+            padding: 20px;
+            min-height: 300px;
         }
         .tree ul {
-            padding-top: 20px; position: relative; display: flex; justify-content: center;
+            padding-top: 20px; 
+            position: relative; 
+            display: flex; 
+            justify-content: center;
         }
         .tree li {
             float: left; text-align: center; list-style-type: none;
-            position: relative; padding: 20px 5px 0 5px;
+            position: relative; padding: 20px 10px 0 10px;
         }
+        
+        /* Tree Connectors */
         .tree li::before, .tree li::after {
             content: ''; position: absolute; top: 0; right: 50%;
-            border-top: 2px solid #ccc; width: 50%; height: 20px;
+            border-top: 2px solid var(--line-color); 
+            width: 50%; height: 20px;
+            transition: border-color 0.3s;
         }
-        .tree li::after { right: auto; left: 50%; border-left: 2px solid #ccc; }
+        .tree li::after { right: auto; left: 50%; border-left: 2px solid var(--line-color); }
         .tree li:only-child::after, .tree li:only-child::before { display: none; }
         .tree li:only-child { padding-top: 0; }
         .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
         .tree ul ul::before {
             content: ''; position: absolute; top: 0; left: 50%;
-            border-left: 2px solid #ccc; width: 0; height: 20px;
+            border-left: 2px solid var(--line-color); width: 0; height: 20px;
         }
 
-        /* --- 3. CARDS --- */
+        /* --- 3. PERSON CARDS --- */
         .person-card {
-            border: 2px solid #b0bec5; padding: 10px; border-radius: 10px;
-            background: white; min-width: 85px; position: relative; z-index: 10;
-            transition: all 0.2s ease; cursor: pointer; user-select: none;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        .male { background-color: #e3f2fd; border-color: #64b5f6; color: #1565c0; }
-        .female { background-color: #fce4ec; border-color: #f06292; color: #ad1457; }
-        .person-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
-        .has-spouse { border-width: 3px; }
-        .ring-icon {
-            position: absolute; top: -12px; right: -10px; font-size: 18px;
-            background: #fff; border-radius: 50%; width: 26px; height: 26px;
-            line-height: 26px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 1px solid #ddd;
+            background: white;
+            border-radius: 12px;
+            padding: 12px 16px;
+            min-width: 110px;
+            position: relative;
+            z-index: 10;
+            transition: all 0.25s ease;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            border: 2px solid transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
         }
 
-        .correct-card { 
-            background-color: #d4edda !important; border-color: #28a745 !important; 
-            transform: scale(1.15) !important; box-shadow: 0 0 15px #28a745 !important; z-index: 100;
+        /* Gender Specific Styling */
+        .male { 
+            background-color: var(--male-bg); 
+            border-color: #bfdbfe;
+            color: var(--male-text);
         }
-        .highlight-name { color: #d35400; font-weight: bold; background: #fff3e0; padding: 0 4px; border-radius: 4px; }
+        .female { 
+            background-color: var(--female-bg); 
+            border-color: #fbcfe8;
+            color: var(--female-text);
+        }
+
+        .person-card strong { font-size: 0.9rem; font-weight: 600; }
+        .person-card small { font-size: 0.75rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px;}
+
+        /* Icons inside card */
+        .avatar-icon {
+            width: 24px; height: 24px; margin-bottom: 2px;
+            fill: currentColor;
+            opacity: 0.7;
+        }
+
+        .person-card:hover { 
+            transform: translateY(-5px) scale(1.02); 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15); 
+            z-index: 20;
+        }
+
+        /* Spouse Styling */
+        .has-spouse { 
+            border-width: 2px;
+            border-style: dashed;
+        }
+        
+        .ring-icon {
+            position: absolute; 
+            top: -10px; right: -10px; 
+            font-size: 14px;
+            background: #fff; 
+            border-radius: 50%; 
+            width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            border: 2px solid #fbbf24;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .ring-icon:hover { transform: scale(1.2) rotate(10deg); }
+
+        /* Quiz Feedback States */
+        .correct-card { 
+            background-color: #dcfce7 !important; 
+            border-color: #22c55e !important; 
+            color: #15803d !important;
+            transform: scale(1.15) !important; 
+            box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.2) !important; 
+            z-index: 100;
+        }
+        
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+        .wrong-answer { animation: shake 0.4s ease-in-out; border-color: #ef4444 !important; background-color: #fee2e2 !important; }
+
+        .highlight-name { 
+            color: #c2410c; 
+            font-weight: 700; 
+            background: #ffedd5; 
+            padding: 2px 6px; 
+            border-radius: 6px; 
+            border: 1px solid #fed7aa;
+        }
 
         /* --- 4. MODAL --- */
         .modal {
             display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.5); backdrop-filter: blur(3px);
+            background-color: rgba(17, 24, 39, 0.6); backdrop-filter: blur(4px);
+            animation: fadeIn 0.3s;
         }
         .modal-content {
-            background-color: #fefefe; margin: 5vh auto; padding: 20px;
-            border: 1px solid #888; width: 95%; max-width: 900px;
-            border-radius: 12px; position: relative; overflow-x: auto;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3); min-height: 300px;
+            background-color: #fefefe; 
+            margin: 5vh auto; padding: 30px;
+            width: 90%; max-width: 900px;
+            border-radius: 20px; 
+            position: relative; overflow-x: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            min-height: 300px;
+            text-align: center;
         }
-        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close { 
+            position: absolute; top: 20px; right: 25px;
+            color: #9ca3af; font-size: 28px; font-weight: bold; 
+            cursor: pointer; transition: color 0.2s;
+        }
+        .close:hover { color: #1f2937; }
 
-        /* --- 5. QUIZ BAR --- */
+        /* --- 5. QUIZ HUD (Bottom Bar) --- */
         #quiz-bar {
-            position: fixed; bottom: 0; left: 0; width: 100%;
-            background: #fff; border-top: 4px solid #3498db;
-            padding: 20px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
-            display: none; z-index: 300;
-            flex-direction: column; align-items: center; justify-content: center;
+            position: fixed; bottom: 30px; left: 50%; 
+            transform: translateX(-50%) translateY(150%); /* Start hidden */
+            width: 90%; max-width: 800px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 25px 30px; 
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 300;
+            border: 1px solid rgba(255,255,255,0.5);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        #quiz-text { 
-            font-size: 1.1rem; color: #333; margin-bottom: 15px; font-weight: 500; 
-            max-width: 800px; line-height: 1.5;
-        }
-        #quiz-options { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; }
-        .mcq-btn {
-            background-color: #f8f9fa; color: #333; border: 2px solid #e9ecef;
-            padding: 10px 20px; border-radius: 20px; font-size: 1rem;
-            cursor: pointer; min-width: 120px;
-        }
-        .mcq-btn:hover { background-color: #e2e6ea; border-color: #adb5bd; }
-        .mcq-correct { background-color: #d4edda !important; border-color: #28a745 !important; color: #155724 !important; }
-        .mcq-wrong { background-color: #f8d7da !important; border-color: #dc3545 !important; color: #721c24 !important; opacity: 0.6; }
-        #quiz-feedback { margin-top: 10px; font-weight: bold; font-size: 1.1rem; min-height: 1.5rem; }
+        
+        #quiz-bar.active { transform: translateX(-50%) translateY(0); }
+        
+        /* Colored Borders for Quiz Types */
+        #quiz-bar.type-direct { border-top: 6px solid var(--btn-gen); }
+        #quiz-bar.type-mcq { border-top: 6px solid var(--btn-point); }
+        #quiz-bar.type-jumble { border-top: 6px solid var(--btn-jumble); }
+        #quiz-bar.type-success { border-top: 6px solid #22c55e !important; }
 
-        /* Legend Box for Coded Relations */
-        .legend-box {
-            background: #fff3e0; border: 1px solid #ffcc80; padding: 10px;
-            border-radius: 6px; font-size: 0.9rem; margin-bottom: 15px;
-            display: inline-block; text-align: left;
+        #quiz-text { 
+            font-size: 1.15rem; color: #374151; margin-bottom: 20px; 
+            line-height: 1.6; max-width: 100%;
         }
-        /* Box for Jumbled/Disjointed facts */
+        
+        #quiz-options { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; width: 100%; }
+        
+        .mcq-btn {
+            background-color: #f9fafb; color: #374151; border: 2px solid #e5e7eb;
+            padding: 10px 24px; border-radius: 50px; font-size: 0.95rem; font-weight: 600;
+            cursor: pointer; min-width: 100px;
+            transition: all 0.2s;
+        }
+        .mcq-btn:hover:not(:disabled) { background-color: #f3f4f6; border-color: #d1d5db; transform: translateY(-2px); }
+        
+        .mcq-correct { background-color: #dcfce7 !important; border-color: #22c55e !important; color: #15803d !important; box-shadow: 0 4px 6px rgba(34, 197, 94, 0.2); }
+        .mcq-wrong { background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; opacity: 0.6; }
+        
+        #quiz-feedback { margin-top: 15px; font-weight: 600; font-size: 1rem; height: 24px; color: var(--text-sub); }
+
+        /* Legend Box */
+        .legend-box {
+            background: #fff7ed; border-left: 4px solid #f97316; padding: 15px;
+            border-radius: 8px; font-size: 0.9rem; margin-bottom: 20px;
+            text-align: left; display: inline-block; width: 100%;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        
+        /* Fact Box */
         .fact-box {
-            background: #e8f6f3; border: 1px solid #1abc9c; padding: 15px;
-            border-radius: 6px; display: inline-block; text-align: left;
-            margin-top: 10px; line-height: 1.8;
+            background: #f0fdfa; border: 1px solid #ccfbf1; padding: 15px;
+            border-radius: 8px; display: inline-block; text-align: left;
+            margin-top: 10px; line-height: 1.8; width: 100%;
+            color: #115e59;
+        }
+
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            .controls { gap: 10px; }
+            button { padding: 10px 16px; font-size: 0.85rem; flex: 1 1 45%; justify-content: center; }
+            #quiz-bar { width: 95%; bottom: 15px; padding: 20px; }
+            .person-card { min-width: 90px; padding: 10px; }
         }
     </style>
 </head>
 <body>
 
-    <h1>Blood Relations Master</h1>
-    <p class="subtitle">Generate a family, then solve the riddles.</p>
+    <header>
+        <h1>Blood Relations Master</h1>
+        <p class="subtitle">Generate a complex family tree and challenge yourself with logical riddles.</p>
+    </header>
 
     <div class="controls">
-        <button class="btn-gen" onclick="initApp()">🔄 New Family Tree</button>
-        <button class="btn-ask" onclick="generateDirectQuestion()">❓ Direct Relation</button>
-        <button class="btn-point" onclick="generatePointingQuestion()">☝️ Pointing Riddle</button>
-        <button class="btn-code" onclick="generateCodedQuestion()">🔢 Coded Relations</button>
-        <button class="btn-jumble" onclick="generateJumbledQuestion()">🧩 Jumbled Facts</button>
+        <button class="btn-gen" onclick="initApp()">
+            <span>🔄</span> New Tree
+        </button>
+        <button class="btn-ask" onclick="generateDirectQuestion()">
+            <span>❓</span> Direct Relation
+        </button>
+        <button class="btn-point" onclick="generatePointingQuestion()">
+            <span>☝️</span> Pointing Riddle
+        </button>
+        <button class="btn-code" onclick="generateCodedQuestion()">
+            <span>🔢</span> Coded Relations
+        </button>
+        <button class="btn-jumble" onclick="generateJumbledQuestion()">
+            <span>🧩</span> Jumbled Facts
+        </button>
     </div>
 
-    <div class="tree" id="main-tree"></div>
+    <div class="tree-container">
+        <div class="tree" id="main-tree"></div>
+    </div>
 
     <div id="spouseModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal()">&times;</span>
-            <h3 id="modal-title" style="margin-bottom: 20px; color: #555;">Family Tree</h3>
-            <div class="tree" id="modal-tree"></div>
+            <h3 id="modal-title" style="margin-bottom: 25px; color: #374151; font-weight:700;">Spouse's Family Tree</h3>
+            <div class="tree-container" style="justify-content: center; display:flex;">
+                <div class="tree" id="modal-tree"></div>
+            </div>
         </div>
     </div>
 
@@ -180,6 +386,12 @@
         let currentQuizAnswer = null;
         let isQuizActive = false;
         let quizType = 'DIRECT';
+
+        // --- SVG ICONS ---
+        const ICONS = {
+            male: `<svg class="avatar-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>`,
+            female: `<svg class="avatar-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>` // Using generic user icon for simplicity or distinct paths if preferred
+        };
 
         // --- SYMBOL DEFINITIONS FOR CODED PUZZLES ---
         const SYMBOL_DEFS = [
@@ -218,7 +430,7 @@
         class Person {
             constructor(depth, isSurvivor = false, context = 'MAIN_TREE') {
                 this.gender = Math.random() > 0.5 ? 'Male' : 'Female';
-                this.id = this.assignName(this.gender); // Assign real name
+                this.id = this.assignName(this.gender); 
 
                 this.children = [];
                 this.spouse = null;
@@ -408,18 +620,18 @@
                             const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
                             const legendHtml = `<div class="legend-box">${legendItems}</div>`;
 
-                            const question = `${legendHtml}<br>Based on the equation: <br><span style="font-size:1.2rem; background:#eee; padding:5px 10px; border-radius:5px;">${equation}</span><br><br>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`;
+                            const question = `${legendHtml}<br>Based on the equation: <br><span style="font-size:1.2rem; background:#fef3c7; padding:8px 15px; border-radius:8px; color:#d97706; font-weight:bold; display:inline-block; margin-top:10px;">${equation}</span><br><br>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`;
 
-                            startMCQQuiz(question, exactRelation, targetNode.gender);
+                            startMCQQuiz(question, exactRelation, targetNode.gender, 'type-mcq');
                             return;
                         }
                     }
                 }
             }
-            alert("Could not find a clean equation path. Try 'New Family Tree'!");
+            alert("Could not find a clean equation path. Try 'New Tree'!");
         }
 
-        // --- NEW: JUMBLED/DISJOINTED GENERATOR ---
+        // --- JUMBLED/DISJOINTED GENERATOR ---
         function generateJumbledQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
@@ -459,22 +671,20 @@
 
                             const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
                             const legendHtml = `<div class="legend-box">${legendItems}</div>`;
-                            
+
                             // Create the unordered fact list
                             const factListHtml = facts.map(f => `• ${f}`).join('<br>');
                             const factBox = `<div class="fact-box">${factListHtml}</div>`;
 
                             const question = `${legendHtml}<br>Consider the following facts:<br>${factBox}<br><br>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`;
 
-                            startMCQQuiz(question, exactRelation, targetNode.gender);
-                            // Change bar color for Jumbled quiz
-                            document.getElementById('quiz-bar').style.borderTopColor = "#16a085"; 
+                            startMCQQuiz(question, exactRelation, targetNode.gender, 'type-jumble');
                             return;
                         }
                     }
                 }
             }
-            alert("Could not find a solvable set of facts. Try 'New Family Tree'!");
+            alert("Could not find a solvable set of facts. Try 'New Tree'!");
         }
 
         // --- GENERATORS ---
@@ -564,13 +774,13 @@
                             const riddle = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><br><i>"${lhsText} is <b>${rhsText}</b>."</i>`;
                             const question = `${riddle}<br><br>How is <b>${target.id}</b> related to ${speaker.id}?`;
 
-                            startMCQQuiz(question, actualRelation, target.gender);
+                            startMCQQuiz(question, actualRelation, target.gender, 'type-mcq');
                             return;
                         }
                     }
                 }
             }
-            alert("Could not generate a solvable riddle. Try 'New Family'!");
+            alert("Could not generate a solvable riddle. Try 'New Tree'!");
         }
 
         function generateRandomPath(currentNode, stepsRemaining, currentText = "my", history = []) {
@@ -600,21 +810,28 @@
         }
 
         // --- UI & QUIZ ---
+        function setBarType(typeClass) {
+            const bar = document.getElementById('quiz-bar');
+            bar.classList.remove('type-direct', 'type-mcq', 'type-jumble', 'type-success');
+            bar.classList.add(typeClass);
+            bar.classList.add('active'); // Trigger slide up
+        }
+
         function startDirectQuiz(htmlText, answerId) {
             isQuizActive = true; quizType = 'DIRECT'; currentQuizAnswer = answerId;
             resetUI();
-            const bar = document.getElementById('quiz-bar');
-            bar.style.display = 'flex'; bar.style.borderTopColor = "#3498db";
+            setBarType('type-direct');
             document.getElementById('quiz-text').innerHTML = htmlText;
-            document.getElementById('quiz-feedback').innerHTML = "Click the person in the tree above.";
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            document.getElementById('quiz-feedback').innerHTML = "👇 Click the person in the tree above.";
+            
+            // Scroll a bit if needed, but smooth
+            window.scrollTo({ top: 100, behavior: 'smooth' });
         }
 
-        function startMCQQuiz(htmlText, correctAnswerStr, targetGender) {
+        function startMCQQuiz(htmlText, correctAnswerStr, targetGender, typeClass) {
             isQuizActive = true; quizType = 'MCQ'; currentQuizAnswer = correctAnswerStr;
             resetUI();
-            const bar = document.getElementById('quiz-bar');
-            bar.style.display = 'flex'; bar.style.borderTopColor = "#8e44ad";
+            setBarType(typeClass);
             document.getElementById('quiz-text').innerHTML = htmlText;
             document.getElementById('quiz-feedback').innerHTML = "Select the correct relationship.";
 
@@ -645,7 +862,11 @@
                 btn.onclick = () => handleMCQAnswer(btn, opt);
                 optionsContainer.appendChild(btn);
             });
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            // Ensure HUD is visible
+            setTimeout(() => {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }, 100);
         }
 
         function handleMCQAnswer(btn, selected) {
@@ -653,7 +874,7 @@
             if (selected === currentQuizAnswer) {
                 btn.classList.add('mcq-correct');
                 document.getElementById('quiz-feedback').innerHTML = `✅ Correct! The answer is ${currentQuizAnswer}.`;
-                document.getElementById('quiz-bar').style.borderTopColor = "#28a745";
+                setBarType('type-success');
                 disableAllMCQ(); isQuizActive = false;
             } else {
                 btn.classList.add('mcq-wrong');
@@ -670,11 +891,12 @@
             if (!isQuizActive || quizType !== 'DIRECT') return;
             const card = document.querySelector(`.person-card[data-id="${id}"]`);
             const statusDiv = document.getElementById('quiz-feedback');
-            const bar = document.getElementById('quiz-bar');
+            
             if (id === currentQuizAnswer) {
                 if(card) card.classList.add('correct-card');
                 statusDiv.innerHTML = "✅ Correct! Well done.";
-                bar.style.borderTopColor = "#28a745"; isQuizActive = false;
+                setBarType('type-success');
+                isQuizActive = false;
             } else {
                 if(card) { card.classList.add('wrong-answer'); setTimeout(() => card.classList.remove('wrong-answer'), 500); }
                 statusDiv.innerHTML = "❌ Incorrect. Try again!";
@@ -704,7 +926,8 @@
         function initApp() {
             resetNames(); 
             allPeopleMap.clear(); isQuizActive = false;
-            document.getElementById('quiz-bar').style.display = 'none';
+            document.getElementById('quiz-bar').classList.remove('active');
+            
             const rootPerson = new Person(CONFIG.MAIN_DEPTH, true, 'MAIN_TREE');
             cacheAllPeople(rootPerson);
             const container = document.getElementById('main-tree');
@@ -717,12 +940,14 @@
             const li = document.createElement('li'); const card = document.createElement('div');
             let classes = `person-card ${person.gender.toLowerCase()}`;
             let ringHTML = "";
+            let iconHTML = person.gender === 'Male' ? ICONS.male : ICONS.female;
+            
             if (person.spouse) { classes += " has-spouse"; ringHTML = `<div class="ring-icon" title="View Spouse Family">💍</div>`; }
             card.className = classes; card.setAttribute('data-id', person.id);
-            card.innerHTML = `<strong>${person.id}</strong><br><small>${person.gender}</small>${ringHTML}`;
+            card.innerHTML = `${iconHTML}<strong>${person.id}</strong><small>${person.gender}</small>${ringHTML}`;
             card.onclick = (e) => {
                 e.stopPropagation();
-                if (e.target.classList.contains('ring-icon')) {
+                if (e.target.classList.contains('ring-icon') || e.target.parentElement.classList.contains('ring-icon')) {
                     if (person.spouse) openModal(person.spouse.familyRoot.id, person.spouse.id);
                     return;
                 }
@@ -747,6 +972,12 @@
             ul.appendChild(renderTreeHTML(rootNode, true));
             container.appendChild(ul);
             modal.style.display = "block";
+            
+            // Highlight the spouse in the modal
+            setTimeout(() => {
+                const spouseCard = container.querySelector(`.person-card[data-id="${spouseId}"]`);
+                if(spouseCard) spouseCard.classList.add('correct-card');
+            }, 100);
         }
         function closeModal() { document.getElementById('spouseModal').style.display = "none"; }
         window.onclick = function(event) { if (event.target == document.getElementById('spouseModal')) closeModal(); }
