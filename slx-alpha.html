@@ -87,12 +87,12 @@
         .connector { stroke: #94a3b8; stroke-width: 1.5; fill: none; }
 
         /* Expression View */
-        .expression-view-active #equationContainer { background: none; flex-direction: column; gap: 20px; }
+        .expression-view-active #equationContainer { background: none; flex-direction: row; gap: 20px; }
         
         /* FIX: Added flex-direction: row to override the .tree-wrapper column direction */
         .expression-view-active #lhsContent, .expression-view-active #rhsContent {
             display: flex; 
-            flex-direction: row; /* <--- THIS IS THE FIX */
+            flex-direction: row;
             flex-wrap: wrap; 
             gap: 8px; 
             align-items: center; 
