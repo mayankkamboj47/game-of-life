@@ -534,10 +534,8 @@
                 if (!walkData) continue;
 
                 const { targetNode, textPath } = walkData;
-                // e.g., "Father's Sister's Husband"
                 const pathDescription = textPath.join("'s ") + (textPath.length > 0 ? "" : "");
                 
-                // We ask them to trace the path.
                 const question = `Starting from <span class="highlight-name">${startNode.id}</span>, go to their <b>${textPath[0]}</b>, then <i>that</i> person's <b>${textPath[1]}</b>${textPath[2] ? `, then <i>that</i> person's <b>${textPath[2]}</b>` : ''}${textPath[3] ? `, then <b>${textPath[3]}</b>` : ''}.<br><br>Who do you reach?`;
                 
                 startDirectQuiz(question, targetNode.id);
@@ -546,7 +544,15 @@
             alert("Try generating a new family!");
         }
 
-        // 4. Pointing Question (Recursive Crawl -> Simple Relation)
+        // 4. Pointing Question (RESTORED LHS LOGIC + WINDED RHS)
+        
+        // These templates define "Who" we are talking about relative to the person pointed at.
+        const LHS_TEMPLATES = [
+            { find: (p) => [p], text: (t) => `${t.gender==='Male'?'He':'She'}` }, // "He is..."
+            { find: (p) => p.children, text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'father':'mother'}` }, // "His father is..."
+            { find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'brother':'sister'}` } // "Her sister is..."
+        ];
+
         const CRAWL_MOVES = [
             { type: 'Parent',  get: (p) => p.parents, label: (p) => p.gender==='Male'?'father':'mother' },
             { type: 'Child',   get: (p) => p.children, label: (p) => p.gender==='Male'?'son':'daughter' },
@@ -558,19 +564,40 @@
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
+            
             for (const speaker of shuffledPeople) {
-                // Increased depth to 3 or 4 for winded logic
+                // 1. Generate the Winded Description (RHS) e.g., "my father's sister's husband"
                 const pathData = generateRandomPath(speaker, Math.random() > 0.5 ? 3 : 4);
                 if (!pathData) continue; 
-                const { pivot, rhsText } = pathData;
                 
-                // We use a simple template: "He/She is [Winded Description]"
-                const actualRelation = determineRelationship(speaker, pivot);
+                const { pivot, rhsText } = pathData; // pivot is the person described by RHS
                 
-                if (actualRelation && pivot.id !== speaker.id) {
-                    const riddle = `Pointing to a person, <span class="highlight-name">${speaker.id}</span> said:<br><i>"This person is <b>${rhsText}</b>."</i>`;
-                    startMCQQuiz(`${riddle}<br>How is that person (<span class="highlight-name">${pivot.id}</span>) related to ${speaker.id}?`, actualRelation, pivot.gender, 'type-mcq');
-                    return;
+                // 2. Try to match the Pivot to a Subject relative to a Target (LHS)
+                // We want: [Target]'s [Relation] == [Pivot]
+                const shuffledLHS = [...LHS_TEMPLATES].sort(() => 0.5 - Math.random());
+                
+                for (const lhsTmpl of shuffledLHS) {
+                    // Find all possible Targets where Target's Relation is the Pivot
+                    // lhsTmpl.find(pivot) returns a list of people for whom 'pivot' is that relation.
+                    // E.g. if template is "His Father", find(pivot) returns children of pivot.
+                    const potentialTargets = lhsTmpl.find(pivot).filter(t => t.id !== speaker.id);
+                    
+                    for(const target of potentialTargets) {
+                        const lhString = lhsTmpl.text(target, pivot); // "His father"
+                        
+                        // Valid Gender Checks
+                        if ((lhString.includes("father")||lhString.includes("brother")) && pivot.gender !== 'Male') continue;
+                        if ((lhString.includes("mother")||lhString.includes("sister")) && pivot.gender !== 'Female') continue;
+                        
+                        // 3. Ensure there is a clean relationship answer
+                        const actualRelation = determineRelationship(speaker, target);
+                        
+                        if (actualRelation) {
+                            const riddle = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><i>"${lhString} is <b>${rhsText}</b>."</i>`;
+                            startMCQQuiz(`${riddle}<br>How is <span class="highlight-name">${target.id}</span> related to ${speaker.id}?`, actualRelation, target.gender, 'type-mcq');
+                            return;
+                        }
+                    }
                 }
             }
             alert("No puzzle found. Try New Tree.");
