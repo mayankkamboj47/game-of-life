@@ -293,7 +293,8 @@
             if (isLeaf) {
                 return { id, type: 'operand', value: { n: Math.floor(Math.random() * 10) + 1, d: 1 } };
             } else {
-                const symbols = ['+', '×']; // Simplified for this demo to ensure eliminate works nicely first
+                // Restore all symbols as requested
+                const symbols = ['+', '-', '×', '÷'];
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
                 return { id, type: 'operator', value: symbol, left: generateNumericTree(depth + 1, maxDepth), right: generateNumericTree(depth + 1, maxDepth) };
             }
@@ -382,6 +383,7 @@
             if (node !== treeData) return null;
             
             // Logic: Root is + or * and one child is a literal
+            // Explicitly excluding - and / for now as requested
             if (node.value === '+' || node.value === '×') {
                 if (isLiteral(node.left)) return { op: node.value, literal: node.left, keep: node.right };
                 if (isLiteral(node.right)) return { op: node.value, literal: node.right, keep: node.left };
@@ -433,8 +435,6 @@
                          const res = fracOps[node.value](node.left.value, node.right.value);
                          return { id: generateId(), type: 'operand', value: res };
                     } else if (interactionMode === 'eliminate') {
-                        // This path is usually handled by handleEliminate, 
-                        // but if we were traversing, it would go here.
                         return node;
                     } else {
                         return actionFn(node);
