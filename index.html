@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BODMAS Engine - Hints Toggle</title>
+    <title>BODMAS Engine - Division Added</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -65,7 +65,7 @@
         }
 
         /* --- Interactive States (Only active when hints are ON) --- */
-        
+
         /* Base pointer for interactive elements regardless of hints */
         body.mode-simplify .node-operator.can-evaluate,
         body.mode-rearrange .node-operator.can-transform {
@@ -155,7 +155,7 @@
             transition: opacity 0.1s, transform 0.1s;
             pointer-events: none;
         }
-        
+
         #contextMenu.active {
             opacity: 1;
             transform: scale(1);
@@ -279,7 +279,8 @@
             if (isLeaf) {
                 return { id, type: 'operand', value: { n: Math.floor(Math.random() * 12) + 1, d: 1 } };
             } else {
-                const symbols = ['+', '-', '×'];
+                // MODIFIED: Added '÷' to the symbols array
+                const symbols = ['+', '-', '×', '÷'];
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
                 return { id, type: 'operator', value: symbol, left: generateRandomTree(depth + 1, maxDepth), right: generateRandomTree(depth + 1, maxDepth) };
             }
@@ -412,7 +413,7 @@
 
         // --- Context Menu ---
         const ctxMenu = document.getElementById('contextMenu');
-        
+
         const handleGlobalClick = (e) => {
             const menu = document.getElementById('contextMenu');
             if (menu.contains(e.target)) return;
@@ -439,7 +440,7 @@
             let finalX = x;
             let finalY = y + 10;
             const menuRect = { width: 200, height: moves.length * 50 + 20 };
-            
+
             if (finalX + menuRect.width > window.innerWidth) finalX = window.innerWidth - menuRect.width - 16;
             if (finalY + menuRect.height > window.innerHeight) finalY = y - menuRect.height - 10;
             if (finalX < 16) finalX = 16;
@@ -625,14 +626,14 @@
                 } else {
                     btnHints.className = "flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all touch-manipulation border border-gray-200 text-gray-500 hover:text-gray-900";
                 }
-                
+
                 hideContextMenu();
                 render();
             }
 
             btnSimp.onclick = () => { interactionMode = 'simplify'; updateUI(); };
             btnRear.onclick = () => { interactionMode = 'rearrange'; updateUI(); };
-            
+
             btnViewTree.onclick = () => { 
                 currentView = 'tree'; 
                 updateUI(); 
