@@ -404,7 +404,7 @@
                             const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
                             const legendHtml = `<div class="legend-box">${legendItems}</div>`;
                             
-                            const question = `${legendHtml}<br>Based on the equation: <br><span style="font-size:1.2rem; background:#eee; padding:5px 10px; border-radius:5px;">${equation}</span><br><br>How is <span class="highlight-name">${startNode.id}</span> related to <span class="highlight-name">${targetNode.id}</span>?`; // Wait, standard format is usually "How is FIRST related to LAST"
+                            const question = `${legendHtml}<br>Based on the equation: <br><span style="font-size:1.2rem; background:#eee; padding:5px 10px; border-radius:5px;">${equation}</span><br><br>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`; // Wait, standard format is usually "How is FIRST related to LAST"
 
                             startMCQQuiz(question, exactRelation, targetNode.gender);
                             return;
