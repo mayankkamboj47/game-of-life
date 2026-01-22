@@ -12,12 +12,12 @@
             --text-main: #1f2937;
             --text-sub: #6b7280;
             --line-color: #cbd5e1;
-            
+
             /* Gender Colors */
             --male-bg: #eff6ff;
             --male-border: #3b82f6;
             --male-text: #1e40af;
-            
+
             --female-bg: #fdf2f8;
             --female-border: #ec4899;
             --female-text: #9d174d;
@@ -32,7 +32,7 @@
 
         /* --- 1. RESET & LAYOUT --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        
+
         body {
             font-family: 'Poppins', sans-serif;
             background-color: var(--bg-color);
@@ -46,14 +46,14 @@
         header {
             margin-bottom: 25px;
         }
-        
+
         h1 { 
             font-size: 2.2rem; 
             font-weight: 700; 
             color: #111827;
             margin-bottom: 5px;
         }
-        
+
         p.subtitle { 
             color: var(--text-sub); 
             font-size: 1rem; 
@@ -111,14 +111,14 @@
             font-size: 1.2rem; color: #374151; margin-bottom: 20px; 
             line-height: 1.5;
         }
-        
+
         #quiz-options { 
             display: grid; 
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); /* Responsive Grid */
             gap: 12px; 
             width: 100%; 
         }
-        
+
         .mcq-btn {
             background-color: #f3f4f6; color: #374151; border: 2px solid #e5e7eb;
             padding: 15px; /* Larger hit area */
@@ -127,17 +127,17 @@
             cursor: pointer;
             transition: background 0.2s;
         }
-        
+
         .mcq-btn:hover:not(:disabled) { background-color: #e5e7eb; }
-        
+
         .mcq-correct { background-color: #dcfce7 !important; border-color: #22c55e !important; color: #15803d !important; }
         .mcq-wrong { background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; opacity: 0.6; }
-        
+
         #quiz-feedback { margin-top: 15px; font-weight: 700; font-size: 1.1rem; min-height: 24px; }
 
         /* Quiz Type Colors */
         #quiz-container.type-direct { border-top-color: var(--btn-gen); }
-        #quiz-container.type-mcq { border-top-color: var(--btn-point); }
+        #quiz-container.type-mcq { border-top-color: var(--btn-code); }
         #quiz-container.type-jumble { border-top-color: var(--btn-jumble); }
         #quiz-container.type-success { border-top-color: #22c55e !important; }
 
@@ -166,7 +166,7 @@
             float: left; text-align: center; list-style-type: none;
             position: relative; padding: 20px 10px 0 10px;
         }
-        
+
         /* Tree Connectors */
         .tree li::before, .tree li::after {
             content: ''; position: absolute; top: 0; right: 50%;
@@ -206,11 +206,11 @@
         .person-card small { font-size: 0.75rem; text-transform: uppercase; }
 
         .avatar-icon { width: 24px; height: 24px; margin-bottom: 2px; fill: currentColor; opacity: 0.7; }
-        
+
         .person-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
 
         .has-spouse { border-style: dashed; }
-        
+
         .ring-icon {
             position: absolute; top: -10px; right: -10px; 
             font-size: 14px; background: #fff; border-radius: 50%; 
@@ -224,7 +224,7 @@
             transform: scale(1.15); z-index: 100;
             box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
         }
-        
+
         @keyframes shake {
             0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } 100% { transform: translateX(0); }
         }
@@ -235,7 +235,7 @@
             padding: 2px 6px; border-radius: 6px; 
         }
 
-        /* --- 5. MODAL (Keep minimal) --- */
+        /* --- 5. MODAL --- */
         .modal {
             display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%;
             background-color: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
@@ -250,7 +250,7 @@
         /* Helpers */
         .legend-box { background: #fff7ed; border-left: 4px solid #f97316; padding: 10px; margin-bottom: 15px; text-align: left; font-size: 0.9rem; }
         .fact-box { background: #f0fdfa; padding: 10px; border-radius: 6px; text-align: left; margin-top: 10px; font-size: 0.9rem; }
-        
+
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
         /* Mobile Responsive */
@@ -352,7 +352,8 @@
             }
             assignSpouse() {
                 const requiredGender = this.gender === 'Male' ? 'Female' : 'Male';
-                const spouseFamily = generateSpouseFamily(Math.random() > 0.5 ? 1 : 2, requiredGender);
+                // CHANGED: Increased depth range for spouse family to allow deeper "in-law" walking
+                const spouseFamily = generateSpouseFamily(Math.random() > 0.5 ? 2 : 3, requiredGender);
                 if (spouseFamily.spouseNode) {
                     const newSpouse = spouseFamily.spouseNode;
                     this.spouse = newSpouse; newSpouse.spouse = this;
@@ -382,8 +383,8 @@
         }
 
         const MOVES = { 'PARENT': (p) => p.parents, 'CHILD': (p) => p.children, 'SPOUSE': (p) => p.spouse ? [p.spouse] : [], 'SIBLING': (p) => p.parents.length ? p.parents[0].children.filter(c => c.id !== p.id) : [] };
-        const MALE_RELATIONS = ['Father', 'Son', 'Brother', 'Husband', 'Paternal Grandfather', 'Maternal Grandfather', 'Paternal Uncle', 'Maternal Uncle', 'Nephew', 'Father-in-law', 'Brother-in-law'];
-        const FEMALE_RELATIONS = ['Mother', 'Daughter', 'Sister', 'Wife', 'Paternal Grandmother', 'Maternal Grandmother', 'Paternal Aunt', 'Maternal Aunt', 'Niece', 'Mother-in-law', 'Sister-in-law'];
+        const MALE_RELATIONS = ['Father', 'Son', 'Brother', 'Husband', 'Paternal Grandfather', 'Maternal Grandfather', 'Paternal Uncle', 'Maternal Uncle', 'Nephew', 'Father-in-law', 'Brother-in-law', 'Grandson'];
+        const FEMALE_RELATIONS = ['Mother', 'Daughter', 'Sister', 'Wife', 'Paternal Grandmother', 'Maternal Grandmother', 'Paternal Aunt', 'Maternal Aunt', 'Niece', 'Mother-in-law', 'Sister-in-law', 'Granddaughter'];
 
         function getPathNodes(startNode, targetNode) {
             let queue = [{ node: startNode, path: [startNode] }];
@@ -414,6 +415,7 @@
             const signature = moves.join('-');
             const isMale = targetNode.gender === 'Male';
             let side = (path.length > 1 && path[1]) ? (path[1].gender === 'Male' ? "Paternal" : "Maternal") : "";
+            
             switch(signature) {
                 case 'UP': return isMale ? 'Father' : 'Mother';
                 case 'DOWN': return isMale ? 'Son' : 'Daughter';
@@ -429,36 +431,77 @@
             }
         }
 
+        // --- NEW: Random Walk Helper for "Scenic Routes" ---
+        function randomWalk(startNode, steps) {
+            let currentNode = startNode;
+            let pathLog = [startNode];
+            let codeString = startNode.id;
+            let visited = new Set([startNode.id]); 
+
+            for (let i = 0; i < steps; i++) {
+                let options = [];
+                // Collect valid moves. Excluding siblings intentionally to make path longer (Parent->Child is 2 steps, Sibling is 1)
+                currentNode.parents.forEach(p => options.push({ node: p })); 
+                currentNode.children.forEach(c => options.push({ node: c })); 
+                if (currentNode.spouse) options.push({ node: currentNode.spouse });
+
+                // Avoid immediate backtracking loops
+                options = options.filter(opt => !visited.has(opt.node.id));
+
+                if (options.length === 0) return null; // Dead end
+
+                const step = options[Math.floor(Math.random() * options.length)];
+                const nextNode = step.node;
+                
+                const symbolDef = SYMBOL_DEFS.find(def => def.check(currentNode, nextNode));
+                if (!symbolDef) return null;
+
+                codeString += ` <b>${symbolDef.symbol}</b> ${nextNode.id}`;
+                pathLog.push(nextNode);
+                visited.add(nextNode.id);
+                currentNode = nextNode;
+            }
+            return { targetNode: currentNode, pathLog, codeString };
+        }
+
         // --- PUZZLE GENERATORS ---
+
+        // CHANGED: New Logic using Random Walk (Scenic Route)
         function generateCodedQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
-            const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
-            for (const startNode of shuffledPeople) {
-                const potentialTargets = people.filter(p => p.id !== startNode.id).sort(() => 0.5 - Math.random());
-                for (const targetNode of potentialTargets) {
-                    const path = getPathNodes(startNode, targetNode);
-                    if (!path || path.length < 3 || path.length > 4) continue;
-                    let equation = `${startNode.id}`, isPathValid = true;
-                    for (let i = 0; i < path.length - 1; i++) {
-                        const symbolDef = SYMBOL_DEFS.find(def => def.check(path[i], path[i+1]));
-                        if (!symbolDef) { isPathValid = false; break; }
-                        equation += ` <b>${symbolDef.symbol}</b> ${path[i+1].id}`;
-                    }
-                    if (isPathValid) {
-                        const exactRelation = determineRelationship(startNode, targetNode);
-                        if (exactRelation) {
-                            const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
-                            const question = `<div class="legend-box">${legendItems}</div>Based on: <span style="background:#fef3c7; padding:4px 8px; font-weight:bold;">${equation}</span><br>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`;
-                            startMCQQuiz(question, exactRelation, targetNode.gender, 'type-mcq');
-                            return;
-                        }
-                    }
+            
+            // Try up to 50 times to find a valid complex path
+            for(let attempt = 0; attempt < 50; attempt++) {
+                const startNode = people[Math.floor(Math.random() * people.length)];
+                
+                // 1. Generate a "Scenic Route" (4 to 5 steps)
+                const walkData = randomWalk(startNode, Math.random() > 0.5 ? 4 : 5);
+                if (!walkData) continue;
+                
+                const { targetNode, codeString } = walkData;
+
+                // 2. Determine the Simple Relationship (Short Path)
+                const exactRelation = determineRelationship(startNode, targetNode);
+
+                // 3. Validate (Must be a standard relationship, not self, not null)
+                if (exactRelation && startNode.id !== targetNode.id) {
+                    const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
+                    
+                    const question = `
+                        <div class="legend-box">${legendItems}</div>
+                        Based on the sequence: <span style="background:#fef3c7; padding:4px 8px; font-weight:bold; letter-spacing:1px; border-radius:4px;">${codeString}</span><br>
+                        How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?
+                    `;
+                    
+                    startMCQQuiz(question, exactRelation, targetNode.gender, 'type-mcq');
+                    return;
                 }
             }
-            alert("No clean path found. Try New Tree.");
+            alert("Could not generate a complex path. Try New Tree.");
         }
 
+        // Minor update to Jumbled to allow slightly longer paths if found
         function generateJumbledQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
@@ -467,7 +510,8 @@
                 const potentialTargets = people.filter(p => p.id !== startNode.id).sort(() => 0.5 - Math.random());
                 for (const targetNode of potentialTargets) {
                     const path = getPathNodes(startNode, targetNode);
-                    if (!path || path.length < 3 || path.length > 5) continue;
+                    // ALLOW PATHS UP TO 6 NODES NOW
+                    if (!path || path.length < 3 || path.length > 6) continue;
                     let facts = [], isPathValid = true;
                     for (let i = 0; i < path.length - 1; i++) {
                         const symbolDef = SYMBOL_DEFS.find(def => def.check(path[i], path[i+1]));
@@ -581,10 +625,9 @@
         // --- UI & QUIZ LOGIC ---
         function setBarType(typeClass) {
             const bar = document.getElementById('quiz-container');
-            bar.className = ''; // Reset
+            bar.className = ''; 
             bar.classList.add(typeClass);
             bar.style.display = 'block';
-            // Scroll neatly to the quiz area so user sees question AND tree
             bar.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
