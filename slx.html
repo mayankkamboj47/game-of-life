@@ -2,432 +2,638 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Equation Solver</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Algebra Engine - Enhanced</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Lora:ital,wght@1,600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Crimson+Pro:ital,wght@1,600&display=swap');
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
+            background-color: #ffffff;
             color: #1a1a1a;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
+            display: flex; flex-direction: column;
+            height: 100vh; width: 100vw; overflow: hidden;
+        }
+
+        header { flex: none; z-index: 50; }
+        main { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+
+        .tree-viewport { 
+            flex: 1; overflow: auto; position: relative;
+            touch-action: pan-x pan-y;
+            background-color: #fcfcfc;
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        /* Container for Equation: LHS = RHS */
+        #equationContainer {
+            min-width: 1500px; min-height: 1200px;
+            display: flex; align-items: center; justify-content: center;
+            gap: 40px; /* Space around equals sign */
+            padding: 100px;
+        }
+
+        .tree-wrapper {
+            display: flex; flex-direction: column; align-items: center;
+            position: relative;
+        }
+
+        .equals-sign {
+            font-size: 3rem; font-weight: bold; color: #9ca3af;
+            margin-top: -40px; /* Align with top nodes roughly */
         }
 
         /* --- Node Styles --- */
         .node {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background: white;
-            user-select: none;
-            z-index: 20;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            background: white; user-select: none; position: relative; z-index: 20;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* Default Operator (Inactive) */
-        .node-operator {
-            border-color: #e2e8f0;
-            color: #94a3b8;
-            background-color: #f8fafc;
-        }
-
-        /* Interactive Operator (Both children are numbers) */
-        .node-operator.interactive {
-            cursor: pointer;
-            border-color: #3b82f6; /* Blue-500 */
-            color: #2563eb;
-            background-color: #eff6ff;
-            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
-        }
-
-        .node-operator.interactive:hover {
-            background-color: #3b82f6;
-            color: white;
-            transform: translateY(-2px) scale(1.05);
-        }
-
-        .node-operand {
-            border-color: #cbd5e1;
-            color: #334155;
-            background-color: #ffffff;
-        }
-
-        /* The Variable X Style */
+        .node-operator { border-color: #e5e7eb; color: #9ca3af; background-color: #f9fafb; }
         .node-variable {
-            border-color: #7c3aed; /* Violet-600 */
-            color: #7c3aed;
-            background-color: #f5f3ff; /* Violet-50 */
-            font-family: 'Lora', serif;
-            font-style: italic;
-            font-weight: 600;
-            box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.1);
+            font-family: 'Crimson Pro', serif; font-style: italic; font-size: 1.4em;
+            color: #db2777; border-color: #fbcfe8; background-color: #fdf2f8;
         }
 
-        .frac {
-            display: inline-flex;
-            flex-direction: column;
-            vertical-align: middle;
-            text-align: center;
-            line-height: 1.1;
-            font-size: 0.85em;
+        /* Interactive States */
+        body.mode-simplify .node-operator.can-evaluate,
+        body.mode-rearrange .node-operator.can-transform,
+        body.mode-eliminate .node-operator.can-eliminate { cursor: pointer; }
+
+        /* Simplify (Blue) */
+        body.mode-simplify.hints-active .node-operator.can-evaluate { border-color: #2563eb; color: #2563eb; background-color: #eff6ff; }
+        body.mode-simplify .node-operator.can-evaluate:active { background-color: #2563eb; color: #ffffff; transform: scale(0.95); }
+
+        /* Rearrange (Purple) */
+        body.mode-rearrange.hints-active .node-operator.can-transform { border-color: #9333ea; color: #9333ea; background-color: #f3e8ff; }
+        body.mode-rearrange .node-operator.can-transform:active { background-color: #9333ea; color: #ffffff; transform: scale(0.95); }
+
+        /* Eliminate (Orange) */
+        body.mode-eliminate.hints-active .node-operator.can-eliminate { border-color: #ea580c; color: #ea580c; background-color: #fff7ed; }
+        body.mode-eliminate .node-operator.can-eliminate:active { background-color: #ea580c; color: #ffffff; transform: scale(0.95); }
+
+        /* Menu */
+        .node-operator.menu-open {
+            background-color: #1f2937 !important; border-color: #1f2937 !important; color: white !important;
+            transform: scale(1.05);
         }
+
+        .frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: 0.9em; }
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
-        /* --- Canvas (Unified for Both Views) --- */
-        .tree-viewport { overflow: auto; background-color: #f8fafc; }
-        
-        #treeContainer {
-            min-width: 2500px; 
-            min-height: 2000px;
-            display: grid;
-            place-items: center;
-            padding: 100px;
-            /* Grid handles centering for both tree and linear content now */
-        }
+        .connector { stroke: #94a3b8; stroke-width: 1.5; fill: none; }
 
-        .connector {
-            stroke: #cbd5e1;
-            stroke-width: 2;
-            fill: none;
-        }
+        /* Expression View */
+        .expression-view-active #equationContainer { background: none; flex-direction: row; gap: 20px; }
 
-        /* --- View Specifics --- */
-        
-        /* Tree View: Column layout handled by JS DOM builder */
-        
-        /* Linear View: We force the content container to flow horizontally */
-        .expression-view-active #treeContent {
-            display: flex;
+        /* FIX: Added flex-direction: row to override the .tree-wrapper column direction */
+        .expression-view-active #lhsContent, .expression-view-active #rhsContent {
+            display: flex; 
+            flex-direction: row;
             flex-wrap: wrap; 
-            gap: 12px;
-            align-items: center;
+            gap: 8px; 
+            align-items: center; 
             justify-content: center;
-            /* No max-width, let it expand in the large canvas */
-            width: auto; 
         }
 
-        .expression-bracket {
-            font-size: 2.5rem;
-            color: #94a3b8;
-            font-weight: 300;
-        }
-        
-        .equals-sign {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #334155;
-            margin: 0 20px;
-        }
+        .expression-bracket { font-size: 2rem; color: #94a3b8; font-weight: 300; margin: 0 2px; }
 
-        .result-display {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #0f172a;
-            padding: 10px 20px;
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        /* Context Menu */
+        #contextMenu {
+            position: fixed; z-index: 1000; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px);
+            border: 1px solid #e5e7eb; border-radius: 12px; padding: 6px;
+            display: flex; flex-direction: column; gap: 2px; min-width: 180px;
+            opacity: 0; transform: scale(0.95); pointer-events: none; transition: opacity 0.1s, transform 0.1s;
+            box-shadow: 0 10px 30px -5px rgba(0,0,0,0.15);
         }
+        #contextMenu.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+        .menu-item {
+            display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 12px;
+            font-size: 0.95rem; font-weight: 500; color: #374151; border-radius: 8px; background: transparent; border: none; cursor: pointer;
+        }
+        .menu-item:hover { background-color: #f9fafb; }
+        .menu-item-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 6px; font-weight: bold; }
 
-        /* Footer Utilities */
-        .answer-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background-color: #ecfccb;
-            color: #3f6212;
-            padding: 4px 12px;
-            border-radius: 9999px;
-            border: 1px solid #d9f99d;
-            font-weight: 600;
-            font-size: 0.9rem;
-            animation: fadeIn 0.2s ease-out;
+        /* Answer Badge */
+        .answer-badge {
+            display: inline-flex; align-items: center; gap: 4px; background: #fdf2f8; color: #be185d;
+            border: 1px solid #fbcfe8; padding: 2px 8px; border-radius: 99px; font-size: 0.8em; font-weight: bold; margin-left: 8px;
+            opacity: 0; transform: translateY(5px); transition: all 0.3s ease;
         }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .answer-visible .answer-badge { opacity: 1; transform: translateY(0); }
     </style>
 </head>
-<body>
-
-    <header class="fixed top-0 left-0 right-0 p-4 border-b bg-white/90 backdrop-blur-md z-50 flex justify-between items-center shadow-sm">
-        <div class="flex items-center gap-4">
-            <div class="flex flex-col">
-                <h1 class="text-sm font-bold tracking-tight text-gray-800 uppercase">Algebra Solver</h1>
-                <span class="text-[10px] text-gray-500">Simplify the tree to find x</span>
+<body class="mode-simplify"> 
+    <header class="bg-white border-b border-gray-200 shadow-sm p-3">
+        <div class="max-w-5xl mx-auto flex flex-col gap-3">
+            <div class="flex justify-between items-center gap-2">
+                <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
+                    <button id="modeSimplifyBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all">Simplify</button>
+                    <button id="modeRearrangeBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all">Move</button>
+                    <button id="modeEliminateBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all">Eliminate</button>
+                </div>
+                <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
+                    <button id="viewTreeBtn" class="px-3 py-2 rounded-md transition-all">Tree</button>
+                    <button id="viewExprBtn" class="px-3 py-2 rounded-md transition-all">Expr</button>
+                </div>
             </div>
-            
-            <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium ml-4">
-                <button id="viewTreeBtn" class="px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all">Tree View</button>
-                <button id="viewExprBtn" class="px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all">Linear View</button>
+            <div class="flex justify-between items-center gap-3">
+                <div class="flex gap-3 w-full">
+                    <button id="undoBtn" disabled class="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-gray-50 flex-1">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg> Undo
+                    </button>
+                    <button id="regenerateBtn" class="flex items-center justify-center bg-gray-900 text-white px-4 py-2.5 rounded-lg text-sm font-bold active:bg-gray-700 shadow-sm flex-1">New Eq</button>
+                </div>
+                <div class="flex gap-2">
+                    <button id="showAnswerBtn" class="px-3 py-2.5 rounded-lg text-sm font-semibold border border-pink-200 text-pink-600 hover:bg-pink-50">Show Answer</button>
+                    <button id="hintsBtn" class="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold border border-gray-200 text-gray-500 hover:text-gray-900">Hints</button>
+                </div>
             </div>
-        </div>
-
-        <div class="flex items-center gap-2">
-            <button id="undoBtn" disabled class="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-                Undo
-            </button>
-            <button id="regenerateBtn" class="bg-violet-600 text-white px-5 py-2 rounded-md text-sm font-medium hover:bg-violet-700 transition-colors shadow-sm flex items-center gap-2">
-                New Equation
-            </button>
         </div>
     </header>
 
-    <main class="flex-grow relative overflow-hidden flex flex-col pt-16">
-        <div id="treeViewport" class="tree-viewport flex-grow overflow-auto relative w-full cursor-grab active:cursor-grabbing">
-            <div id="treeContainer" class="relative">
-                <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
-                <div id="treeContent" class="relative z-10"></div>
+    <main id="mainArea">
+        <div id="treeViewport" class="tree-viewport cursor-grab active:cursor-grabbing">
+            <div id="equationContainer">
+                <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 10;"></svg>
+
+                <div id="lhsContent" class="tree-wrapper relative z-20"></div>
+
+                <div class="equals-sign relative z-20">=</div>
+
+                <div id="rhsContent" class="tree-wrapper relative z-20"></div>
             </div>
         </div>
     </main>
 
-    <footer class="fixed bottom-0 left-0 right-0 p-6 flex justify-center z-50 pointer-events-none">
-        <div class="pointer-events-auto bg-white/95 backdrop-blur border border-gray-200 p-4 rounded-xl shadow-lg max-w-4xl w-full flex flex-col md:flex-row items-center justify-between gap-4 transition-all">
-            
-            <div class="flex flex-col items-center md:items-start flex-grow">
-                <div class="text-[10px] font-bold uppercase text-gray-400 mb-1 tracking-wider">Current Equation</div>
-                <div id="expressionText" class="text-xl md:text-2xl font-medium text-gray-800 font-mono flex items-center gap-2 flex-wrap justify-center md:justify-start"></div>
-            </div>
+    <div id="contextMenu"></div>
 
-            <div class="flex items-center gap-3 pl-4 md:border-l border-gray-200">
-                <div id="answerContainer"></div>
-                <button id="showAnswerBtn" class="text-xs font-semibold text-violet-600 border border-violet-200 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-md transition-colors">
-                    Show Answer
-                </button>
+    <footer class="absolute bottom-6 left-0 right-0 px-4 flex justify-center z-40 pointer-events-none">
+        <div class="pointer-events-auto bg-white/95 backdrop-blur border border-gray-200 px-6 py-4 rounded-xl shadow-lg max-w-2xl w-full text-center">
+            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1 tracking-wider">Current Equation</div>
+            <div class="flex items-center justify-center gap-3">
+                <div id="expressionText" class="text-xl font-medium text-gray-800 font-mono"></div>
             </div>
-
         </div>
     </footer>
 
     <script>
-        // --- Configuration ---
-        const config = {
-            maxDepth: 3, 
-            allowFractions: false 
-        };
-
-        // --- Math Logic ---
+        // --- Utils ---
+        const generateId = () => 'node-' + Math.random().toString(36).substr(2, 9);
         const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { a %= b; [a, b] = [b, a]; } return a; };
-        
-        const simplify = (n, d) => {
-            if (d === 0) return { n: 0, d: 1 };
+        const simplifyVal = (n, d) => {
+            if (d === 0) return { n, d };
             const common = gcd(n, d);
-            let finalN = n / common;
-            let finalD = d / common;
-            if (finalD < 0) { finalN = -finalN; finalD = -finalD; }
-            return { n: finalN, d: finalD };
+            const sign = d < 0 ? -1 : 1;
+            return { n: n*sign/common, d: d*sign/common };
         };
 
         const fracOps = {
-            '+': (a, b) => simplify(a.n * b.d + b.n * a.d, a.d * b.d),
-            '-': (a, b) => simplify(a.n * b.d - b.n * a.d, a.d * b.d),
-            '×': (a, b) => simplify(a.n * b.n, a.d * b.d),
-            '÷': (a, b) => simplify(a.n * b.d, a.d * b.n)
+            '+': (a, b) => simplifyVal(a.n * b.d + b.n * a.d, a.d * b.d),
+            '-': (a, b) => simplifyVal(a.n * b.d - b.n * a.d, a.d * b.d),
+            '×': (a, b) => simplifyVal(a.n * b.n, a.d * b.d),
+            '÷': (a, b) => simplifyVal(a.n * b.d, a.d * b.n)
         };
 
         // --- State ---
-        let treeData = null;
-        let finalResult = null;
-        let solutionValue = null; // Stores the value of x
+        let lhsTree = null;
+        let rhsTree = null;
+        let historyStack = []; 
+        let currentView = 'expression'; 
+        let interactionMode = 'simplify'; 
+        let showHints = false;
+        let hiddenAnswer = { n: 0, d: 1 };
         let isAnswerShown = false;
-        let historyStack = [];
-        let currentView = 'tree'; 
-
-        // --- Helpers ---
-        const generateId = () => 'node-' + Math.random().toString(36).substr(2, 9);
 
         // --- Tree Generation ---
-        function generateRandomTree(depth = 0) {
+        function generateNumericTree(depth = 0, maxDepth = 3) {
             const id = generateId();
-            const isLeaf = depth >= config.maxDepth || (depth > 0 && Math.random() > 0.4);
-            
+            const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
             if (isLeaf) {
-                let val = { 
-                    n: Math.floor(Math.random() * 10) + 1, 
-                    d: !config.allowFractions ? 1 : (Math.random() < 0.5 ? 1 : Math.floor(Math.random() * 8) + 2) 
-                };
-                return { id, type: 'operand', value: val };
+                return { id, type: 'operand', value: { n: Math.floor(Math.random() * 10) + 1, d: 1 } };
             } else {
-                const symbols = Object.keys(fracOps);
+                const symbols = ['+', '-', '×', '÷'];
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
-                
-                return { 
-                    id, 
-                    type: 'operator', 
-                    value: symbol, 
-                    left: generateRandomTree(depth + 1), 
-                    right: generateRandomTree(depth + 1) 
-                };
+                return { id, type: 'operator', value: symbol, left: generateNumericTree(depth + 1, maxDepth), right: generateNumericTree(depth + 1, maxDepth) };
             }
         }
 
-        function calculateTreeValue(node) {
+        function evaluateNumericTree(node) {
             if (node.type === 'operand') return node.value;
-            return fracOps[node.value](calculateTreeValue(node.left), calculateTreeValue(node.right));
+            const leftVal = evaluateNumericTree(node.left);
+            const rightVal = evaluateNumericTree(node.right);
+            return fracOps[node.value](leftVal, rightVal);
         }
 
-        function injectVariable(root) {
+        function initEquation() {
+            // Generate LHS as complex tree
+            let tempTree = generateNumericTree(0, 3);
+
+            // Calculate Result
+            const finalVal = evaluateNumericTree(tempTree);
+
+            // Replace a leaf with x
             let leaves = [];
             function traverse(node) {
-                if (node.type === 'operand') leaves.push(node);
+                if(node.type === 'operand') leaves.push(node);
                 else { traverse(node.left); traverse(node.right); }
             }
-            traverse(root);
-            if (leaves.length > 0) {
-                const randomLeaf = leaves[Math.floor(Math.random() * leaves.length)];
-                // Store the solution before overwriting
-                solutionValue = randomLeaf.value; 
-                randomLeaf.type = 'variable';
-                randomLeaf.value = 'x'; 
-            }
+            traverse(tempTree);
+            const targetLeaf = leaves[Math.floor(Math.random() * leaves.length)];
+            hiddenAnswer = targetLeaf.value;
+            targetLeaf.value = 'x'; 
+
+            lhsTree = tempTree;
+            // RHS is now a TREE node, not just a value
+            rhsTree = { id: generateId(), type: 'operand', value: finalVal };
+
+            historyStack = [];
+            isAnswerShown = false;
+            document.getElementById('showAnswerBtn').textContent = "Show Answer";
         }
 
-        // --- Evaluation Logic ---
-        function evaluateAtNode(node, targetId) {
-            if (node.id === targetId) {
-                if (node.left.type === 'operand' && node.right.type === 'operand') {
-                    const result = fracOps[node.value](node.left.value, node.right.value);
-                    return { 
-                        id: generateId(), 
-                        type: 'operand', 
-                        value: result 
-                    };
-                }
-                return node;
-            }
+        // --- Deep Copy Helper ---
+        const deepCopy = (obj) => JSON.parse(JSON.stringify(obj));
 
+        // Recursively regenerate IDs for a tree (used when moving subtrees to avoid ID conflicts)
+        function regenerateIds(node) {
+            node.id = generateId();
             if (node.type === 'operator') {
-                return { 
-                    ...node, 
-                    left: evaluateAtNode(node.left, targetId), 
-                    right: evaluateAtNode(node.right, targetId) 
-                };
+                regenerateIds(node.left);
+                regenerateIds(node.right);
             }
             return node;
         }
 
-        // --- History System ---
-        function saveToHistory() {
-            historyStack.push(JSON.parse(JSON.stringify(treeData)));
-            updateUndoBtn();
+        // --- Transform Logic (Applied to Nodes) ---
+        const canCommute = (node) => node.type === 'operator' && ['+', '×'].includes(node.value);
+        function doCommute(node) { return { ...node, left: node.right, right: node.left }; }
+
+        const canAssociateRight = (node) => {
+            if (node.type !== 'operator' || !['+', '×'].includes(node.value)) return false;
+            return node.left && node.left.type === 'operator' && node.left.value === node.value;
+        };
+        function doAssociateRight(node) {
+            const A = node.left.left;
+            const B = node.left.right;
+            const C = node.right;
+            const newRight = { ...node, id: generateId(), left: B, right: C };
+            return { ...node.left, id: node.id, left: A, right: newRight };
         }
 
-        function undo() {
-            if (historyStack.length === 0) return;
-            treeData = historyStack.pop();
-            updateUndoBtn();
+        const canAssociateLeft = (node) => {
+            if (node.type !== 'operator' || !['+', '×'].includes(node.value)) return false;
+            return node.right && node.right.type === 'operator' && node.right.value === node.value;
+        };
+        function doAssociateLeft(node) {
+            const A = node.left;
+            const B = node.right.left;
+            const C = node.right.right;
+            const newLeft = { ...node, id: generateId(), left: A, right: B };
+            return { ...node.right, id: node.id, left: newLeft, right: C };
+        }
+
+        const canDistribute = (node) => {
+            if (node.type !== 'operator' || node.value !== '×') return false;
+            if (node.right.type === 'operator' && ['+', '-'].includes(node.right.value) && node.left.type==='operand') return 'right';
+            if (node.left.type === 'operator' && ['+', '-'].includes(node.left.value) && node.right.type==='operand') return 'left';
+            return false;
+        }
+        function doDistribute(node) {
+            const dir = canDistribute(node);
+            if (!dir) return node;
+            let scalar, group;
+            if (dir === 'right') { scalar = node.left; group = node.right; }
+            else { scalar = node.right; group = node.left; }
+            const s1 = deepCopy(scalar); regenerateIds(s1);
+            const s2 = deepCopy(scalar); regenerateIds(s2);
+            const leftMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s1:group.left, right: dir==='right'?group.left:s1 };
+            const rightMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s2:group.right, right: dir==='right'?group.right:s2 };
+            return { id: node.id, type: 'operator', value: group.value, left: leftMult, right: rightMult };
+        }
+
+        function doRewriteSub(node) {
+            const negOne = { id: generateId(), type: 'operand', value: { n: -1, d: 1 } };
+            const rightMult = { id: generateId(), type: 'operator', value: '×', left: negOne, right: node.right };
+            return { ...node, value: '+', right: rightMult };
+        }
+
+        // --- Eliminate Logic ---
+        // New logic: We allow any node (leaf or tree) to be moved, as long as it is NOT the variable 'x'.
+        const canMoveNode = (n) => true
+
+        function checkEliminate(node, isRoot) {
+            if (!isRoot) return null; // Only root nodes can be eliminated
+
+            // Commutative Ops (+, *)
+            if (node.value === '+' || node.value === '×') {
+                // Priority: check if the left child is a leaf (and not 'x')
+                const isLeftNumericLeaf = node.left.type === 'operand' && node.left.value !== 'x';
+
+                // If it is, eliminate left child instead and keep right child
+                if (isLeftNumericLeaf) {
+                     return { op: node.value, literal: node.left, keep: node.right };
+                }
+
+                // Default behavior: move right if possible
+                if (canMoveNode(node.right)) return { op: node.value, literal: node.right, keep: node.left };
+
+                // If right wasn't movable (e.g. 'x'), try left
+                if (canMoveNode(node.left)) return { op: node.value, literal: node.left, keep: node.right };
+            }
+            // Non-Commutative Ops (-, /) - Only right side
+            if (node.value === '-' || node.value === '÷') {
+                if (canMoveNode(node.right)) return { op: node.value, literal: node.right, keep: node.left };
+            }
+            return null;
+        }
+
+        function getPossibleTransforms(node) {
+            const moves = [];
+            if (canCommute(node)) moves.push({ name: 'Swap', action: 'commute', icon: '⇄' });
+            if (canAssociateRight(node)) moves.push({ name: 'Group Right', action: 'assoc-right', icon: '⤵' });
+            if (canAssociateLeft(node)) moves.push({ name: 'Group Left', action: 'assoc-left', icon: '⤴' });
+            if (canDistribute(node)) moves.push({ name: 'Distribute', action: 'distribute', icon: '⑃' });
+            if (node.type === 'operator' && node.value === '-') moves.push({ name: 'Rewrite as + (-)', action: 'rewrite-sub', icon: '±' });
+            return moves;
+        }
+
+        // --- Core Interactions ---
+
+        // Helper to find if a node ID exists in a tree
+        function findInTree(tree, id) {
+            if (tree.id === id) return true;
+            if (tree.type === 'operator') {
+                return findInTree(tree.left, id) || findInTree(tree.right, id);
+            }
+            return false;
+        }
+
+        function updateTreeGeneric(tree, targetId, actionFn, mode) {
+            // Returns null if target not found, otherwise returns new tree
+            if (!findInTree(tree, targetId)) return null;
+
+            const rebuild = (node) => {
+                if (node.id === targetId) {
+                    if (mode === 'simplify') {
+                         const res = fracOps[node.value](node.left.value, node.right.value);
+                         return { id: generateId(), type: 'operand', value: res };
+                    } else if (mode === 'move') {
+                        return actionFn(node);
+                    }
+                }
+                if (node.type === 'operator') {
+                    return { ...node, left: rebuild(node.left), right: rebuild(node.right) };
+                }
+                return node;
+            };
+            return rebuild(tree);
+        }
+
+        function handleEliminate(side) {
+            saveToHistory();
+
+            const sourceTree = side === 'lhs' ? lhsTree : rhsTree;
+            const otherTree = side === 'lhs' ? rhsTree : lhsTree;
+
+            const plan = checkEliminate(sourceTree, true);
+            if (!plan) return; 
+
+            // 1. Update Source Tree (it becomes the child that was kept)
+            const newSourceTree = plan.keep;
+
+            // 2. Update Other Tree (build inverse operation)
+            // Create a Deep Copy of the literal to move
+            const movedLiteral = deepCopy(plan.literal);
+            // VITAL: Regenerate IDs for the moved tree to avoid duplicate IDs in the DOM (connectors break otherwise)
+            regenerateIds(movedLiteral);
+
+            // Inverse Map
+            const invMap = { '+': '-', '-': '+', '×': '÷', '÷': '×' };
+            const newOp = invMap[plan.op];
+
+            // Construct new Other Tree:  (OldOther) [Op] (Literal)
+            const newOtherTree = {
+                id: generateId(),
+                type: 'operator',
+                value: newOp,
+                left: otherTree, // The entire previous tree becomes the left child
+                right: movedLiteral
+            };
+
+            if (side === 'lhs') {
+                lhsTree = newSourceTree;
+                rhsTree = newOtherTree;
+            } else {
+                rhsTree = newSourceTree;
+                lhsTree = newOtherTree;
+            }
             render();
         }
 
-        function updateUndoBtn() {
+        function handleNodeClick(e, node) {
+            e.stopPropagation();
+            hideContextMenu();
+
+            // Determine which tree contains this node
+            const inLHS = findInTree(lhsTree, node.id);
+            const inRHS = findInTree(rhsTree, node.id);
+            if (!inLHS && !inRHS) return; // Error?
+
+            if (interactionMode === 'simplify') {
+                const leftIsNum = node.left.type === 'operand' && node.left.value !== 'x';
+                const rightIsNum = node.right.type === 'operand' && node.right.value !== 'x';
+                if (leftIsNum && rightIsNum) {
+                    saveToHistory();
+                    if(inLHS) lhsTree = updateTreeGeneric(lhsTree, node.id, null, 'simplify');
+                    if(inRHS) rhsTree = updateTreeGeneric(rhsTree, node.id, null, 'simplify');
+                    render();
+                }
+
+            } else if (interactionMode === 'eliminate') {
+                // Eliminate logic is strictly for Root nodes
+                const isRootLHS = (lhsTree.id === node.id);
+                const isRootRHS = (rhsTree.id === node.id);
+
+                if ((isRootLHS || isRootRHS) && checkEliminate(node, true)) {
+                    handleEliminate(isRootLHS ? 'lhs' : 'rhs');
+                }
+
+            } else {
+                // Move Mode
+                const moves = getPossibleTransforms(node);
+                if (moves.length === 0) return;
+
+                const runMove = (action) => {
+                    saveToHistory();
+                    let fn = null;
+                    if (action === 'commute') fn = doCommute;
+                    if (action === 'assoc-right') fn = doAssociateRight;
+                    if (action === 'assoc-left') fn = doAssociateLeft;
+                    if (action === 'distribute') fn = doDistribute;
+                    if (action === 'rewrite-sub') fn = doRewriteSub;
+
+                    if(fn) {
+                        if(inLHS) lhsTree = updateTreeGeneric(lhsTree, node.id, fn, 'move');
+                        if(inRHS) rhsTree = updateTreeGeneric(rhsTree, node.id, fn, 'move');
+                        render();
+                    }
+                };
+
+                if (moves.length === 1) {
+                    runMove(moves[0].action);
+                } else {
+                    showContextMenu(e.clientX, e.clientY, node, moves, runMove);
+                }
+            }
+        }
+
+        // --- Context Menu ---
+        const ctxMenu = document.getElementById('contextMenu');
+        const handleGlobalClick = (e) => {
+            if (document.getElementById('contextMenu').contains(e.target)) return;
+            hideContextMenu();
+        };
+
+        function showContextMenu(x, y, node, moves, callback) {
+            const el = document.getElementById(node.id);
+            if(el) el.classList.add('menu-open');
+            ctxMenu.innerHTML = '';
+            moves.forEach(m => {
+                const btn = document.createElement('button');
+                btn.className = 'menu-item';
+                btn.innerHTML = `<span class="menu-item-icon">${m.icon}</span> ${m.name}`;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    callback(m.action);
+                    hideContextMenu();
+                };
+                ctxMenu.appendChild(btn);
+            });
+
+            // Positioning logic
+            let finalX = x; let finalY = y + 10;
+            const menuRect = { width: 200, height: moves.length * 50 + 20 };
+            if (finalX + menuRect.width > window.innerWidth) finalX = window.innerWidth - menuRect.width - 16;
+            if (finalY + menuRect.height > window.innerHeight) finalY = y - menuRect.height - 10;
+            if (finalX < 16) finalX = 16;
+
+            ctxMenu.style.left = finalX + 'px';
+            ctxMenu.style.top = finalY + 'px';
+            ctxMenu.classList.add('active');
+            setTimeout(() => { document.addEventListener('click', handleGlobalClick); }, 50);
+        }
+
+        function hideContextMenu() {
+            ctxMenu.classList.remove('active');
+            document.querySelectorAll('.menu-open').forEach(el => el.classList.remove('menu-open'));
+            document.removeEventListener('click', handleGlobalClick);
+        }
+
+        // --- History ---
+        function saveToHistory() {
+            historyStack.push({
+                lhs: deepCopy(lhsTree),
+                rhs: deepCopy(rhsTree)
+            });
+            document.getElementById('undoBtn').disabled = false;
+        }
+        function undo() {
+            if (historyStack.length === 0) return;
+            const state = historyStack.pop();
+            lhsTree = state.lhs;
+            rhsTree = state.rhs;
             document.getElementById('undoBtn').disabled = historyStack.length === 0;
+            render();
         }
 
-        // --- Formatting & DOM ---
-        function formatFractionText(f) {
-            if (f === 'x') return 'x';
-            if (typeof f === 'object') return f.d === 1 ? f.n.toString() : `${f.n}/${f.d}`;
-            return f;
-        }
-
-        function getPrecedence(op) {
-            if (op === '×' || op === '÷') return 2;
-            if (op === '+' || op === '-') return 1;
-            return 0;
+        // --- DOM & Render ---
+        function formatVal(v) {
+            if(v === 'x') return 'x';
+            return v.d === 1 ? v.n : `${v.n}/${v.d}`;
         }
 
         function getExpressionString(node) {
-            if (node.type === 'operand' || node.type === 'variable') {
-                return formatFractionText(node.value);
-            }
-            
-            const currentPrec = getPrecedence(node.value);
-            let leftExpr = getExpressionString(node.left);
-            let rightExpr = getExpressionString(node.right);
-
-            if (node.left.type === 'operator') {
-                if (getPrecedence(node.left.value) < currentPrec) leftExpr = `(${leftExpr})`;
-            }
-            if (node.right.type === 'operator') {
-                const rightPrec = getPrecedence(node.right.value);
-                if (rightPrec <= currentPrec) rightExpr = `(${rightExpr})`;
-            }
-            return `${leftExpr} ${node.value} ${rightExpr}`;
+            if (node.type === 'operand') return formatVal(node.value);
+            const prec = (op) => op === '×' || op === '÷' ? 2 : 1;
+            let l = getExpressionString(node.left);
+            let r = getExpressionString(node.right);
+            if (node.left.type === 'operator' && prec(node.left.value) < prec(node.value)) l = `(${l})`;
+            if (node.right.type === 'operator' && prec(node.right.value) <= prec(node.value)) r = `(${r})`;
+            return `${l} ${node.value} ${r}`;
         }
 
         function getExpressionNodes(node) {
-            if (node.type === 'operand' || node.type === 'variable') return [{ type: node.type, source: node }];
-
-            const currentPrec = getPrecedence(node.value);
-            let leftNodes = getExpressionNodes(node.left);
-            let rightNodes = getExpressionNodes(node.right);
-
-            if (node.left.type === 'operator' && getPrecedence(node.left.value) < currentPrec) {
-                leftNodes = [{type: 'bracket', value: '('}, ...leftNodes, {type: 'bracket', value: ')'}];
-            }
-            if (node.right.type === 'operator' && getPrecedence(node.right.value) <= currentPrec) {
-                rightNodes = [{type: 'bracket', value: '('}, ...rightNodes, {type: 'bracket', value: ')'}];
-            }
-            return [...leftNodes, { type: 'operator', source: node }, ...rightNodes];
+            if (node.type === 'operand') return [{ type: 'operand', source: node }];
+            const prec = (op) => op === '×' || op === '÷' ? 2 : 1;
+            let l = getExpressionNodes(node.left);
+            let r = getExpressionNodes(node.right);
+            if (node.left.type === 'operator' && prec(node.left.value) < prec(node.value)) l = [{type:'b',v:'('}, ...l, {type:'b',v:')'}];
+            if (node.right.type === 'operator' && prec(node.right.value) <= prec(node.value)) r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+            return [...l, { type: 'operator', source: node }, ...r];
         }
 
-        function createNodeDOM(node) {
+        function createNodeDOM(node, isRoot) {
             const div = document.createElement('div');
-            const baseClass = "node rounded-full flex items-center justify-center shrink-0 border-2 shadow-sm relative";
-            const sizeClass = "w-12 h-12 md:w-16 md:h-16 text-xl md:text-2xl"; 
-            
-            let typeClass = "";
-            let content = "";
-            let isInteractive = false;
+            const isLeaf = node.type === 'operand';
 
-            if (node.type === 'variable') {
-                typeClass = "node-variable";
-                content = "x";
-            } else if (node.type === 'operand') {
-                typeClass = "node-operand";
-                const f = node.value;
-                content = f.d === 1 ? `<span>${f.n}</span>` : `<div class="frac"><span class="top">${f.n}</span><span class="bottom">${f.d}</span></div>`;
-            } else {
-                content = node.value;
-                if (node.left.type === 'operand' && node.right.type === 'operand') {
-                    isInteractive = true;
-                    typeClass = "node-operator interactive";
+            let canEval = false;
+            let canElim = false;
+            let canTransform = false;
+
+            if (!isLeaf) {
+                // Simplify
+                const leftIsNum = node.left.type === 'operand' && node.left.value !== 'x';
+                const rightIsNum = node.right.type === 'operand' && node.right.value !== 'x';
+                canEval = leftIsNum && rightIsNum;
+
+                // Eliminate (Only if root)
+                canElim = isRoot && !!checkEliminate(node, true);
+
+                // Move
+                const moves = getPossibleTransforms(node);
+                canTransform = moves.length > 0;
+            }
+
+            div.id = node.id; 
+            div.className = "node rounded-full flex items-center justify-center shrink-0 border-2 font-medium shadow-sm relative w-12 h-12 md:w-14 md:h-14 text-lg ";
+
+            if (isLeaf) {
+                if(node.value === 'x') {
+                    div.className += "node-variable";
+                    div.innerHTML = "x";
                 } else {
-                    typeClass = "node-operator";
+                    div.className += "border-gray-300 text-gray-700";
+                    const val = node.value;
+                    div.innerHTML = val.d === 1 ? `<span>${val.n}</span>` : `<div class="frac"><span class="top">${val.n}</span><span class="bottom">${val.d}</span></div>`;
+                }
+            } else {
+                div.className += "node-operator ";
+                if (interactionMode === 'simplify' && canEval) div.className += "can-evaluate";
+                if (interactionMode === 'rearrange' && canTransform) div.className += "can-transform";
+                if (interactionMode === 'eliminate' && canElim) div.className += "can-eliminate";
+
+                div.textContent = node.value;
+
+                if ( (interactionMode === 'simplify' && canEval) ||
+                     (interactionMode === 'rearrange' && canTransform) ||
+                     (interactionMode === 'eliminate' && canElim) ) {
+                    div.onclick = (e) => handleNodeClick(e, node);
                 }
             }
-
-            div.className = `${baseClass} ${sizeClass} ${typeClass}`;
-            div.id = node.id;
-            div.innerHTML = content;
-
-            if (isInteractive) {
-                div.onclick = (e) => {
-                    e.stopPropagation();
-                    saveToHistory();
-                    treeData = evaluateAtNode(treeData, node.id);
-                    render();
-                };
-            }
-
             return div;
         }
 
-        function buildTreeDOM(node) {
+        function buildTreeDOM(node, isRoot = false) {
             const wrapper = document.createElement('div');
             wrapper.className = "flex flex-col items-center";
-            wrapper.appendChild(createNodeDOM(node));
-
-            if (node.type === 'operator') {
+            wrapper.appendChild(createNodeDOM(node, isRoot));
+            if (node.type !== 'operand') {
                 const childrenWrapper = document.createElement('div');
-                childrenWrapper.className = "flex gap-8 md:gap-16 mt-16 md:mt-24";
+                childrenWrapper.className = "flex gap-8 md:gap-24 mt-12 md:mt-20";
                 childrenWrapper.appendChild(buildTreeDOM(node.left));
                 childrenWrapper.appendChild(buildTreeDOM(node.right));
                 wrapper.appendChild(childrenWrapper);
@@ -436,172 +642,165 @@
         }
 
         function drawConnectors(node) {
-            if (node.type !== 'operator') return;
+            if (node.type === 'operand') return;
             const p = document.getElementById(node.id);
             const l = document.getElementById(node.left.id);
             const r = document.getElementById(node.right.id);
-
             if (p && l && r) { 
-                drawLine(p, l); 
-                drawLine(p, r); 
+                const svg = document.getElementById('svgConnectors');
+                const cRect = document.getElementById('equationContainer').getBoundingClientRect();
+                const draw = (e1, e2) => {
+                    const r1 = e1.getBoundingClientRect();
+                    const r2 = e2.getBoundingClientRect();
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', r1.left + r1.width/2 - cRect.left);
+                    line.setAttribute('y1', r1.top + r1.height/2 - cRect.top);
+                    line.setAttribute('x2', r2.left + r2.width/2 - cRect.left);
+                    line.setAttribute('y2', r2.top + r2.height/2 - cRect.top);
+                    line.setAttribute('class', 'connector');
+                    svg.appendChild(line);
+                };
+                draw(p, l); draw(p, r);
             }
-            drawConnectors(node.left); 
+            drawConnectors(node.left);
             drawConnectors(node.right);
         }
 
-        function drawLine(el1, el2) {
-            const svg = document.getElementById('svgConnectors');
-            const containerRect = document.getElementById('treeContainer').getBoundingClientRect();
-            const r1 = el1.getBoundingClientRect();
-            const r2 = el2.getBoundingClientRect();
-            
-            const x1 = r1.left + r1.width / 2 - containerRect.left; 
-            const y1 = r1.top + r1.height / 2 - containerRect.top;
-            const x2 = r2.left + r2.width / 2 - containerRect.left; 
-            const y2 = r2.top + r2.height / 2 - containerRect.top;
-
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-            line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-            line.setAttribute('class', 'connector');
-            svg.appendChild(line);
-        }
-
-        // --- Render Main ---
         function render() {
-            const container = document.getElementById('treeContent');
+            const lhsContainer = document.getElementById('lhsContent');
+            const rhsContainer = document.getElementById('rhsContent');
             const svg = document.getElementById('svgConnectors');
-            const expressionText = document.getElementById('expressionText');
-            const answerContainer = document.getElementById('answerContainer');
-            const showAnswerBtn = document.getElementById('showAnswerBtn');
+            const exprText = document.getElementById('expressionText');
 
-            // Reset Content
-            container.innerHTML = '';
+            lhsContainer.innerHTML = '';
+            rhsContainer.innerHTML = '';
             svg.innerHTML = '';
-            
-            // 1. Footer Equation
-            const leftSide = getExpressionString(treeData);
-            const rightSide = formatFractionText(finalResult);
-            
-            expressionText.innerHTML = `
-                <span>${leftSide}</span>
-                <span class="text-violet-600 mx-2">=</span>
-                <span class="font-bold">${rightSide}</span>
-            `;
 
-            // 2. Footer Answer Logic
-            if (isAnswerShown && solutionValue) {
-                const val = solutionValue;
-                const valStr = val.d === 1 ? val.n : `${val.n}/${val.d}`;
-                answerContainer.innerHTML = `<div class="answer-pill">x = ${valStr}</div>`;
-                showAnswerBtn.textContent = "Hide Answer";
-            } else {
-                answerContainer.innerHTML = '';
-                showAnswerBtn.textContent = "Show Answer";
-            }
+            const lhsStr = getExpressionString(lhsTree);
+            const rhsStr = getExpressionString(rhsTree);
+            const hiddenAnsString = hiddenAnswer.d === 1 ? hiddenAnswer.n : `${hiddenAnswer.n}/${hiddenAnswer.d}`;
 
-            // 3. View Handling
-            document.body.className = currentView === 'tree' ? 'tree-view-active' : 'expression-view-active';
+            exprText.innerHTML = `${lhsStr} = ${rhsStr}`;
+            const badge = document.createElement('span');
+            badge.className = 'answer-badge';
+            badge.innerText = `x = ${hiddenAnsString}`;
+            exprText.appendChild(badge);
+
+            if(isAnswerShown) document.body.classList.add('answer-visible');
+            else document.body.classList.remove('answer-visible');
+
+            const hintsClass = showHints ? 'hints-active' : '';
+            document.body.className = `mode-${interactionMode} ${currentView === 'tree' ? 'tree-view-active' : 'expression-view-active'} ${hintsClass} ${isAnswerShown ? 'answer-visible' : ''}`;
 
             if (currentView === 'tree') {
-                svg.style.display = 'block';
-                container.appendChild(buildTreeDOM(treeData));
-                requestAnimationFrame(() => drawConnectors(treeData));
+                document.getElementById('svgConnectors').style.display = 'block';
+
+                lhsContainer.appendChild(buildTreeDOM(lhsTree, true));
+                rhsContainer.appendChild(buildTreeDOM(rhsTree, true));
+
+                // Draw lines after layout
+                setTimeout(() => { 
+                    requestAnimationFrame(() => { 
+                        svg.innerHTML = ''; 
+                        drawConnectors(lhsTree); 
+                        drawConnectors(rhsTree);
+                    }); 
+                }, 0);
+
             } else {
-                // Linear View - Uses same large container, but builds flat list
-                svg.style.display = 'none';
-                const flatNodes = getExpressionNodes(treeData);
-                
-                flatNodes.forEach(item => {
-                    if (item.type === 'bracket') {
-                        const span = document.createElement('span');
-                        span.textContent = item.value;
-                        span.className = 'expression-bracket';
-                        container.appendChild(span);
-                    } else {
-                        container.appendChild(createNodeDOM(item.source));
-                    }
+                document.getElementById('svgConnectors').style.display = 'none';
+
+                getExpressionNodes(lhsTree).forEach(item => {
+                    if (item.type === 'b') {
+                        const s = document.createElement('span'); s.textContent = item.v; s.className = 'expression-bracket';
+                        lhsContainer.appendChild(s);
+                    } else lhsContainer.appendChild(createNodeDOM(item.source, lhsTree.id === item.source.id));
                 });
 
-                const equals = document.createElement('div');
-                equals.className = 'equals-sign';
-                equals.textContent = '=';
-                container.appendChild(equals);
-
-                const resultDiv = document.createElement('div');
-                resultDiv.className = 'result-display';
-                const f = finalResult;
-                resultDiv.innerHTML = f.d === 1 ? f.n : `<div class="frac"><span class="top">${f.n}</span><span class="bottom">${f.d}</span></div>`;
-                container.appendChild(resultDiv);
+                getExpressionNodes(rhsTree).forEach(item => {
+                    if (item.type === 'b') {
+                        const s = document.createElement('span'); s.textContent = item.v; s.className = 'expression-bracket';
+                        rhsContainer.appendChild(s);
+                    } else rhsContainer.appendChild(createNodeDOM(item.source, rhsTree.id === item.source.id));
+                });
             }
         }
 
-        function centerView() {
-            const vp = document.getElementById('treeViewport');
-            const content = document.getElementById('treeContainer');
-            setTimeout(() => {
-                vp.scrollLeft = (content.offsetWidth - vp.offsetWidth) / 2;
-                vp.scrollTop = (content.offsetHeight - vp.offsetHeight) / 2; 
-            }, 10);
-        }
-
-        function createNewEquation() {
-            historyStack = [];
-            isAnswerShown = false; // Reset answer visibility
-            updateUndoBtn();
-            treeData = generateRandomTree(0);
-            finalResult = calculateTreeValue(treeData);
-            injectVariable(treeData);
-            render();
-            centerView();
-        }
-
+        // --- Init ---
         window.onload = () => {
-            createNewEquation();
+            initEquation();
 
-            document.getElementById('regenerateBtn').onclick = createNewEquation;
-            document.getElementById('undoBtn').onclick = undo;
-            
-            // Answer Toggle
-            document.getElementById('showAnswerBtn').onclick = () => {
-                isAnswerShown = !isAnswerShown;
+            const btns = {
+                simp: document.getElementById('modeSimplifyBtn'),
+                rear: document.getElementById('modeRearrangeBtn'),
+                elim: document.getElementById('modeEliminateBtn'),
+                tree: document.getElementById('viewTreeBtn'),
+                expr: document.getElementById('viewExprBtn'),
+                hint: document.getElementById('hintsBtn'),
+                ans: document.getElementById('showAnswerBtn'),
+                undo: document.getElementById('undoBtn'),
+                new: document.getElementById('regenerateBtn')
+            };
+
+            const viewport = document.querySelector('.tree-viewport');
+            viewport.addEventListener('scroll', () => { if (ctxMenu.classList.contains('active')) hideContextMenu(); });
+
+            const centerViewport = () => {
+                const ct = document.getElementById('equationContainer');
+                if(viewport && ct) {
+                    viewport.scrollLeft = (ct.offsetWidth - viewport.offsetWidth) / 2;
+                    viewport.scrollTop = (ct.offsetHeight - viewport.offsetHeight) / 2 - 50;
+                }
+            };
+
+            const updateUI = () => {
+                const active = {
+                    blue: "bg-white text-blue-600 shadow-sm ring-1 ring-gray-200",
+                    purple: "bg-white text-purple-600 shadow-sm ring-1 ring-gray-200",
+                    orange: "bg-white text-orange-600 shadow-sm ring-1 ring-gray-200",
+                    gray: "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                };
+                const inactive = "text-gray-500 hover:text-gray-900 bg-transparent";
+
+                btns.simp.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all ${interactionMode === 'simplify' ? active.blue : inactive}`;
+                btns.rear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all ${interactionMode === 'rearrange' ? active.purple : inactive}`;
+                btns.elim.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all ${interactionMode === 'eliminate' ? active.orange : inactive}`;
+
+                btns.tree.className = `px-3 py-2 rounded-md transition-all ${currentView === 'tree' ? active.gray : inactive}`;
+                btns.expr.className = `px-3 py-2 rounded-md transition-all ${currentView === 'expression' ? active.gray : inactive}`;
+
+                btns.hint.className = `flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${showHints ? "border border-amber-200 bg-amber-50 text-amber-700 shadow-sm" : "border border-gray-200 text-gray-500 hover:text-gray-900"}`;
+
+                btns.ans.className = `px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${isAnswerShown ? "border border-pink-200 bg-pink-50 text-pink-700 shadow-sm" : "border border-pink-200 text-pink-600 hover:bg-pink-50"}`;
+                btns.ans.innerText = isAnswerShown ? "Hide Answer" : "Show Answer";
+
+                hideContextMenu();
                 render();
             };
 
-            const btnTree = document.getElementById('viewTreeBtn');
-            const btnExpr = document.getElementById('viewExprBtn');
+            btns.simp.onclick = () => { interactionMode = 'simplify'; updateUI(); };
+            btns.rear.onclick = () => { interactionMode = 'rearrange'; updateUI(); };
+            btns.elim.onclick = () => { interactionMode = 'eliminate'; updateUI(); };
 
-            const updateViewUI = () => {
-                if (currentView === 'tree') {
-                    btnTree.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
-                    btnExpr.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
-                } else {
-                    btnTree.className = "px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-900 transition-all";
-                    btnExpr.className = "px-3 py-1.5 rounded-md shadow-sm bg-white text-gray-900 transition-all";
-                }
-            };
+            btns.tree.onclick = () => { currentView = 'tree'; updateUI(); setTimeout(centerViewport, 10); };
+            btns.expr.onclick = () => { currentView = 'expression'; updateUI(); setTimeout(centerViewport, 10); };
 
-            btnTree.onclick = () => { 
-                currentView = 'tree'; 
-                updateViewUI(); 
-                render(); 
-                centerView(); 
-            };
-            
-            btnExpr.onclick = () => { 
-                currentView = 'expression'; 
-                updateViewUI(); 
-                render(); 
-                centerView(); 
-            };
+            btns.hint.onclick = () => { showHints = !showHints; updateUI(); };
+            btns.ans.onclick = () => { isAnswerShown = !isAnswerShown; updateUI(); };
 
-            window.addEventListener('resize', () => {
-                if (currentView === 'tree') {
-                    const svg = document.getElementById('svgConnectors');
-                    svg.innerHTML = '';
-                    drawConnectors(treeData);
-                }
+            btns.new.onclick = () => { initEquation(); render(); centerViewport(); };
+            btns.undo.onclick = undo;
+
+            window.addEventListener('resize', () => { 
+                if(currentView==='tree') { 
+                    document.getElementById('svgConnectors').innerHTML=''; 
+                    drawConnectors(lhsTree); 
+                    drawConnectors(rhsTree); 
+                } 
             });
+
+            updateUI();
+            setTimeout(centerViewport, 100);
         };
     </script>
 </body>
