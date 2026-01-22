@@ -1,235 +1,425 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blood Relations Master</title>
+    <title>Blood Relations Master (Hindi)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* --- 1. RESET & LAYOUT --- */
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
-            padding: 20px;
-            text-align: center;
-            padding-bottom: 200px;
+        :root {
+            --primary: #4f46e5;
+            --bg-color: #f3f4f6;
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --line-color: #cbd5e1;
+
+            /* Gender Colors */
+            --male-bg: #eff6ff;
+            --male-border: #3b82f6;
+            --male-text: #1e40af;
+
+            --female-bg: #fdf2f8;
+            --female-border: #ec4899;
+            --female-text: #9d174d;
+
+            /* Action Buttons */
+            --btn-gen: #2563eb;
+            --btn-ask: #059669;
+            --btn-point: #7c3aed;
+            --btn-code: #ea580c;
+            --btn-jumble: #0d9488;
         }
 
-        h1 { margin-bottom: 5px; color: #2c3e50; }
-        p.subtitle { color: #7f8c8d; margin-bottom: 25px; font-size: 0.95rem; }
+        /* --- 1. RESET & LAYOUT --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
+        body {
+            font-family: 'Hind', sans-serif; /* Changed font */
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 20px;
+            text-align: center;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header { margin-bottom: 25px; }
+
+        h1 { 
+            font-size: 2.2rem; 
+            font-weight: 700; 
+            color: #111827;
+            margin-bottom: 5px;
+        }
+
+        p.subtitle { 
+            color: var(--text-sub); 
+            font-size: 1.1rem; 
+        }
+
+        /* Controls Grid */
         .controls { 
-            display: flex; justify-content: center; gap: 12px; 
-            margin-bottom: 30px; flex-wrap: wrap;
+            display: flex; 
+            justify-content: center; 
+            gap: 12px; 
+            margin-bottom: 20px; 
+            flex-wrap: wrap;
         }
 
         button {
-            padding: 12px 24px; font-size: 15px; color: white;
-            border: none; border-radius: 8px; cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.2s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: 600;
+            padding: 12px 20px;
+            font-family: 'Hind', sans-serif;
+            font-size: 1rem;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
+
         button:active { transform: scale(0.96); }
 
-        .btn-gen { background-color: #3498db; }
-        .btn-gen:hover { background-color: #2980b9; }
+        .btn-gen { background-color: var(--btn-gen); }
+        .btn-ask { background-color: var(--btn-ask); } 
+        .btn-point { background-color: var(--btn-point); } 
+        .btn-code { background-color: var(--btn-code); }
+        .btn-jumble { background-color: var(--btn-jumble); }
 
-        .btn-ask { background-color: #27ae60; } 
-        .btn-ask:hover { background-color: #219150; }
+        /* --- 2. QUIZ CONTAINER --- */
+        #quiz-container {
+            display: none;
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin: 0 auto 30px auto;
+            width: 100%;
+            max-width: 800px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-top: 6px solid #ccc;
+            animation: fadeIn 0.4s ease-out;
+            text-align: left; /* Better for reading Hindi questions */
+        }
 
-        .btn-point { background-color: #8e44ad; } 
-        .btn-point:hover { background-color: #732d91; }
+        #quiz-text { 
+            font-size: 1.3rem; color: #374151; margin-bottom: 20px; 
+            line-height: 1.6;
+        }
 
-        /* --- 2. TREE VISUALIZATION --- */
+        #quiz-options { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); 
+            gap: 12px; 
+            width: 100%; 
+        }
+
+        .mcq-btn {
+            background-color: #f3f4f6; color: #374151; border: 2px solid #e5e7eb;
+            padding: 15px; 
+            border-radius: 12px; 
+            font-size: 1.1rem; font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-align: center;
+        }
+
+        .mcq-btn:hover:not(:disabled) { background-color: #e5e7eb; }
+        .mcq-correct { background-color: #dcfce7 !important; border-color: #22c55e !important; color: #15803d !important; }
+        .mcq-wrong { background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; opacity: 0.6; }
+
+        #quiz-feedback { margin-top: 15px; font-weight: 700; font-size: 1.1rem; min-height: 24px; text-align: center; }
+
+        /* Quiz Type Colors */
+        #quiz-container.type-direct { border-top-color: var(--btn-gen); }
+        #quiz-container.type-mcq { border-top-color: var(--btn-code); }
+        #quiz-container.type-jumble { border-top-color: var(--btn-jumble); }
+        #quiz-container.type-success { border-top-color: #22c55e !important; }
+
+        /* --- 3. TREE VISUALIZATION --- */
+        .tree-container {
+            overflow-x: auto;
+            padding-bottom: 40px;
+            display: flex; 
+            justify-content: center;
+        }
+
         .tree {
-            display: flex; justify-content: center; overflow-x: auto;
-            padding: 20px 0 60px 0; min-height: 300px;
+            display: inline-flex;
+            justify-content: center;
+            padding: 20px;
+            min-height: 300px;
         }
         .tree ul {
-            padding-top: 20px; position: relative; display: flex; justify-content: center;
+            padding-top: 20px; 
+            position: relative; 
+            display: flex; 
+            justify-content: center;
         }
         .tree li {
             float: left; text-align: center; list-style-type: none;
-            position: relative; padding: 20px 5px 0 5px;
+            position: relative; padding: 20px 10px 0 10px;
         }
+
+        /* Tree Connectors */
         .tree li::before, .tree li::after {
             content: ''; position: absolute; top: 0; right: 50%;
-            border-top: 2px solid #ccc; width: 50%; height: 20px;
+            border-top: 2px solid var(--line-color); 
+            width: 50%; height: 20px;
         }
-        .tree li::after { right: auto; left: 50%; border-left: 2px solid #ccc; }
+        .tree li::after { right: auto; left: 50%; border-left: 2px solid var(--line-color); }
         .tree li:only-child::after, .tree li:only-child::before { display: none; }
         .tree li:only-child { padding-top: 0; }
         .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
         .tree ul ul::before {
             content: ''; position: absolute; top: 0; left: 50%;
-            border-left: 2px solid #ccc; width: 0; height: 20px;
+            border-left: 2px solid var(--line-color); width: 0; height: 20px;
         }
 
-        /* --- 3. CARDS --- */
+        /* --- 4. PERSON CARDS --- */
         .person-card {
-            border: 2px solid #b0bec5; padding: 10px; border-radius: 10px;
-            background: white; min-width: 85px; position: relative; z-index: 10;
-            transition: all 0.2s ease; cursor: pointer; user-select: none;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            background: white;
+            border-radius: 12px;
+            padding: 10px 14px;
+            min-width: 100px;
+            position: relative;
+            z-index: 10;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 2px solid transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        .male { background-color: #e3f2fd; border-color: #64b5f6; color: #1565c0; }
-        .female { background-color: #fce4ec; border-color: #f06292; color: #ad1457; }
-        .person-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
-        .has-spouse { border-width: 3px; }
+
+        .male { background-color: var(--male-bg); border-color: #bfdbfe; color: var(--male-text); }
+        .female { background-color: var(--female-bg); border-color: #fbcfe8; color: var(--female-text); }
+
+        .person-card strong { font-size: 1rem; font-weight: 600; }
+        .person-card small { font-size: 0.8rem; }
+
+        .avatar-icon { width: 24px; height: 24px; margin-bottom: 2px; fill: currentColor; opacity: 0.7; }
+
+        .person-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+        .has-spouse { border-style: dashed; }
+
         .ring-icon {
-            position: absolute; top: -12px; right: -10px; font-size: 18px;
-            background: #fff; border-radius: 50%; width: 26px; height: 26px;
-            line-height: 26px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 1px solid #ddd;
+            position: absolute; top: -10px; right: -10px; 
+            font-size: 14px; background: #fff; border-radius: 50%; 
+            width: 24px; height: 24px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 1px solid #ddd;
         }
 
         .correct-card { 
-            background-color: #d4edda !important; border-color: #28a745 !important; 
-            transform: scale(1.15) !important; box-shadow: 0 0 15px #28a745 !important; z-index: 100;
+            background-color: #dcfce7 !important; border-color: #22c55e !important; 
+            transform: scale(1.15); z-index: 100;
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
         }
-        .highlight-name { color: #d35400; font-weight: bold; background: #fff3e0; padding: 0 4px; border-radius: 4px; }
 
-        /* --- 4. MODAL --- */
+        @keyframes shake {
+            0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } 100% { transform: translateX(0); }
+        }
+        .wrong-answer { animation: shake 0.3s; border-color: #ef4444 !important; background-color: #fee2e2 !important; }
+
+        .highlight-name { 
+            color: #c2410c; font-weight: 700; background: #ffedd5; 
+            padding: 2px 6px; border-radius: 6px; 
+        }
+
+        /* --- 5. MODAL & TOAST --- */
         .modal {
             display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.5); backdrop-filter: blur(3px);
+            background-color: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
         }
         .modal-content {
-            background-color: #fefefe; margin: 5vh auto; padding: 20px;
-            border: 1px solid #888; width: 95%; max-width: 900px;
-            border-radius: 12px; position: relative; overflow-x: auto;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3); min-height: 300px;
+            background-color: #fff; margin: 10vh auto; padding: 20px;
+            width: 95%; max-width: 800px; border-radius: 12px; position: relative;
+            overflow-x: auto;
         }
-        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close { float: right; font-size: 28px; font-weight: bold; cursor: pointer; color: #999; }
 
-        /* --- 5. QUIZ BAR --- */
-        #quiz-bar {
-            position: fixed; bottom: 0; left: 0; width: 100%;
-            background: #fff; border-top: 4px solid #3498db;
-            padding: 20px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
-            display: none; z-index: 300;
-            flex-direction: column; align-items: center; justify-content: center;
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 50px;
+            padding: 16px;
+            position: fixed;
+            z-index: 300;
+            left: 50%;
+            top: 30px;
+            transform: translateX(-50%);
+            font-size: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.3s, top 0.3s;
         }
-        #quiz-text { 
-            font-size: 1.1rem; color: #333; margin-bottom: 15px; font-weight: 500; 
-            max-width: 800px; line-height: 1.5;
+        #toast.show { visibility: visible; opacity: 1; top: 50px; }
+
+        /* Helpers */
+        .legend-box { background: #fff7ed; border-left: 4px solid #f97316; padding: 10px; margin-bottom: 15px; text-align: left; font-size: 1rem; }
+        .fact-box { background: #f0fdfa; padding: 10px; border-radius: 6px; text-align: left; margin-top: 10px; font-size: 1rem; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Mobile Responsive */
+        @media (max-width: 600px) {
+            h1 { font-size: 1.8rem; }
+            button { flex: 1 1 45%; font-size: 0.9rem; }
+            .person-card { min-width: 80px; padding: 8px; }
         }
-        #quiz-options { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; }
-        .mcq-btn {
-            background-color: #f8f9fa; color: #333; border: 2px solid #e9ecef;
-            padding: 10px 20px; border-radius: 20px; font-size: 1rem;
-            cursor: pointer; min-width: 120px;
-        }
-        .mcq-btn:hover { background-color: #e2e6ea; border-color: #adb5bd; }
-        .mcq-correct { background-color: #d4edda !important; border-color: #28a745 !important; color: #155724 !important; }
-        .mcq-wrong { background-color: #f8d7da !important; border-color: #dc3545 !important; color: #721c24 !important; opacity: 0.6; }
-        #quiz-feedback { margin-top: 10px; font-weight: bold; font-size: 1.1rem; min-height: 1.5rem; }
     </style>
 </head>
 <body>
 
-    <h1>Blood Relations Master</h1>
-    <p class="subtitle">Generate a family, then solve the riddles.</p>
+    <header>
+        <h1>Blood Relations Master</h1>
+        <p class="subtitle">नया परिवार बनाएँ, फिर अपनी रीजनिंग (तर्कशक्ति) का परीक्षण करें।</p>
+    </header>
 
     <div class="controls">
-        <button class="btn-gen" onclick="initApp()">🔄 New Family Tree</button>
-        <button class="btn-ask" onclick="generateDirectQuestion()">❓ Direct Relation</button>
-        <button class="btn-point" onclick="generatePointingQuestion()">☝️ Pointing Riddle</button>
+        <button class="btn-gen" onclick="initApp()">🔄 नया परिवार</button>
+        <button class="btn-ask" onclick="handleQuestionRequest('DIRECT')">❓ पथ खोजें</button>
+        <button class="btn-point" onclick="handleQuestionRequest('POINTING')">☝️ इशारा</button>
+        <button class="btn-code" onclick="handleQuestionRequest('CODED')">🔢 कोडेड</button>
+        <button class="btn-jumble" onclick="handleQuestionRequest('JUMBLED')">🧩 पहेली</button>
     </div>
 
-    <div class="tree" id="main-tree"></div>
-
-    <div id="spouseModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h3 id="modal-title" style="margin-bottom: 20px; color: #555;">Family Tree</h3>
-            <div class="tree" id="modal-tree"></div>
-        </div>
-    </div>
-
-    <div id="quiz-bar">
-        <div id="quiz-text">Loading question...</div>
+    <div id="quiz-container">
+        <div id="quiz-text">Loading...</div>
         <div id="quiz-options"></div>
         <div id="quiz-feedback"></div>
     </div>
 
+    <div class="tree-container">
+        <div class="tree" id="main-tree"></div>
+    </div>
+
+    <div id="spouseModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3 style="margin-bottom: 20px; color: #555;">जीवनसाथी का परिवार</h3>
+            <div class="tree" id="modal-tree" style="min-height:200px;"></div>
+        </div>
+    </div>
+
+    <div id="toast">नया परिवार और प्रश्न तैयार हैं! 🎲</div>
+
     <script>
         const CONFIG = { MAIN_DEPTH: 3 };
+        const QUESTIONS_PER_RESET = 3; 
+        let questionsSinceReset = 0;
+
         let allPeopleMap = new Map(); 
         let currentQuizAnswer = null;
         let isQuizActive = false;
         let quizType = 'DIRECT';
 
-        // --- NAME REPOSITORIES ---
-        const MALE_NAMES = [
-            "Aarav", "Vihaan", "Aditya", "Sai", "Arjun", "Rohan", "Suresh", "Ramesh", 
-            "Rahul", "Vikram", "Amit", "Karan", "Nikhil", "Sanjay", "Raj", "Varun", 
-            "Anil", "Deepak", "Sunil", "Prakash", "Manish", "Kartik", "Rishi", "Vivek",
-            "Ashish", "Mohan", "Gopal", "Harish", "Kabir", "Aryan"
-        ];
-        const FEMALE_NAMES = [
-            "Diya", "Saanvi", "Ananya", "Aadhya", "Pari", "Neha", "Priya", "Pooja", 
-            "Sneha", "Anjali", "Rita", "Sushma", "Kavita", "Meena", "Rekha", "Suman", 
-            "Anita", "Sunita", "Rani", "Geeta", "Seema", "Tanvi", "Ishita", "Riya",
-            "Swati", "Nisha", "Maya", "Kiran", "Tara", "Veda"
+        // --- HINDI TRANSLATION MAPS ---
+
+        // Relationship Translations
+        const REL_TO_HINDI = {
+            'Father': 'पिता',
+            'Mother': 'माता',
+            'Son': 'पुत्र',
+            'Daughter': 'पुत्री',
+            'Brother': 'भाई',
+            'Sister': 'बहन',
+            'Spouse': 'जीवनसाथी',
+            'Husband': 'पति',
+            'Wife': 'पत्नी',
+            'Paternal Grandfather': 'दादा',
+            'Maternal Grandfather': 'नाना',
+            'Paternal Grandmother': 'दादी',
+            'Maternal Grandmother': 'नानी',
+            'Paternal Uncle': 'चाचा/ताऊ',
+            'Maternal Uncle': 'मामा',
+            'Paternal Aunt': 'बुआ',
+            'Maternal Aunt': 'मौसी',
+            'Nephew': 'भतीजा/भांजा',
+            'Niece': 'भतीजी/भांजी',
+            'Father-in-law': 'ससुर',
+            'Mother-in-law': 'सास',
+            'Brother-in-law': 'जीजा/साला/देवर',
+            'Sister-in-law': 'भाभी/ननद/ साली',
+            'Grandson': 'पोता/नाती',
+            'Granddaughter': 'पोती/नातिन',
+            'Uncle': 'अंकल (चाचा/मामा)',
+            'Aunt': 'आंटी (बुआ/मौसी)'
+        };
+
+        const ICONS = {
+            male: `<svg class="avatar-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>`,
+            female: `<svg class="avatar-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>`
+        };
+
+        const SYMBOL_POOL = ['+', '-', '&', '%', '×', '÷', '@', '$', '#', '!', '*', '?'];
+
+        const SYMBOL_DEFS = [
+            { id: 'Father', symbol: '+', check: (a, b) => a.gender === 'Male' && b.parents.includes(a) },
+            { id: 'Mother', symbol: '-', check: (a, b) => a.gender === 'Female' && b.parents.includes(a) },
+            { id: 'Son', symbol: '&', check: (a, b) => a.gender === 'Male' && a.parents.includes(b) },
+            { id: 'Daughter', symbol: '%', check: (a, b) => a.gender === 'Female' && a.parents.includes(b) },
+            { id: 'Brother', symbol: '×', check: (a, b) => a.gender === 'Male' && a.parents.length && b.parents.length && a.parents[0] === b.parents[0] },
+            { id: 'Sister', symbol: '÷', check: (a, b) => a.gender === 'Female' && a.parents.length && b.parents.length && a.parents[0] === b.parents[0] },
+            { id: 'Spouse', symbol: '@', check: (a, b) => a.spouse === b }
         ];
 
-        let availableMaleNames = [];
-        let availableFemaleNames = [];
+        function shuffleLegends() {
+            const shuffled = [...SYMBOL_POOL].sort(() => 0.5 - Math.random());
+            SYMBOL_DEFS.forEach((def, index) => {
+                if(index < shuffled.length) def.symbol = shuffled[index];
+            });
+        }
+
+        // --- UPDATED HINDI NAMES ---
+        const MALE_NAMES = ["आरव", "विहान", "आदित्य", "अर्जुन", "रोहन", "सुरेश", "राहुल", "विक्रम", "अमित", "करण", "राज", "वरुण", "अनिल", "दीपक", "सुनील", "मनीष", "कार्तिक", "ऋषि", "विवेक", "आशीष", "कबीर", "संजय"];
+        const FEMALE_NAMES = ["दिया", "सांवी", "अनन्या", "आध्या", "परी", "नेहा", "प्रिया", "पूजा", "स्नेहा", "अंजलि", "रीता", "सुषमा", "कविता", "मीना", "रेखा", "सुमन", "अनीता", "रानी", "गीता", "सीमा", "रिया", "निशा"];
+
+        let availableMaleNames = [], availableFemaleNames = [];
 
         function resetNames() {
             availableMaleNames = [...MALE_NAMES].sort(() => 0.5 - Math.random());
             availableFemaleNames = [...FEMALE_NAMES].sort(() => 0.5 - Math.random());
         }
 
-        // --- DATA MODEL ---
         class Person {
             constructor(depth, isSurvivor = false, context = 'MAIN_TREE') {
                 this.gender = Math.random() > 0.5 ? 'Male' : 'Female';
-                this.id = this.assignName(this.gender); // Assign real name
-
-                this.children = [];
-                this.spouse = null;
-                this.parents = [];
-                this.familyRoot = this; 
-
+                this.id = this.assignName(this.gender); 
+                this.children = []; this.spouse = null; this.parents = []; this.familyRoot = this; 
                 if (depth > 0) this.generateChildren(depth, isSurvivor, context);
                 if (context === 'MAIN_TREE' && Math.random() > 0.35) this.assignSpouse();
             }
-
             assignName(gender) {
-                let name = "";
-                if (gender === 'Male') {
-                    name = availableMaleNames.pop();
-                    if (!name) name = "Mr. " + Math.floor(Math.random() * 1000); // Fallback if out of names
-                } else {
-                    name = availableFemaleNames.pop();
-                    if (!name) name = "Ms. " + Math.floor(Math.random() * 1000);
-                }
+                let name = gender === 'Male' ? availableMaleNames.pop() : availableFemaleNames.pop();
+                if (!name) name = (gender === 'Male' ? "पुरुष " : "महिला ") + Math.floor(Math.random() * 100);
                 return name;
             }
-
             generateChildren(depth, isSurvivor, context) {
                 let count = Math.floor(Math.random() * 3); 
                 if (isSurvivor && count === 0) count = 1;
-
                 let survivorChildIndex = isSurvivor ? Math.floor(Math.random() * count) : -1;
-
                 for (let i = 0; i < count; i++) {
                     const child = new Person(depth - 1, (i === survivorChildIndex), context);
-                    child.parents.push(this);
-                    child.familyRoot = this.familyRoot; 
+                    child.parents.push(this); child.familyRoot = this.familyRoot; 
                     this.children.push(child);
                 }
             }
-
             assignSpouse() {
                 const requiredGender = this.gender === 'Male' ? 'Female' : 'Male';
-                const spouseFamily = generateSpouseFamily(Math.random() > 0.5 ? 1 : 2, requiredGender);
-
+                const spouseFamily = generateSpouseFamily(Math.random() > 0.5 ? 2 : 3, requiredGender);
                 if (spouseFamily.spouseNode) {
                     const newSpouse = spouseFamily.spouseNode;
-                    this.spouse = newSpouse;
-                    newSpouse.spouse = this;
+                    this.spouse = newSpouse; newSpouse.spouse = this;
                     newSpouse.children = this.children; 
                     this.children.forEach(c => c.parents.push(newSpouse));
                 }
@@ -238,53 +428,26 @@
 
         function generateSpouseFamily(depth, targetGender) {
             const root = new Person(depth, true, 'SPOUSE_TREE');
-
-            // Try to find a natural candidate
             const candidates = getAllDescendants(root).filter(p => p.gender === targetGender && !p.spouse);
             let selectedSpouse = null;
-
-            if (candidates.length > 0) {
-                selectedSpouse = candidates[Math.floor(Math.random() * candidates.length)];
-            } else {
-                // If no natural candidate, pick the first node and force switch gender AND name
+            if (candidates.length > 0) selectedSpouse = candidates[Math.floor(Math.random() * candidates.length)];
+            else {
                 const allNodes = getAllDescendants(root);
                 if(allNodes.length > 0) { 
                     selectedSpouse = allNodes[0]; 
                     if (selectedSpouse.gender !== targetGender) {
                         selectedSpouse.gender = targetGender;
-                        // Important: Re-assign name because gender changed
-                        selectedSpouse.id = (targetGender === 'Male') ? 
-                            (availableMaleNames.pop() || "Mr. X") : 
-                            (availableFemaleNames.pop() || "Ms. Y");
+                        selectedSpouse.id = (targetGender === 'Male') ? (availableMaleNames.pop() || "Mr. X") : (availableFemaleNames.pop() || "Ms. Y");
                     }
                 }
             }
-
             if(selectedSpouse) propagateFamilyRoot(root, root);
             return { rootNode: root, spouseNode: selectedSpouse };
         }
 
-        const MOVES = {
-            'PARENT': (p) => p.parents, 'CHILD': (p) => p.children, 'SPOUSE': (p) => p.spouse ? [p.spouse] : [],
-            'SIBLING': (p) => p.parents.length ? p.parents[0].children.filter(c => c.id !== p.id) : []
-        };
+        const MALE_RELATIONS = ['Father', 'Son', 'Brother', 'Husband', 'Paternal Grandfather', 'Maternal Grandfather', 'Paternal Uncle', 'Maternal Uncle', 'Nephew', 'Father-in-law', 'Brother-in-law', 'Grandson'];
+        const FEMALE_RELATIONS = ['Mother', 'Daughter', 'Sister', 'Wife', 'Paternal Grandmother', 'Maternal Grandmother', 'Paternal Aunt', 'Maternal Aunt', 'Niece', 'Mother-in-law', 'Sister-in-law', 'Granddaughter'];
 
-        // --- NEW: SPLIT RELATIONS BY GENDER ---
-        const MALE_RELATIONS = [
-            'Father', 'Son', 'Brother', 'Husband',
-            'Paternal Grandfather', 'Maternal Grandfather',
-            'Paternal Uncle', 'Maternal Uncle',
-            'Nephew', 'Father-in-law', 'Brother-in-law'
-        ];
-
-        const FEMALE_RELATIONS = [
-            'Mother', 'Daughter', 'Sister', 'Wife',
-            'Paternal Grandmother', 'Maternal Grandmother',
-            'Paternal Aunt', 'Maternal Aunt',
-            'Niece', 'Mother-in-law', 'Sister-in-law'
-        ];
-
-        // --- RELATIONSHIP LOGIC ---
         function getPathNodes(startNode, targetNode) {
             let queue = [{ node: startNode, path: [startNode] }];
             let visited = new Set([startNode.id]);
@@ -294,10 +457,7 @@
                 let neighbors = [...node.parents, ...node.children];
                 if(node.spouse) neighbors.push(node.spouse);
                 for(let neighbor of neighbors) {
-                    if (!visited.has(neighbor.id)) {
-                        visited.add(neighbor.id);
-                        queue.push({ node: neighbor, path: [...path, neighbor] });
-                    }
+                    if (!visited.has(neighbor.id)) { visited.add(neighbor.id); queue.push({ node: neighbor, path: [...path, neighbor] }); }
                 }
             }
             return null;
@@ -306,7 +466,6 @@
         function determineRelationship(startNode, targetNode) {
             const path = getPathNodes(startNode, targetNode);
             if (!path || path.length < 2) return null;
-
             let moves = [];
             for(let i=0; i<path.length-1; i++) {
                 const curr = path[i]; const next = path[i+1];
@@ -315,91 +474,167 @@
                 else if(curr.spouse === next) moves.push('SPOUSE');
                 else moves.push('SIBLING'); 
             }
-
             const signature = moves.join('-');
             const isMale = targetNode.gender === 'Male';
-            let side = "";
-            if (path.length > 1 && path[1]) {
-                side = path[1].gender === 'Male' ? "Paternal" : "Maternal";
-            }
+            let side = (path.length > 1 && path[1]) ? (path[1].gender === 'Male' ? "Paternal" : "Maternal") : "";
 
             switch(signature) {
                 case 'UP': return isMale ? 'Father' : 'Mother';
                 case 'DOWN': return isMale ? 'Son' : 'Daughter';
                 case 'SPOUSE': return isMale ? 'Husband' : 'Wife';
-                case 'UP-DOWN': 
-                case 'SIBLING': return isMale ? 'Brother' : 'Sister';
+                case 'UP-DOWN': case 'SIBLING': return isMale ? 'Brother' : 'Sister';
                 case 'UP-UP': return `${side} ${isMale ? 'Grandfather' : 'Grandmother'}`;
                 case 'DOWN-DOWN': return isMale ? 'Grandson' : 'Granddaughter'; 
-                case 'UP-SIBLING': 
-                case 'UP-UP-DOWN': 
-                case 'UP-UP-DOWN-SPOUSE': return `${side} ${isMale ? 'Uncle' : 'Aunt'}`;
-                case 'SIBLING-DOWN': 
-                case 'UP-DOWN-DOWN': return isMale ? 'Nephew' : 'Niece';
+                case 'UP-SIBLING': case 'UP-UP-DOWN': case 'UP-UP-DOWN-SPOUSE': return `${side} ${isMale ? 'Uncle' : 'Aunt'}`;
+                case 'SIBLING-DOWN': case 'UP-DOWN-DOWN': return isMale ? 'Nephew' : 'Niece';
                 case 'SPOUSE-UP': return isMale ? 'Father-in-law' : 'Mother-in-law';
-                case 'SPOUSE-UP-DOWN': 
-                case 'SPOUSE-SIBLING':
-                case 'UP-DOWN-SPOUSE': 
-                case 'SIBLING-SPOUSE': return isMale ? 'Brother-in-law' : 'Sister-in-law';
+                case 'SPOUSE-UP-DOWN': case 'SPOUSE-SIBLING': case 'UP-DOWN-SPOUSE': case 'SIBLING-SPOUSE': return isMale ? 'Brother-in-law' : 'Sister-in-law';
                 default: return null; 
             }
         }
 
-        // --- GENERATORS ---
-        function generateDirectQuestion() {
+        function randomWalk(startNode, steps) {
+            let currentNode = startNode;
+            let codeString = startNode.id;
+            let textPath = []; 
+            let facts = [];    
+            let visited = new Set([startNode.id]); 
+
+            for (let i = 0; i < steps; i++) {
+                let options = [];
+                currentNode.parents.forEach(p => options.push({ node: p })); 
+                currentNode.children.forEach(c => options.push({ node: c })); 
+                if (currentNode.spouse) options.push({ node: currentNode.spouse });
+
+                options = options.filter(opt => !visited.has(opt.node.id));
+
+                if (options.length === 0) return null; 
+
+                const step = options[Math.floor(Math.random() * options.length)];
+                const nextNode = step.node;
+
+                const symbolDef = SYMBOL_DEFS.find(def => def.check(currentNode, nextNode));
+                if (!symbolDef) return null;
+
+                // Build outputs
+                codeString += ` <b>${symbolDef.symbol}</b> ${nextNode.id}`;
+
+                // HINDI FACT CONSTRUCTION
+                const hindiRel = REL_TO_HINDI[symbolDef.id];
+                facts.push(`${currentNode.id}, ${nextNode.id} का/की <b>${hindiRel}</b> है`); // Note: In symbols A+B, usually A is the relation OF B.
+
+                textPath.push(symbolDef.id); 
+                visited.add(nextNode.id);
+                currentNode = nextNode;
+            }
+            return { targetNode: currentNode, codeString, facts, textPath };
+        }
+
+        // --- PUZZLE GENERATORS (HINDI) ---
+
+        function generateCodedQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
-            const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
+            for(let attempt = 0; attempt < 50; attempt++) {
+                const startNode = people[Math.floor(Math.random() * people.length)];
+                const walkData = randomWalk(startNode, Math.random() > 0.5 ? 3 : 4);
+                if (!walkData) continue;
 
-            const DIRECT_TEMPLATES = [
-                { path: ['PARENT'], label: 'Parent' }, { path: ['CHILD'], label: 'Child' },
-                { path: ['SIBLING'], label: 'Sibling' }, { path: ['SPOUSE'], label: 'Spouse' },
-                { path: ['PARENT', 'PARENT'], label: 'Grandparent' }, 
-                { path: ['PARENT', 'SIBLING'], label: 'Uncle/Aunt' }
-            ];
+                const { targetNode, codeString } = walkData;
+                const exactRelation = determineRelationship(startNode, targetNode);
 
-            for (const startNode of shuffledPeople) {
-                const shuffledTemplates = [...DIRECT_TEMPLATES].sort(() => 0.5 - Math.random());
-                for (const template of shuffledTemplates) {
-                    let currentNodes = [startNode];
-                    let failed = false;
-                    for (const move of template.path) {
-                        let nextNodes = [];
-                        currentNodes.forEach(node => { if (MOVES[move]) nextNodes = nextNodes.concat(MOVES[move](node)); });
-                        if (nextNodes.length === 0) { failed = true; break; }
-                        currentNodes = nextNodes;
-                    }
-                    if (failed) continue;
+                if (exactRelation && startNode.id !== targetNode.id) {
+                    // Coded logic usually works in pairs: A+B means A is father of B. 
+                    // But random walk is A -> B. So A is father of B.
+                    const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> का अर्थ है A, B का/की ${REL_TO_HINDI[d.id]} है`).join('<br>');
+                    const question = `
+                        <div class="legend-box">${legendItems}</div>
+                        इस क्रम के आधार पर: <span style="background:#fef3c7; padding:4px 8px; font-weight:bold; letter-spacing:1px; border-radius:4px;">${codeString}</span><br><br>
+                        बताइए कि <span class="highlight-name">${startNode.id}</span>, <span class="highlight-name">${targetNode.id}</span> से किस प्रकार संबंधित है?
+                        <br><small>(ध्यान दें: संबंध उल्टे क्रम में पूछा गया है)</small>
+                    `;
+                    // Note: randomWalk goes A -> B -> C. "A+B" means A is father of B.
+                    // The path is A -> B. So A is father of B.
+                    // Question asks: How is START (A) related to TARGET (B)?
+                    // determineRelationship(startNode, targetNode) returns how TARGET is related to START usually? 
+                    // No, determineRelationship(A, B) checks path A to B.
+                    // If path is A(father)->B(son). determineRel returns 'Son'.
+                    // So B is Son of A.
+                    // If we ask "How is A related to B?", we need determineRel(B, A).
 
-                    const validTargets = currentNodes.filter(n => n.id !== startNode.id);
-                    if (validTargets.length > 0) {
-                        const targetNode = validTargets[Math.floor(Math.random() * validTargets.length)];
-                        const exactRelation = determineRelationship(startNode, targetNode);
-                        if (!exactRelation) continue;
-
-                        startDirectQuiz(
-                            `Who is the <b>${exactRelation}</b> of <span class="highlight-name">${startNode.id}</span>?`,
-                            targetNode.id
-                        );
+                    const reverseRel = determineRelationship(targetNode, startNode);
+                    if(reverseRel) {
+                        startMCQQuiz(question, reverseRel, startNode.gender, 'type-mcq');
                         return;
                     }
                 }
             }
+            alert("Could not generate a complex path. Try New Tree.");
+        }
+
+        function generateJumbledQuestion() {
+            const people = Array.from(allPeopleMap.values());
+            if (people.length < 2) return;
+            for(let attempt = 0; attempt < 50; attempt++) {
+                const startNode = people[Math.floor(Math.random() * people.length)];
+                const walkData = randomWalk(startNode, Math.random() > 0.5 ? 4 : 5);
+                if (!walkData) continue;
+
+                const { targetNode, facts } = walkData;
+                const exactRelation = determineRelationship(startNode, targetNode);
+
+                if (exactRelation && startNode.id !== targetNode.id) {
+                    facts.sort(() => Math.random() - 0.5);
+                    const question = `
+                        <b>दिए गए तथ्यों को पढ़ें:</b><div class="fact-box">${facts.map(f => `• ${f}`).join('<br>')}</div>
+                        <br>
+                        <span class="highlight-name">${targetNode.id}</span>, <span class="highlight-name">${startNode.id}</span> से किस प्रकार संबंधित है?
+                    `;
+                    startMCQQuiz(question, exactRelation, targetNode.gender, 'type-jumble');
+                    return;
+                }
+            }
+            alert("No puzzle found. Try New Tree.");
+        }
+
+        function generateDirectQuestion() {
+            const people = Array.from(allPeopleMap.values());
+            if (people.length < 2) return;
+            for(let attempt = 0; attempt < 50; attempt++) {
+                const startNode = people[Math.floor(Math.random() * people.length)];
+                const walkData = randomWalk(startNode, Math.random() > 0.5 ? 3 : 4);
+                if (!walkData) continue;
+
+                const { targetNode, textPath } = walkData;
+
+                // Constructing Hindi instruction path
+                // "Go to Father, then Sister" -> "पिता के पास जाएं, फिर उनकी बहन के पास..."
+                let hindiSteps = textPath.map(eng => REL_TO_HINDI[eng]);
+                let instruction = `<span class="highlight-name">${startNode.id}</span> से शुरू करें।<br>`;
+
+                instruction += `पहले उनके <b>${hindiSteps[0]}</b> के पास जाएं।<br>`;
+                for(let i=1; i<hindiSteps.length; i++) {
+                    instruction += `फिर उस व्यक्ति के/की <b>${hindiSteps[i]}</b> के पास जाएं।<br>`;
+                }
+                instruction += `<br>अंत में आप किसके पास पहुँचते हैं?`;
+
+                startDirectQuiz(instruction, targetNode.id);
+                return;
+            }
             alert("Try generating a new family!");
         }
 
-        // --- POINTING PUZZLES ---
         const LHS_TEMPLATES = [
-            { find: (p) => [p], text: (t) => `${t.gender==='Male'?'He':'She'}` },
-            { find: (p) => p.children, text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'father':'mother'}` },
-            { find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'brother':'sister'}` }
+            { find: (p) => [p], text: (t) => `वह` }, 
+            { find: (p) => p.children, text: (t, p) => `उसका/उसकी ${REL_TO_HINDI[p.gender==='Male'?'Father':'Mother']}` }, 
+            { find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], text: (t, p) => `उसका/उसकी ${REL_TO_HINDI[p.gender==='Male'?'Brother':'Sister']}` } 
         ];
 
         const CRAWL_MOVES = [
-            { type: 'Parent',  get: (p) => p.parents, label: (p) => p.gender==='Male'?'father':'mother' },
-            { type: 'Child',   get: (p) => p.children, label: (p) => p.gender==='Male'?'son':'daughter' },
-            { type: 'Spouse',  get: (p) => p.spouse ? [p.spouse] : [], label: (p) => p.gender==='Male'?'husband':'wife' },
-            { type: 'Sibling', get: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], label: (p) => p.gender==='Male'?'brother':'sister' }
+            { type: 'Parent',  get: (p) => p.parents, label: (p) => p.gender==='Male'?'पिता':'माता' },
+            { type: 'Child',   get: (p) => p.children, label: (p) => p.gender==='Male'?'पुत्र':'पुत्री' },
+            { type: 'Spouse',  get: (p) => p.spouse ? [p.spouse] : [], label: (p) => p.gender==='Male'?'पति':'पत्नी' },
+            { type: 'Sibling', get: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], label: (p) => p.gender==='Male'?'भाई':'बहन' }
         ];
 
         function generatePointingQuestion() {
@@ -408,156 +643,157 @@
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
 
             for (const speaker of shuffledPeople) {
-                const targetDepth = Math.random() > 0.5 ? 2 : 3;
-                const pathData = generateRandomPath(speaker, targetDepth);
+                const pathData = generateRandomPath(speaker, Math.random() > 0.5 ? 3 : 4);
                 if (!pathData) continue; 
 
-                const { pivot, rhsText } = pathData;
+                const { pivot, rhsText } = pathData; 
                 const shuffledLHS = [...LHS_TEMPLATES].sort(() => 0.5 - Math.random());
-                for (const lhsTmpl of shuffledLHS) {
-                    const potentialTargets = lhsTmpl.find(pivot);
-                    const validTargets = potentialTargets.filter(t => t.id !== speaker.id);
 
-                    for(const target of validTargets) {
-                        const lhString = lhsTmpl.text(target, pivot);
-                        // Grammar/Gender checks
-                        if (lhString.includes("father") && pivot.gender !== 'Male') continue;
-                        if (lhString.includes("mother") && pivot.gender !== 'Female') continue;
-                        if (lhString.includes("brother") && pivot.gender !== 'Male') continue;
-                        if (lhString.includes("sister") && pivot.gender !== 'Female') continue;
+                for (const lhsTmpl of shuffledLHS) {
+                    const potentialTargets = lhsTmpl.find(pivot).filter(t => t.id !== speaker.id);
+                    for(const target of potentialTargets) {
+                        const lhString = lhsTmpl.text(target, pivot); 
+                        // Simplified Grammar Check
+                        if ((lhString.includes("पिता")||lhString.includes("भाई")) && pivot.gender !== 'Male') continue;
+                        if ((lhString.includes("माता")||lhString.includes("बहन")) && pivot.gender !== 'Female') continue;
 
                         const actualRelation = determineRelationship(speaker, target);
 
                         if (actualRelation) {
-                            const lhsText = lhsTmpl.text(target, pivot);
-                            const riddle = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><br><i>"${lhsText} is <b>${rhsText}</b>."</i>`;
-                            const question = `${riddle}<br><br>How is <b>${target.id}</b> related to ${speaker.id}?`;
-                            
-                            // UPDATED: Pass target gender to startMCQQuiz
-                            startMCQQuiz(question, actualRelation, target.gender);
+                            const riddle = `<span class="highlight-name">${target.id}</span> की ओर इशारा करते हुए, <span class="highlight-name">${speaker.id}</span> ने कहा:<br><i>"${lhString}, <b>${rhsText}</b> है।"</i>`;
+                            startMCQQuiz(`${riddle}<br><br><span class="highlight-name">${target.id}</span>, ${speaker.id} से कैसे संबंधित है?`, actualRelation, target.gender, 'type-mcq');
                             return;
                         }
                     }
                 }
             }
-            alert("Could not generate a solvable riddle. Try 'New Family'!");
+            alert("No puzzle found. Try New Tree.");
         }
 
-        function generateRandomPath(currentNode, stepsRemaining, currentText = "my", history = []) {
-            if (stepsRemaining === 0) return { pivot: currentNode, rhsText: currentText };
+        function generateRandomPath(currentNode, steps, currentText = "मेरे", history = []) {
+            if (steps === 0) return { pivot: currentNode, rhsText: currentText };
             const newHistory = [...history, currentNode.id];
             const shuffledMoves = [...CRAWL_MOVES].sort(() => 0.5 - Math.random());
             for (const move of shuffledMoves) {
-                const neighbors = move.get(currentNode);
-                const validNeighbors = neighbors.filter(n => !newHistory.includes(n.id));
-                if (validNeighbors.length > 0) {
-                    const nextNode = validNeighbors[Math.floor(Math.random() * validNeighbors.length)];
+                const neighbors = move.get(currentNode).filter(n => !newHistory.includes(n.id));
+                if (neighbors.length > 0) {
+                    const nextNode = neighbors[Math.floor(Math.random() * neighbors.length)];
                     let label = move.label(nextNode);
-                    if (move.type === 'Child') {
-                        const siblings = currentNode.children.filter(c => c.id !== nextNode.id);
-                        if (siblings.length === 0) label = "only child";
-                        else {
-                            const sameSex = siblings.filter(c => c.gender === nextNode.gender);
-                            if (sameSex.length === 0) label = "only " + label;
-                        }
-                    }
-                    let nextText = currentText === "my" ? `my ${label}` : `${currentText}'s ${label}`;
-                    const result = generateRandomPath(nextNode, stepsRemaining - 1, nextText, newHistory);
+
+                    // Simple Hindi Possessive Logic
+                    // If previous word ends in 'mere' or 'ke' -> next is 'ke/ki'
+                    // Keeping it generic: "Mere [Label] ke [Label]"
+                    let connector = " के ";
+                    if (label === 'पत्नी' || label === 'माता' || label === 'बहन' || label === 'पुत्री') connector = " की ";
+
+                    const newText = currentText === "मेरे" ? `मेरे ${label}` : `${currentText}${connector}${label}`;
+
+                    const result = generateRandomPath(nextNode, steps - 1, newText, newHistory);
                     if (result) return result;
                 }
             }
             return null; 
         }
 
-        // --- UI & QUIZ ---
+        function handleQuestionRequest(type) {
+            questionsSinceReset++;
+            if (questionsSinceReset > QUESTIONS_PER_RESET) {
+                initApp(); 
+                showToast();
+                questionsSinceReset = 1;
+            }
+
+            switch(type) {
+                case 'DIRECT': generateDirectQuestion(); break;
+                case 'POINTING': generatePointingQuestion(); break;
+                case 'CODED': generateCodedQuestion(); break;
+                case 'JUMBLED': generateJumbledQuestion(); break;
+            }
+        }
+
+        function showToast() {
+            const toast = document.getElementById("toast");
+            toast.className = "show";
+            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+
+        function setBarType(typeClass) {
+            const bar = document.getElementById('quiz-container');
+            bar.className = ''; 
+            bar.classList.add(typeClass);
+            bar.style.display = 'block';
+            bar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
         function startDirectQuiz(htmlText, answerId) {
             isQuizActive = true; quizType = 'DIRECT'; currentQuizAnswer = answerId;
             resetUI();
-            const bar = document.getElementById('quiz-bar');
-            bar.style.display = 'flex'; bar.style.borderTopColor = "#3498db";
+            setBarType('type-direct');
             document.getElementById('quiz-text').innerHTML = htmlText;
-            document.getElementById('quiz-feedback').innerHTML = "Click the person in the tree above.";
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            document.getElementById('quiz-feedback').innerHTML = "👇 पेड़ (Tree) में सही व्यक्ति पर टैप करें।";
         }
 
-        // UPDATED: Accepts targetGender to filter distractors
-        function startMCQQuiz(htmlText, correctAnswerStr, targetGender) {
+        function startMCQQuiz(htmlText, correctAnswerStr, targetGender, typeClass) {
             isQuizActive = true; quizType = 'MCQ'; currentQuizAnswer = correctAnswerStr;
             resetUI();
-            const bar = document.getElementById('quiz-bar');
-            bar.style.display = 'flex'; bar.style.borderTopColor = "#8e44ad";
+            setBarType(typeClass);
             document.getElementById('quiz-text').innerHTML = htmlText;
-            document.getElementById('quiz-feedback').innerHTML = "Select the correct relationship.";
+            document.getElementById('quiz-feedback').innerHTML = "सही संबंध चुनें:";
 
-            const options = new Set([correctAnswerStr]);
+            const correctHindi = REL_TO_HINDI[correctAnswerStr] || correctAnswerStr;
+            const options = new Set([correctHindi]);
             const relationPool = (targetGender === 'Male') ? MALE_RELATIONS : FEMALE_RELATIONS;
 
             while(options.size < 4) {
-                // Priority logic: If answer is Paternal, show Maternal equivalent as distractor (and vice versa)
-                let addedDistractor = false;
-                if (correctAnswerStr.includes("Paternal")) {
-                    const swap = correctAnswerStr.replace("Paternal", "Maternal");
-                    if (!options.has(swap)) { options.add(swap); addedDistractor = true; }
-                } else if (correctAnswerStr.includes("Maternal")) {
-                    const swap = correctAnswerStr.replace("Maternal", "Paternal");
-                    if (!options.has(swap)) { options.add(swap); addedDistractor = true; }
-                } 
-                
-                // If we didn't add a priority swap distractor, or we still need more options
-                if (!addedDistractor || options.size < 4) {
-                    const randomRel = relationPool[Math.floor(Math.random() * relationPool.length)];
-                    options.add(randomRel);
-                }
+                const randomKey = relationPool[Math.floor(Math.random() * relationPool.length)];
+                const randomHindi = REL_TO_HINDI[randomKey];
+                options.add(randomHindi);
             }
 
-            const shuffledOptions = Array.from(options).sort(() => 0.5 - Math.random());
-            const optionsContainer = document.getElementById('quiz-options');
-            shuffledOptions.forEach(opt => {
+            const container = document.getElementById('quiz-options');
+            Array.from(options).sort(() => 0.5 - Math.random()).forEach(opt => {
                 const btn = document.createElement('button');
                 btn.className = 'mcq-btn'; btn.innerText = opt;
-                btn.onclick = () => handleMCQAnswer(btn, opt);
-                optionsContainer.appendChild(btn);
+                btn.onclick = () => handleMCQAnswer(btn, opt, correctHindi);
+                container.appendChild(btn);
             });
-            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function handleMCQAnswer(btn, selected) {
+        function handleMCQAnswer(btn, selected, correct) {
             if(!isQuizActive || quizType !== 'MCQ') return;
-            if (selected === currentQuizAnswer) {
+            if (selected === correct) {
                 btn.classList.add('mcq-correct');
-                document.getElementById('quiz-feedback').innerHTML = `✅ Correct! The answer is ${currentQuizAnswer}.`;
-                document.getElementById('quiz-bar').style.borderTopColor = "#28a745";
-                disableAllMCQ(); isQuizActive = false;
+                document.getElementById('quiz-feedback').innerHTML = `✅ सही जवाब!`;
+                setBarType('type-success');
+                disableAllMCQ(correct); isQuizActive = false;
             } else {
                 btn.classList.add('mcq-wrong');
-                document.getElementById('quiz-feedback').innerHTML = "❌ Incorrect. Try again.";
+                document.getElementById('quiz-feedback').innerHTML = "❌ गलत, पुनः प्रयास करें।";
             }
         }
-        function disableAllMCQ() {
+        function disableAllMCQ(correct) {
             document.querySelectorAll('.mcq-btn').forEach(b => {
                 b.style.cursor = 'default';
-                if(b.innerText !== currentQuizAnswer && !b.classList.contains('mcq-wrong')) b.disabled = true;
+                if(b.innerText !== correct && !b.classList.contains('mcq-wrong')) b.disabled = true;
             });
         }
         function handleNodeClick(id) {
             if (!isQuizActive || quizType !== 'DIRECT') return;
             const card = document.querySelector(`.person-card[data-id="${id}"]`);
-            const statusDiv = document.getElementById('quiz-feedback');
-            const bar = document.getElementById('quiz-bar');
             if (id === currentQuizAnswer) {
                 if(card) card.classList.add('correct-card');
-                statusDiv.innerHTML = "✅ Correct! Well done.";
-                bar.style.borderTopColor = "#28a745"; isQuizActive = false;
+                document.getElementById('quiz-feedback').innerHTML = "✅ सही जवाब!";
+                setBarType('type-success');
+                isQuizActive = false;
             } else {
                 if(card) { card.classList.add('wrong-answer'); setTimeout(() => card.classList.remove('wrong-answer'), 500); }
-                statusDiv.innerHTML = "❌ Incorrect. Try again!";
+                document.getElementById('quiz-feedback').innerHTML = "❌ गलत व्यक्ति।";
             }
         }
         function resetUI() {
             document.querySelectorAll('.person-card').forEach(el => el.classList.remove('correct-card', 'wrong-answer'));
             document.getElementById('quiz-options').innerHTML = '';
             document.getElementById('quiz-feedback').innerHTML = '';
-            document.getElementById('quiz-feedback').className = '';
         }
 
         function cacheAllPeople(node) {
@@ -575,9 +811,10 @@
             node.familyRoot = root; node.children.forEach(c => propagateFamilyRoot(c, root));
         }
         function initApp() {
-            resetNames(); // Resets available names
+            resetNames(); 
+            shuffleLegends(); 
             allPeopleMap.clear(); isQuizActive = false;
-            document.getElementById('quiz-bar').style.display = 'none';
+            document.getElementById('quiz-container').style.display = 'none';
             const rootPerson = new Person(CONFIG.MAIN_DEPTH, true, 'MAIN_TREE');
             cacheAllPeople(rootPerson);
             const container = document.getElementById('main-tree');
@@ -589,13 +826,17 @@
         function renderTreeHTML(person, isModal = false) {
             const li = document.createElement('li'); const card = document.createElement('div');
             let classes = `person-card ${person.gender.toLowerCase()}`;
-            let ringHTML = "";
-            if (person.spouse) { classes += " has-spouse"; ringHTML = `<div class="ring-icon" title="View Spouse Family">💍</div>`; }
+            let ringHTML = person.spouse ? `<div class="ring-icon" title="View Spouse Family">💍</div>` : "";
+            if (person.spouse) classes += " has-spouse";
+            let iconHTML = person.gender === 'Male' ? ICONS.male : ICONS.female;
+            // Translate Gender for UI
+            let displayGender = person.gender === 'Male' ? 'पुरुष' : 'महिला';
+
             card.className = classes; card.setAttribute('data-id', person.id);
-            card.innerHTML = `<strong>${person.id}</strong><br><small>${person.gender}</small>${ringHTML}`;
+            card.innerHTML = `${iconHTML}<strong>${person.id}</strong><small>${displayGender}</small>${ringHTML}`;
             card.onclick = (e) => {
                 e.stopPropagation();
-                if (e.target.classList.contains('ring-icon')) {
+                if (e.target.classList.contains('ring-icon') || e.target.parentElement.classList.contains('ring-icon')) {
                     if (person.spouse) openModal(person.spouse.familyRoot.id, person.spouse.id);
                     return;
                 }
@@ -611,15 +852,17 @@
         }
         function openModal(familyRootId, spouseId) {
             const rootNode = allPeopleMap.get(familyRootId);
-            const spouseNode = allPeopleMap.get(spouseId);
             if(!rootNode) return;
-            const modal = document.getElementById('spouseModal');
             const container = document.getElementById('modal-tree');
             container.innerHTML = '';
             const ul = document.createElement('ul');
             ul.appendChild(renderTreeHTML(rootNode, true));
             container.appendChild(ul);
-            modal.style.display = "block";
+            document.getElementById('spouseModal').style.display = "block";
+            setTimeout(() => {
+                const spouseCard = container.querySelector(`.person-card[data-id="${spouseId}"]`);
+                if(spouseCard) spouseCard.classList.add('correct-card');
+            }, 100);
         }
         function closeModal() { document.getElementById('spouseModal').style.display = "none"; }
         window.onclick = function(event) { if (event.target == document.getElementById('spouseModal')) closeModal(); }
