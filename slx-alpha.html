@@ -75,8 +75,6 @@
         }
 
         /* --- Interactive States --- */
-
-        /* Base pointer */
         body.mode-simplify .node-operator.can-evaluate,
         body.mode-rearrange .node-operator.can-transform,
         body.mode-eliminate .node-operator.can-eliminate {
@@ -106,7 +104,6 @@
         body.mode-eliminate .node-operator.can-eliminate:active {
             background-color: #ea580c; color: #ffffff; transform: scale(0.95); border-color: #ea580c;
         }
-
 
         /* Active Menu State */
         .node-operator.menu-open {
@@ -374,20 +371,35 @@
             return { id: node.id, type: 'operator', value: group.value, left: leftMult, right: rightMult };
         }
 
+        // New Transformation: a - b -> a + (-1 * b)
+        function doRewriteSub(node) {
+            // Create the -1 node
+            const negOne = { id: generateId(), type: 'operand', value: { n: -1, d: 1 } };
+            // Create the multiplication node (-1 * rightChild)
+            const rightMult = { 
+                id: generateId(), 
+                type: 'operator', 
+                value: '×', 
+                left: negOne, 
+                right: node.right 
+            };
+            // Return new structure: + with old Left and new Right
+            return { ...node, value: '+', right: rightMult };
+        }
+
         // --- Eliminate Logic ---
         const isLiteral = (n) => n.type === 'operand' && n.value !== 'x';
         
         function checkEliminate(node) {
-            // Can only eliminate if it is the root of the expression tree
             if (node !== treeData) return null;
             
-            // Commutative Ops (+, *) - Check both sides
+            // Commutative Ops (+, *)
             if (node.value === '+' || node.value === '×') {
                 if (isLiteral(node.left)) return { op: node.value, literal: node.left, keep: node.right };
                 if (isLiteral(node.right)) return { op: node.value, literal: node.right, keep: node.left };
             }
 
-            // Non-Commutative Ops (-, /) - Check ONLY right side
+            // Non-Commutative Ops (-, /)
             if (node.value === '-' || node.value === '÷') {
                 if (isLiteral(node.right)) return { op: node.value, literal: node.right, keep: node.left };
             }
@@ -401,6 +413,12 @@
             if (canAssociateRight(node)) moves.push({ name: 'Group Right', action: 'assoc-right', icon: '⤵' });
             if (canAssociateLeft(node)) moves.push({ name: 'Group Left', action: 'assoc-left', icon: '⤴' });
             if (canDistribute(node)) moves.push({ name: 'Distribute', action: 'distribute', icon: '⑃' });
+            
+            // New Option
+            if (node.type === 'operator' && node.value === '-') {
+                moves.push({ name: 'Rewrite as + (-)', action: 'rewrite-sub', icon: '±' });
+            }
+
             return moves;
         }
 
@@ -461,22 +479,16 @@
 
             // Perform Inverse Operation on RHS
             if (plan.op === '+') {
-                // Subtract literal from RHS
                 rhsValue = fracOps['-'](rhsValue, plan.literal.value);
             } else if (plan.op === '×') {
-                // Divide RHS by literal
                 rhsValue = fracOps['÷'](rhsValue, plan.literal.value);
             } else if (plan.op === '-') {
-                // Add literal to RHS (Inverse of - is +)
                 rhsValue = fracOps['+'](rhsValue, plan.literal.value);
             } else if (plan.op === '÷') {
-                // Multiply RHS by literal (Inverse of / is *)
                 rhsValue = fracOps['×'](rhsValue, plan.literal.value);
             }
 
-            // Update Tree to be the remaining child
             treeData = plan.keep;
-            
             render();
         }
 
@@ -512,6 +524,7 @@
             if (actionStr === 'assoc-right') fn = doAssociateRight;
             if (actionStr === 'assoc-left') fn = doAssociateLeft;
             if (actionStr === 'distribute') fn = doDistribute;
+            if (actionStr === 'rewrite-sub') fn = doRewriteSub; // New action
             if (fn) updateTree(fn, nodeId);
         }
 
@@ -559,7 +572,6 @@
 
         // --- History ---
         function saveToHistory() {
-            // Save both tree and RHS value
             historyStack.push({
                 tree: JSON.parse(JSON.stringify(treeData)),
                 rhs: JSON.parse(JSON.stringify(rhsValue))
@@ -586,15 +598,10 @@
             let canTransform = false;
 
             if (!isLeaf) {
-                // Simplify Check
                 const leftIsNum = node.left.type === 'operand' && node.left.value !== 'x';
                 const rightIsNum = node.right.type === 'operand' && node.right.value !== 'x';
                 canEval = leftIsNum && rightIsNum;
-                
-                // Eliminate Check
                 canElim = !!checkEliminate(node);
-
-                // Move Check
                 const moves = getPossibleTransforms(node);
                 canTransform = moves.length > 0;
             }
