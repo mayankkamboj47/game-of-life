@@ -330,9 +330,18 @@
 
             // Commutative Ops (+, *)
             if (node.value === '+' || node.value === '×') {
-                // If the right side is movable, default to moving that (convention).
+                // Priority: check if the left child is a leaf (and not 'x')
+                const isLeftNumericLeaf = node.left.type === 'operand' && node.left.value !== 'x';
+                
+                // If it is, eliminate left child instead and keep right child
+                if (isLeftNumericLeaf) {
+                     return { op: node.value, literal: node.left, keep: node.right };
+                }
+
+                // Default behavior: move right if possible
                 if (canMoveNode(node.right)) return { op: node.value, literal: node.right, keep: node.left };
-                // If right side wasn't movable (e.g. it was 'x'), try the left side.
+                
+                // If right wasn't movable (e.g. 'x'), try left
                 if (canMoveNode(node.left)) return { op: node.value, literal: node.left, keep: node.right };
             }
             // Non-Commutative Ops (-, /) - Only right side
