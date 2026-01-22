@@ -8,9 +8,7 @@
     <style>
         :root {
             --primary: #4f46e5;
-            --primary-hover: #4338ca;
             --bg-color: #f3f4f6;
-            --card-bg: #ffffff;
             --text-main: #1f2937;
             --text-sub: #6b7280;
             --line-color: #cbd5e1;
@@ -40,40 +38,34 @@
             background-color: var(--bg-color);
             color: var(--text-main);
             padding: 20px;
-            padding-bottom: 240px; /* Space for HUD */
             text-align: center;
             min-height: 100vh;
         }
 
         /* Header */
         header {
-            margin-bottom: 40px;
-            animation: fadeIn 0.8s ease-out;
+            margin-bottom: 25px;
         }
         
         h1 { 
-            font-size: 2.5rem; 
+            font-size: 2.2rem; 
             font-weight: 700; 
             color: #111827;
-            margin-bottom: 8px;
-            letter-spacing: -0.5px;
+            margin-bottom: 5px;
         }
         
         p.subtitle { 
             color: var(--text-sub); 
-            font-size: 1.05rem; 
-            max-width: 600px;
-            margin: 0 auto;
+            font-size: 1rem; 
         }
 
         /* Controls Grid */
         .controls { 
             display: flex; 
             justify-content: center; 
-            gap: 15px; 
-            margin-bottom: 40px; 
+            gap: 12px; 
+            margin-bottom: 20px; 
             flex-wrap: wrap;
-            animation: slideDown 0.6s ease-out;
         }
 
         button {
@@ -84,16 +76,16 @@
             border: none;
             border-radius: 12px;
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.1s;
             font-weight: 600;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
-        button:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); filter: brightness(110%); }
-        button:active { transform: translateY(0); }
+        button:active { transform: scale(0.96); }
 
         .btn-gen { background-color: var(--btn-gen); }
         .btn-ask { background-color: var(--btn-ask); } 
@@ -101,13 +93,62 @@
         .btn-code { background-color: var(--btn-code); }
         .btn-jumble { background-color: var(--btn-jumble); }
 
-        /* --- 2. TREE VISUALIZATION --- */
+        /* --- 2. QUIZ CONTAINER (Static, In-Flow) --- */
+        #quiz-container {
+            display: none; /* Hidden until needed */
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin: 0 auto 30px auto; /* Spacing below controls, above tree */
+            width: 100%;
+            max-width: 800px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-top: 6px solid #ccc;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        #quiz-text { 
+            font-size: 1.2rem; color: #374151; margin-bottom: 20px; 
+            line-height: 1.5;
+        }
+        
+        #quiz-options { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); /* Responsive Grid */
+            gap: 12px; 
+            width: 100%; 
+        }
+        
+        .mcq-btn {
+            background-color: #f3f4f6; color: #374151; border: 2px solid #e5e7eb;
+            padding: 15px; /* Larger hit area */
+            border-radius: 12px; 
+            font-size: 1rem; font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .mcq-btn:hover:not(:disabled) { background-color: #e5e7eb; }
+        
+        .mcq-correct { background-color: #dcfce7 !important; border-color: #22c55e !important; color: #15803d !important; }
+        .mcq-wrong { background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; opacity: 0.6; }
+        
+        #quiz-feedback { margin-top: 15px; font-weight: 700; font-size: 1.1rem; min-height: 24px; }
+
+        /* Quiz Type Colors */
+        #quiz-container.type-direct { border-top-color: var(--btn-gen); }
+        #quiz-container.type-mcq { border-top-color: var(--btn-point); }
+        #quiz-container.type-jumble { border-top-color: var(--btn-jumble); }
+        #quiz-container.type-success { border-top-color: #22c55e !important; }
+
+        /* --- 3. TREE VISUALIZATION --- */
         .tree-container {
             overflow-x: auto;
             padding-bottom: 40px;
-            cursor: grab;
+            /* Center the tree content */
+            display: flex; 
+            justify-content: center;
         }
-        .tree-container:active { cursor: grabbing; }
 
         .tree {
             display: inline-flex;
@@ -131,7 +172,6 @@
             content: ''; position: absolute; top: 0; right: 50%;
             border-top: 2px solid var(--line-color); 
             width: 50%; height: 20px;
-            transition: border-color 0.3s;
         }
         .tree li::after { right: auto; left: 50%; border-left: 2px solid var(--line-color); }
         .tree li:only-child::after, .tree li:only-child::before { display: none; }
@@ -142,196 +182,82 @@
             border-left: 2px solid var(--line-color); width: 0; height: 20px;
         }
 
-        /* --- 3. PERSON CARDS --- */
+        /* --- 4. PERSON CARDS --- */
         .person-card {
             background: white;
             border-radius: 12px;
-            padding: 12px 16px;
-            min-width: 110px;
+            padding: 10px 14px;
+            min-width: 100px;
             position: relative;
             z-index: 10;
-            transition: all 0.25s ease;
             cursor: pointer;
             user-select: none;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             border: 2px solid transparent;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 4px;
         }
 
-        /* Gender Specific Styling */
-        .male { 
-            background-color: var(--male-bg); 
-            border-color: #bfdbfe;
-            color: var(--male-text);
-        }
-        .female { 
-            background-color: var(--female-bg); 
-            border-color: #fbcfe8;
-            color: var(--female-text);
-        }
+        .male { background-color: var(--male-bg); border-color: #bfdbfe; color: var(--male-text); }
+        .female { background-color: var(--female-bg); border-color: #fbcfe8; color: var(--female-text); }
 
         .person-card strong { font-size: 0.9rem; font-weight: 600; }
-        .person-card small { font-size: 0.75rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px;}
+        .person-card small { font-size: 0.75rem; text-transform: uppercase; }
 
-        /* Icons inside card */
-        .avatar-icon {
-            width: 24px; height: 24px; margin-bottom: 2px;
-            fill: currentColor;
-            opacity: 0.7;
-        }
+        .avatar-icon { width: 24px; height: 24px; margin-bottom: 2px; fill: currentColor; opacity: 0.7; }
+        
+        .person-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
 
-        .person-card:hover { 
-            transform: translateY(-5px) scale(1.02); 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.15); 
-            z-index: 20;
-        }
-
-        /* Spouse Styling */
-        .has-spouse { 
-            border-width: 2px;
-            border-style: dashed;
-        }
+        .has-spouse { border-style: dashed; }
         
         .ring-icon {
-            position: absolute; 
-            top: -10px; right: -10px; 
-            font-size: 14px;
-            background: #fff; 
-            border-radius: 50%; 
-            width: 28px; height: 28px;
+            position: absolute; top: -10px; right: -10px; 
+            font-size: 14px; background: #fff; border-radius: 50%; 
+            width: 24px; height: 24px;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-            border: 2px solid #fbbf24;
-            cursor: pointer;
-            transition: transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 1px solid #ddd;
         }
-        .ring-icon:hover { transform: scale(1.2) rotate(10deg); }
 
-        /* Quiz Feedback States */
         .correct-card { 
-            background-color: #dcfce7 !important; 
-            border-color: #22c55e !important; 
-            color: #15803d !important;
-            transform: scale(1.15) !important; 
-            box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.2) !important; 
-            z-index: 100;
+            background-color: #dcfce7 !important; border-color: #22c55e !important; 
+            transform: scale(1.15); z-index: 100;
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
         }
         
         @keyframes shake {
-            0% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            50% { transform: translateX(5px); }
-            75% { transform: translateX(-5px); }
-            100% { transform: translateX(0); }
+            0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } 100% { transform: translateX(0); }
         }
-        .wrong-answer { animation: shake 0.4s ease-in-out; border-color: #ef4444 !important; background-color: #fee2e2 !important; }
+        .wrong-answer { animation: shake 0.3s; border-color: #ef4444 !important; background-color: #fee2e2 !important; }
 
         .highlight-name { 
-            color: #c2410c; 
-            font-weight: 700; 
-            background: #ffedd5; 
-            padding: 2px 6px; 
-            border-radius: 6px; 
-            border: 1px solid #fed7aa;
+            color: #c2410c; font-weight: 700; background: #ffedd5; 
+            padding: 2px 6px; border-radius: 6px; 
         }
 
-        /* --- 4. MODAL --- */
+        /* --- 5. MODAL (Keep minimal) --- */
         .modal {
             display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%;
-            background-color: rgba(17, 24, 39, 0.6); backdrop-filter: blur(4px);
-            animation: fadeIn 0.3s;
+            background-color: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
         }
         .modal-content {
-            background-color: #fefefe; 
-            margin: 5vh auto; padding: 30px;
-            width: 90%; max-width: 900px;
-            border-radius: 20px; 
-            position: relative; overflow-x: auto;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            min-height: 300px;
-            text-align: center;
+            background-color: #fff; margin: 10vh auto; padding: 20px;
+            width: 95%; max-width: 800px; border-radius: 12px; position: relative;
+            overflow-x: auto;
         }
-        .close { 
-            position: absolute; top: 20px; right: 25px;
-            color: #9ca3af; font-size: 28px; font-weight: bold; 
-            cursor: pointer; transition: color 0.2s;
-        }
-        .close:hover { color: #1f2937; }
+        .close { float: right; font-size: 28px; font-weight: bold; cursor: pointer; color: #999; }
 
-        /* --- 5. QUIZ HUD (Bottom Bar) --- */
-        #quiz-bar {
-            position: fixed; bottom: 30px; left: 50%; 
-            transform: translateX(-50%) translateY(150%); /* Start hidden */
-            width: 90%; max-width: 800px;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            padding: 25px 30px; 
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 300;
-            border: 1px solid rgba(255,255,255,0.5);
-            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
+        /* Helpers */
+        .legend-box { background: #fff7ed; border-left: 4px solid #f97316; padding: 10px; margin-bottom: 15px; text-align: left; font-size: 0.9rem; }
+        .fact-box { background: #f0fdfa; padding: 10px; border-radius: 6px; text-align: left; margin-top: 10px; font-size: 0.9rem; }
         
-        #quiz-bar.active { transform: translateX(-50%) translateY(0); }
-        
-        /* Colored Borders for Quiz Types */
-        #quiz-bar.type-direct { border-top: 6px solid var(--btn-gen); }
-        #quiz-bar.type-mcq { border-top: 6px solid var(--btn-point); }
-        #quiz-bar.type-jumble { border-top: 6px solid var(--btn-jumble); }
-        #quiz-bar.type-success { border-top: 6px solid #22c55e !important; }
-
-        #quiz-text { 
-            font-size: 1.15rem; color: #374151; margin-bottom: 20px; 
-            line-height: 1.6; max-width: 100%;
-        }
-        
-        #quiz-options { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; width: 100%; }
-        
-        .mcq-btn {
-            background-color: #f9fafb; color: #374151; border: 2px solid #e5e7eb;
-            padding: 10px 24px; border-radius: 50px; font-size: 0.95rem; font-weight: 600;
-            cursor: pointer; min-width: 100px;
-            transition: all 0.2s;
-        }
-        .mcq-btn:hover:not(:disabled) { background-color: #f3f4f6; border-color: #d1d5db; transform: translateY(-2px); }
-        
-        .mcq-correct { background-color: #dcfce7 !important; border-color: #22c55e !important; color: #15803d !important; box-shadow: 0 4px 6px rgba(34, 197, 94, 0.2); }
-        .mcq-wrong { background-color: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; opacity: 0.6; }
-        
-        #quiz-feedback { margin-top: 15px; font-weight: 600; font-size: 1rem; height: 24px; color: var(--text-sub); }
-
-        /* Legend Box */
-        .legend-box {
-            background: #fff7ed; border-left: 4px solid #f97316; padding: 15px;
-            border-radius: 8px; font-size: 0.9rem; margin-bottom: 20px;
-            text-align: left; display: inline-block; width: 100%;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        
-        /* Fact Box */
-        .fact-box {
-            background: #f0fdfa; border: 1px solid #ccfbf1; padding: 15px;
-            border-radius: 8px; display: inline-block; text-align: left;
-            margin-top: 10px; line-height: 1.8; width: 100%;
-            color: #115e59;
-        }
-
-        /* Animations */
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
         /* Mobile Responsive */
-        @media (max-width: 768px) {
+        @media (max-width: 600px) {
             h1 { font-size: 1.8rem; }
-            .controls { gap: 10px; }
-            button { padding: 10px 16px; font-size: 0.85rem; flex: 1 1 45%; justify-content: center; }
-            #quiz-bar { width: 95%; bottom: 15px; padding: 20px; }
-            .person-card { min-width: 90px; padding: 10px; }
+            button { flex: 1 1 45%; font-size: 0.85rem; }
+            .person-card { min-width: 80px; padding: 8px; }
         }
     </style>
 </head>
@@ -339,25 +265,21 @@
 
     <header>
         <h1>Blood Relations Master</h1>
-        <p class="subtitle">Generate a complex family tree and challenge yourself with logical riddles.</p>
+        <p class="subtitle">Generate a family, then test your logic.</p>
     </header>
 
     <div class="controls">
-        <button class="btn-gen" onclick="initApp()">
-            <span>🔄</span> New Tree
-        </button>
-        <button class="btn-ask" onclick="generateDirectQuestion()">
-            <span>❓</span> Direct Relation
-        </button>
-        <button class="btn-point" onclick="generatePointingQuestion()">
-            <span>☝️</span> Pointing Riddle
-        </button>
-        <button class="btn-code" onclick="generateCodedQuestion()">
-            <span>🔢</span> Coded Relations
-        </button>
-        <button class="btn-jumble" onclick="generateJumbledQuestion()">
-            <span>🧩</span> Jumbled Facts
-        </button>
+        <button class="btn-gen" onclick="initApp()">🔄 New Tree</button>
+        <button class="btn-ask" onclick="generateDirectQuestion()">❓ Direct</button>
+        <button class="btn-point" onclick="generatePointingQuestion()">☝️ Pointing</button>
+        <button class="btn-code" onclick="generateCodedQuestion()">🔢 Coded</button>
+        <button class="btn-jumble" onclick="generateJumbledQuestion()">🧩 Jumbled</button>
+    </div>
+
+    <div id="quiz-container">
+        <div id="quiz-text">Loading...</div>
+        <div id="quiz-options"></div>
+        <div id="quiz-feedback"></div>
     </div>
 
     <div class="tree-container">
@@ -367,17 +289,9 @@
     <div id="spouseModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal()">&times;</span>
-            <h3 id="modal-title" style="margin-bottom: 25px; color: #374151; font-weight:700;">Spouse's Family Tree</h3>
-            <div class="tree-container" style="justify-content: center; display:flex;">
-                <div class="tree" id="modal-tree"></div>
-            </div>
+            <h3 style="margin-bottom: 20px; color: #555;">Spouse Family</h3>
+            <div class="tree" id="modal-tree" style="min-height:200px;"></div>
         </div>
-    </div>
-
-    <div id="quiz-bar">
-        <div id="quiz-text">Loading question...</div>
-        <div id="quiz-options"></div>
-        <div id="quiz-feedback"></div>
     </div>
 
     <script>
@@ -387,13 +301,12 @@
         let isQuizActive = false;
         let quizType = 'DIRECT';
 
-        // --- SVG ICONS ---
+        // --- ICONS ---
         const ICONS = {
             male: `<svg class="avatar-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>`,
-            female: `<svg class="avatar-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>` // Using generic user icon for simplicity or distinct paths if preferred
+            female: `<svg class="avatar-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>`
         };
 
-        // --- SYMBOL DEFINITIONS FOR CODED PUZZLES ---
         const SYMBOL_DEFS = [
             { id: 'Father', symbol: '+', check: (a, b) => a.gender === 'Male' && b.parents.includes(a) },
             { id: 'Mother', symbol: '-', check: (a, b) => a.gender === 'Female' && b.parents.includes(a) },
@@ -404,77 +317,45 @@
             { id: 'Spouse', symbol: '@', check: (a, b) => a.spouse === b }
         ];
 
-        // --- NAME REPOSITORIES ---
-        const MALE_NAMES = [
-            "Aarav", "Vihaan", "Aditya", "Sai", "Arjun", "Rohan", "Suresh", "Ramesh", 
-            "Rahul", "Vikram", "Amit", "Karan", "Nikhil", "Sanjay", "Raj", "Varun", 
-            "Anil", "Deepak", "Sunil", "Prakash", "Manish", "Kartik", "Rishi", "Vivek",
-            "Ashish", "Mohan", "Gopal", "Harish", "Kabir", "Aryan"
-        ];
-        const FEMALE_NAMES = [
-            "Diya", "Saanvi", "Ananya", "Aadhya", "Pari", "Neha", "Priya", "Pooja", 
-            "Sneha", "Anjali", "Rita", "Sushma", "Kavita", "Meena", "Rekha", "Suman", 
-            "Anita", "Sunita", "Rani", "Geeta", "Seema", "Tanvi", "Ishita", "Riya",
-            "Swati", "Nisha", "Maya", "Kiran", "Tara", "Veda"
-        ];
+        const MALE_NAMES = ["Aarav", "Vihaan", "Aditya", "Sai", "Arjun", "Rohan", "Suresh", "Rahul", "Vikram", "Amit", "Karan", "Raj", "Varun", "Anil", "Deepak", "Sunil", "Manish", "Kartik", "Rishi", "Vivek", "Ashish", "Kabir"];
+        const FEMALE_NAMES = ["Diya", "Saanvi", "Ananya", "Aadhya", "Pari", "Neha", "Priya", "Pooja", "Sneha", "Anjali", "Rita", "Sushma", "Kavita", "Meena", "Rekha", "Suman", "Anita", "Rani", "Geeta", "Seema", "Riya", "Nisha"];
 
-        let availableMaleNames = [];
-        let availableFemaleNames = [];
+        let availableMaleNames = [], availableFemaleNames = [];
 
         function resetNames() {
             availableMaleNames = [...MALE_NAMES].sort(() => 0.5 - Math.random());
             availableFemaleNames = [...FEMALE_NAMES].sort(() => 0.5 - Math.random());
         }
 
-        // --- DATA MODEL ---
         class Person {
             constructor(depth, isSurvivor = false, context = 'MAIN_TREE') {
                 this.gender = Math.random() > 0.5 ? 'Male' : 'Female';
                 this.id = this.assignName(this.gender); 
-
-                this.children = [];
-                this.spouse = null;
-                this.parents = [];
-                this.familyRoot = this; 
-
+                this.children = []; this.spouse = null; this.parents = []; this.familyRoot = this; 
                 if (depth > 0) this.generateChildren(depth, isSurvivor, context);
                 if (context === 'MAIN_TREE' && Math.random() > 0.35) this.assignSpouse();
             }
-
             assignName(gender) {
-                let name = "";
-                if (gender === 'Male') {
-                    name = availableMaleNames.pop();
-                    if (!name) name = "Mr. " + Math.floor(Math.random() * 1000); 
-                } else {
-                    name = availableFemaleNames.pop();
-                    if (!name) name = "Ms. " + Math.floor(Math.random() * 1000);
-                }
+                let name = gender === 'Male' ? availableMaleNames.pop() : availableFemaleNames.pop();
+                if (!name) name = (gender === 'Male' ? "Mr. " : "Ms. ") + Math.floor(Math.random() * 1000);
                 return name;
             }
-
             generateChildren(depth, isSurvivor, context) {
                 let count = Math.floor(Math.random() * 3); 
                 if (isSurvivor && count === 0) count = 1;
-
                 let survivorChildIndex = isSurvivor ? Math.floor(Math.random() * count) : -1;
-
                 for (let i = 0; i < count; i++) {
                     const child = new Person(depth - 1, (i === survivorChildIndex), context);
-                    child.parents.push(this);
-                    child.familyRoot = this.familyRoot; 
+                    child.parents.push(this); child.familyRoot = this.familyRoot; 
                     this.children.push(child);
                 }
             }
-
             assignSpouse() {
                 const requiredGender = this.gender === 'Male' ? 'Female' : 'Male';
                 const spouseFamily = generateSpouseFamily(Math.random() > 0.5 ? 1 : 2, requiredGender);
-
                 if (spouseFamily.spouseNode) {
                     const newSpouse = spouseFamily.spouseNode;
-                    this.spouse = newSpouse;
-                    newSpouse.spouse = this;
+                    this.spouse = newSpouse; newSpouse.spouse = this;
                     newSpouse.children = this.children; 
                     this.children.forEach(c => c.parents.push(newSpouse));
                 }
@@ -485,18 +366,14 @@
             const root = new Person(depth, true, 'SPOUSE_TREE');
             const candidates = getAllDescendants(root).filter(p => p.gender === targetGender && !p.spouse);
             let selectedSpouse = null;
-
-            if (candidates.length > 0) {
-                selectedSpouse = candidates[Math.floor(Math.random() * candidates.length)];
-            } else {
+            if (candidates.length > 0) selectedSpouse = candidates[Math.floor(Math.random() * candidates.length)];
+            else {
                 const allNodes = getAllDescendants(root);
                 if(allNodes.length > 0) { 
                     selectedSpouse = allNodes[0]; 
                     if (selectedSpouse.gender !== targetGender) {
                         selectedSpouse.gender = targetGender;
-                        selectedSpouse.id = (targetGender === 'Male') ? 
-                            (availableMaleNames.pop() || "Mr. X") : 
-                            (availableFemaleNames.pop() || "Ms. Y");
+                        selectedSpouse.id = (targetGender === 'Male') ? (availableMaleNames.pop() || "Mr. X") : (availableFemaleNames.pop() || "Ms. Y");
                     }
                 }
             }
@@ -504,26 +381,10 @@
             return { rootNode: root, spouseNode: selectedSpouse };
         }
 
-        const MOVES = {
-            'PARENT': (p) => p.parents, 'CHILD': (p) => p.children, 'SPOUSE': (p) => p.spouse ? [p.spouse] : [],
-            'SIBLING': (p) => p.parents.length ? p.parents[0].children.filter(c => c.id !== p.id) : []
-        };
+        const MOVES = { 'PARENT': (p) => p.parents, 'CHILD': (p) => p.children, 'SPOUSE': (p) => p.spouse ? [p.spouse] : [], 'SIBLING': (p) => p.parents.length ? p.parents[0].children.filter(c => c.id !== p.id) : [] };
+        const MALE_RELATIONS = ['Father', 'Son', 'Brother', 'Husband', 'Paternal Grandfather', 'Maternal Grandfather', 'Paternal Uncle', 'Maternal Uncle', 'Nephew', 'Father-in-law', 'Brother-in-law'];
+        const FEMALE_RELATIONS = ['Mother', 'Daughter', 'Sister', 'Wife', 'Paternal Grandmother', 'Maternal Grandmother', 'Paternal Aunt', 'Maternal Aunt', 'Niece', 'Mother-in-law', 'Sister-in-law'];
 
-        const MALE_RELATIONS = [
-            'Father', 'Son', 'Brother', 'Husband',
-            'Paternal Grandfather', 'Maternal Grandfather',
-            'Paternal Uncle', 'Maternal Uncle',
-            'Nephew', 'Father-in-law', 'Brother-in-law'
-        ];
-
-        const FEMALE_RELATIONS = [
-            'Mother', 'Daughter', 'Sister', 'Wife',
-            'Paternal Grandmother', 'Maternal Grandmother',
-            'Paternal Aunt', 'Maternal Aunt',
-            'Niece', 'Mother-in-law', 'Sister-in-law'
-        ];
-
-        // --- RELATIONSHIP LOGIC ---
         function getPathNodes(startNode, targetNode) {
             let queue = [{ node: startNode, path: [startNode] }];
             let visited = new Set([startNode.id]);
@@ -533,10 +394,7 @@
                 let neighbors = [...node.parents, ...node.children];
                 if(node.spouse) neighbors.push(node.spouse);
                 for(let neighbor of neighbors) {
-                    if (!visited.has(neighbor.id)) {
-                        visited.add(neighbor.id);
-                        queue.push({ node: neighbor, path: [...path, neighbor] });
-                    }
+                    if (!visited.has(neighbor.id)) { visited.add(neighbor.id); queue.push({ node: neighbor, path: [...path, neighbor] }); }
                 }
             }
             return null;
@@ -545,7 +403,6 @@
         function determineRelationship(startNode, targetNode) {
             const path = getPathNodes(startNode, targetNode);
             if (!path || path.length < 2) return null;
-
             let moves = [];
             for(let i=0; i<path.length-1; i++) {
                 const curr = path[i]; const next = path[i+1];
@@ -554,157 +411,93 @@
                 else if(curr.spouse === next) moves.push('SPOUSE');
                 else moves.push('SIBLING'); 
             }
-
             const signature = moves.join('-');
             const isMale = targetNode.gender === 'Male';
-            let side = "";
-            if (path.length > 1 && path[1]) {
-                side = path[1].gender === 'Male' ? "Paternal" : "Maternal";
-            }
-
+            let side = (path.length > 1 && path[1]) ? (path[1].gender === 'Male' ? "Paternal" : "Maternal") : "";
             switch(signature) {
                 case 'UP': return isMale ? 'Father' : 'Mother';
                 case 'DOWN': return isMale ? 'Son' : 'Daughter';
                 case 'SPOUSE': return isMale ? 'Husband' : 'Wife';
-                case 'UP-DOWN': 
-                case 'SIBLING': return isMale ? 'Brother' : 'Sister';
+                case 'UP-DOWN': case 'SIBLING': return isMale ? 'Brother' : 'Sister';
                 case 'UP-UP': return `${side} ${isMale ? 'Grandfather' : 'Grandmother'}`;
                 case 'DOWN-DOWN': return isMale ? 'Grandson' : 'Granddaughter'; 
-                case 'UP-SIBLING': 
-                case 'UP-UP-DOWN': 
-                case 'UP-UP-DOWN-SPOUSE': return `${side} ${isMale ? 'Uncle' : 'Aunt'}`;
-                case 'SIBLING-DOWN': 
-                case 'UP-DOWN-DOWN': return isMale ? 'Nephew' : 'Niece';
+                case 'UP-SIBLING': case 'UP-UP-DOWN': case 'UP-UP-DOWN-SPOUSE': return `${side} ${isMale ? 'Uncle' : 'Aunt'}`;
+                case 'SIBLING-DOWN': case 'UP-DOWN-DOWN': return isMale ? 'Nephew' : 'Niece';
                 case 'SPOUSE-UP': return isMale ? 'Father-in-law' : 'Mother-in-law';
-                case 'SPOUSE-UP-DOWN': 
-                case 'SPOUSE-SIBLING':
-                case 'UP-DOWN-SPOUSE': 
-                case 'SIBLING-SPOUSE': return isMale ? 'Brother-in-law' : 'Sister-in-law';
+                case 'SPOUSE-UP-DOWN': case 'SPOUSE-SIBLING': case 'UP-DOWN-SPOUSE': case 'SIBLING-SPOUSE': return isMale ? 'Brother-in-law' : 'Sister-in-law';
                 default: return null; 
             }
         }
 
-        // --- CODED RELATION GENERATOR ---
+        // --- PUZZLE GENERATORS ---
         function generateCodedQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
-
             for (const startNode of shuffledPeople) {
-                const potentialTargets = people.filter(p => p.id !== startNode.id);
-                const shuffledTargets = potentialTargets.sort(() => 0.5 - Math.random());
-
-                for (const targetNode of shuffledTargets) {
+                const potentialTargets = people.filter(p => p.id !== startNode.id).sort(() => 0.5 - Math.random());
+                for (const targetNode of potentialTargets) {
                     const path = getPathNodes(startNode, targetNode);
-
                     if (!path || path.length < 3 || path.length > 4) continue;
-
-                    let equation = `${startNode.id}`;
-                    let isPathValid = true;
-
+                    let equation = `${startNode.id}`, isPathValid = true;
                     for (let i = 0; i < path.length - 1; i++) {
-                        const curr = path[i];
-                        const next = path[i+1];
-                        const symbolDef = SYMBOL_DEFS.find(def => def.check(curr, next));
-
-                        if (!symbolDef) {
-                            isPathValid = false;
-                            break;
-                        }
-                        equation += ` <b>${symbolDef.symbol}</b> ${next.id}`;
+                        const symbolDef = SYMBOL_DEFS.find(def => def.check(path[i], path[i+1]));
+                        if (!symbolDef) { isPathValid = false; break; }
+                        equation += ` <b>${symbolDef.symbol}</b> ${path[i+1].id}`;
                     }
-
                     if (isPathValid) {
                         const exactRelation = determineRelationship(startNode, targetNode);
                         if (exactRelation) {
                             const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
-                            const legendHtml = `<div class="legend-box">${legendItems}</div>`;
-
-                            const question = `${legendHtml}<br>Based on the equation: <br><span style="font-size:1.2rem; background:#fef3c7; padding:8px 15px; border-radius:8px; color:#d97706; font-weight:bold; display:inline-block; margin-top:10px;">${equation}</span><br><br>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`;
-
+                            const question = `<div class="legend-box">${legendItems}</div>Based on: <span style="background:#fef3c7; padding:4px 8px; font-weight:bold;">${equation}</span><br>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`;
                             startMCQQuiz(question, exactRelation, targetNode.gender, 'type-mcq');
                             return;
                         }
                     }
                 }
             }
-            alert("Could not find a clean equation path. Try 'New Tree'!");
+            alert("No clean path found. Try New Tree.");
         }
 
-        // --- JUMBLED/DISJOINTED GENERATOR ---
         function generateJumbledQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
-
             for (const startNode of shuffledPeople) {
-                const potentialTargets = people.filter(p => p.id !== startNode.id);
-                const shuffledTargets = potentialTargets.sort(() => 0.5 - Math.random());
-
-                for (const targetNode of shuffledTargets) {
+                const potentialTargets = people.filter(p => p.id !== startNode.id).sort(() => 0.5 - Math.random());
+                for (const targetNode of potentialTargets) {
                     const path = getPathNodes(startNode, targetNode);
-
-                    // Prefer length 3 or 4 for good puzzles
                     if (!path || path.length < 3 || path.length > 5) continue;
-
-                    let facts = [];
-                    let isPathValid = true;
-
+                    let facts = [], isPathValid = true;
                     for (let i = 0; i < path.length - 1; i++) {
-                        const curr = path[i];
-                        const next = path[i+1];
-                        const symbolDef = SYMBOL_DEFS.find(def => def.check(curr, next));
-
-                        if (!symbolDef) {
-                            isPathValid = false;
-                            break;
-                        }
-                        // Create disjointed fact string
-                        facts.push(`${curr.id} <b>${symbolDef.symbol}</b> ${next.id}`);
+                        const symbolDef = SYMBOL_DEFS.find(def => def.check(path[i], path[i+1]));
+                        if (!symbolDef) { isPathValid = false; break; }
+                        facts.push(`${path[i].id} <b>${symbolDef.symbol}</b> ${path[i+1].id}`);
                     }
-
                     if (isPathValid) {
                         const exactRelation = determineRelationship(startNode, targetNode);
                         if (exactRelation) {
-                            // Shuffle the facts
                             facts.sort(() => Math.random() - 0.5);
-
                             const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
-                            const legendHtml = `<div class="legend-box">${legendItems}</div>`;
-
-                            // Create the unordered fact list
-                            const factListHtml = facts.map(f => `• ${f}`).join('<br>');
-                            const factBox = `<div class="fact-box">${factListHtml}</div>`;
-
-                            const question = `${legendHtml}<br>Consider the following facts:<br>${factBox}<br><br>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`;
-
+                            const question = `<div class="legend-box">${legendItems}</div>Facts:<div class="fact-box">${facts.map(f => `• ${f}`).join('<br>')}</div>How is <span class="highlight-name">${targetNode.id}</span> related to <span class="highlight-name">${startNode.id}</span>?`;
                             startMCQQuiz(question, exactRelation, targetNode.gender, 'type-jumble');
                             return;
                         }
                     }
                 }
             }
-            alert("Could not find a solvable set of facts. Try 'New Tree'!");
+            alert("No puzzle found. Try New Tree.");
         }
 
-        // --- GENERATORS ---
         function generateDirectQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
-
-            const DIRECT_TEMPLATES = [
-                { path: ['PARENT'], label: 'Parent' }, { path: ['CHILD'], label: 'Child' },
-                { path: ['SIBLING'], label: 'Sibling' }, { path: ['SPOUSE'], label: 'Spouse' },
-                { path: ['PARENT', 'PARENT'], label: 'Grandparent' }, 
-                { path: ['PARENT', 'SIBLING'], label: 'Uncle/Aunt' }
-            ];
-
+            const DIRECT_TEMPLATES = [{path:['PARENT'],label:'Parent'},{path:['CHILD'],label:'Child'},{path:['SIBLING'],label:'Sibling'},{path:['SPOUSE'],label:'Spouse'},{path:['PARENT','PARENT'],label:'Grandparent'},{path:['PARENT','SIBLING'],label:'Uncle/Aunt'}];
             for (const startNode of shuffledPeople) {
                 const shuffledTemplates = [...DIRECT_TEMPLATES].sort(() => 0.5 - Math.random());
                 for (const template of shuffledTemplates) {
-                    let currentNodes = [startNode];
-                    let failed = false;
+                    let currentNodes = [startNode], failed = false;
                     for (const move of template.path) {
                         let nextNodes = [];
                         currentNodes.forEach(node => { if (MOVES[move]) nextNodes = nextNodes.concat(MOVES[move](node)); });
@@ -712,17 +505,12 @@
                         currentNodes = nextNodes;
                     }
                     if (failed) continue;
-
                     const validTargets = currentNodes.filter(n => n.id !== startNode.id);
                     if (validTargets.length > 0) {
                         const targetNode = validTargets[Math.floor(Math.random() * validTargets.length)];
                         const exactRelation = determineRelationship(startNode, targetNode);
                         if (!exactRelation) continue;
-
-                        startDirectQuiz(
-                            `Who is the <b>${exactRelation}</b> of <span class="highlight-name">${startNode.id}</span>?`,
-                            targetNode.id
-                        );
+                        startDirectQuiz(`Who is the <b>${exactRelation}</b> of <span class="highlight-name">${startNode.id}</span>?`, targetNode.id);
                         return;
                     }
                 }
@@ -730,13 +518,11 @@
             alert("Try generating a new family!");
         }
 
-        // --- POINTING PUZZLES ---
         const LHS_TEMPLATES = [
             { find: (p) => [p], text: (t) => `${t.gender==='Male'?'He':'She'}` },
             { find: (p) => p.children, text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'father':'mother'}` },
             { find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'brother':'sister'}` }
         ];
-
         const CRAWL_MOVES = [
             { type: 'Parent',  get: (p) => p.parents, label: (p) => p.gender==='Male'?'father':'mother' },
             { type: 'Child',   get: (p) => p.children, label: (p) => p.gender==='Male'?'son':'daughter' },
@@ -748,73 +534,58 @@
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
-
             for (const speaker of shuffledPeople) {
-                const targetDepth = Math.random() > 0.5 ? 2 : 3;
-                const pathData = generateRandomPath(speaker, targetDepth);
+                const pathData = generateRandomPath(speaker, Math.random() > 0.5 ? 2 : 3);
                 if (!pathData) continue; 
-
                 const { pivot, rhsText } = pathData;
                 const shuffledLHS = [...LHS_TEMPLATES].sort(() => 0.5 - Math.random());
                 for (const lhsTmpl of shuffledLHS) {
-                    const potentialTargets = lhsTmpl.find(pivot);
-                    const validTargets = potentialTargets.filter(t => t.id !== speaker.id);
-
-                    for(const target of validTargets) {
+                    const potentialTargets = lhsTmpl.find(pivot).filter(t => t.id !== speaker.id);
+                    for(const target of potentialTargets) {
                         const lhString = lhsTmpl.text(target, pivot);
-                        if (lhString.includes("father") && pivot.gender !== 'Male') continue;
-                        if (lhString.includes("mother") && pivot.gender !== 'Female') continue;
-                        if (lhString.includes("brother") && pivot.gender !== 'Male') continue;
-                        if (lhString.includes("sister") && pivot.gender !== 'Female') continue;
-
+                        if ((lhString.includes("father")||lhString.includes("brother")) && pivot.gender !== 'Male') continue;
+                        if ((lhString.includes("mother")||lhString.includes("sister")) && pivot.gender !== 'Female') continue;
                         const actualRelation = determineRelationship(speaker, target);
-
                         if (actualRelation) {
-                            const lhsText = lhsTmpl.text(target, pivot);
-                            const riddle = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><br><i>"${lhsText} is <b>${rhsText}</b>."</i>`;
-                            const question = `${riddle}<br><br>How is <b>${target.id}</b> related to ${speaker.id}?`;
-
-                            startMCQQuiz(question, actualRelation, target.gender, 'type-mcq');
+                            const riddle = `Pointing to <span class="highlight-name">${target.id}</span>, <span class="highlight-name">${speaker.id}</span> said:<br><i>"${lhString} is <b>${rhsText}</b>."</i>`;
+                            startMCQQuiz(`${riddle}<br>How is <b>${target.id}</b> related to ${speaker.id}?`, actualRelation, target.gender, 'type-mcq');
                             return;
                         }
                     }
                 }
             }
-            alert("Could not generate a solvable riddle. Try 'New Tree'!");
+            alert("No puzzle found. Try New Tree.");
         }
 
-        function generateRandomPath(currentNode, stepsRemaining, currentText = "my", history = []) {
-            if (stepsRemaining === 0) return { pivot: currentNode, rhsText: currentText };
+        function generateRandomPath(currentNode, steps, currentText = "my", history = []) {
+            if (steps === 0) return { pivot: currentNode, rhsText: currentText };
             const newHistory = [...history, currentNode.id];
             const shuffledMoves = [...CRAWL_MOVES].sort(() => 0.5 - Math.random());
             for (const move of shuffledMoves) {
-                const neighbors = move.get(currentNode);
-                const validNeighbors = neighbors.filter(n => !newHistory.includes(n.id));
-                if (validNeighbors.length > 0) {
-                    const nextNode = validNeighbors[Math.floor(Math.random() * validNeighbors.length)];
+                const neighbors = move.get(currentNode).filter(n => !newHistory.includes(n.id));
+                if (neighbors.length > 0) {
+                    const nextNode = neighbors[Math.floor(Math.random() * neighbors.length)];
                     let label = move.label(nextNode);
                     if (move.type === 'Child') {
                         const siblings = currentNode.children.filter(c => c.id !== nextNode.id);
                         if (siblings.length === 0) label = "only child";
-                        else {
-                            const sameSex = siblings.filter(c => c.gender === nextNode.gender);
-                            if (sameSex.length === 0) label = "only " + label;
-                        }
+                        else if (siblings.filter(c => c.gender === nextNode.gender).length === 0) label = "only " + label;
                     }
-                    let nextText = currentText === "my" ? `my ${label}` : `${currentText}'s ${label}`;
-                    const result = generateRandomPath(nextNode, stepsRemaining - 1, nextText, newHistory);
+                    const result = generateRandomPath(nextNode, steps - 1, currentText === "my" ? `my ${label}` : `${currentText}'s ${label}`, newHistory);
                     if (result) return result;
                 }
             }
             return null; 
         }
 
-        // --- UI & QUIZ ---
+        // --- UI & QUIZ LOGIC ---
         function setBarType(typeClass) {
-            const bar = document.getElementById('quiz-bar');
-            bar.classList.remove('type-direct', 'type-mcq', 'type-jumble', 'type-success');
+            const bar = document.getElementById('quiz-container');
+            bar.className = ''; // Reset
             bar.classList.add(typeClass);
-            bar.classList.add('active'); // Trigger slide up
+            bar.style.display = 'block';
+            // Scroll neatly to the quiz area so user sees question AND tree
+            bar.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function startDirectQuiz(htmlText, answerId) {
@@ -822,10 +593,7 @@
             resetUI();
             setBarType('type-direct');
             document.getElementById('quiz-text').innerHTML = htmlText;
-            document.getElementById('quiz-feedback').innerHTML = "👇 Click the person in the tree above.";
-            
-            // Scroll a bit if needed, but smooth
-            window.scrollTo({ top: 100, behavior: 'smooth' });
+            document.getElementById('quiz-feedback').innerHTML = "👇 Tap the person in the tree.";
         }
 
         function startMCQQuiz(htmlText, correctAnswerStr, targetGender, typeClass) {
@@ -833,11 +601,9 @@
             resetUI();
             setBarType(typeClass);
             document.getElementById('quiz-text').innerHTML = htmlText;
-            document.getElementById('quiz-feedback').innerHTML = "Select the correct relationship.";
-
+            document.getElementById('quiz-feedback').innerHTML = "Select the correct relationship:";
             const options = new Set([correctAnswerStr]);
             const relationPool = (targetGender === 'Male') ? MALE_RELATIONS : FEMALE_RELATIONS;
-
             while(options.size < 4) {
                 let addedDistractor = false;
                 if (correctAnswerStr.includes("Paternal")) {
@@ -847,38 +613,27 @@
                     const swap = correctAnswerStr.replace("Maternal", "Paternal");
                     if (!options.has(swap)) { options.add(swap); addedDistractor = true; }
                 } 
-
-                if (!addedDistractor || options.size < 4) {
-                    const randomRel = relationPool[Math.floor(Math.random() * relationPool.length)];
-                    options.add(randomRel);
-                }
+                if (!addedDistractor || options.size < 4) options.add(relationPool[Math.floor(Math.random() * relationPool.length)]);
             }
-
-            const shuffledOptions = Array.from(options).sort(() => 0.5 - Math.random());
-            const optionsContainer = document.getElementById('quiz-options');
-            shuffledOptions.forEach(opt => {
+            const container = document.getElementById('quiz-options');
+            Array.from(options).sort(() => 0.5 - Math.random()).forEach(opt => {
                 const btn = document.createElement('button');
                 btn.className = 'mcq-btn'; btn.innerText = opt;
                 btn.onclick = () => handleMCQAnswer(btn, opt);
-                optionsContainer.appendChild(btn);
+                container.appendChild(btn);
             });
-            
-            // Ensure HUD is visible
-            setTimeout(() => {
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-            }, 100);
         }
 
         function handleMCQAnswer(btn, selected) {
             if(!isQuizActive || quizType !== 'MCQ') return;
             if (selected === currentQuizAnswer) {
                 btn.classList.add('mcq-correct');
-                document.getElementById('quiz-feedback').innerHTML = `✅ Correct! The answer is ${currentQuizAnswer}.`;
+                document.getElementById('quiz-feedback').innerHTML = `✅ Correct!`;
                 setBarType('type-success');
                 disableAllMCQ(); isQuizActive = false;
             } else {
                 btn.classList.add('mcq-wrong');
-                document.getElementById('quiz-feedback').innerHTML = "❌ Incorrect. Try again.";
+                document.getElementById('quiz-feedback').innerHTML = "❌ Try again.";
             }
         }
         function disableAllMCQ() {
@@ -890,23 +645,20 @@
         function handleNodeClick(id) {
             if (!isQuizActive || quizType !== 'DIRECT') return;
             const card = document.querySelector(`.person-card[data-id="${id}"]`);
-            const statusDiv = document.getElementById('quiz-feedback');
-            
             if (id === currentQuizAnswer) {
                 if(card) card.classList.add('correct-card');
-                statusDiv.innerHTML = "✅ Correct! Well done.";
+                document.getElementById('quiz-feedback').innerHTML = "✅ Correct!";
                 setBarType('type-success');
                 isQuizActive = false;
             } else {
                 if(card) { card.classList.add('wrong-answer'); setTimeout(() => card.classList.remove('wrong-answer'), 500); }
-                statusDiv.innerHTML = "❌ Incorrect. Try again!";
+                document.getElementById('quiz-feedback').innerHTML = "❌ Incorrect.";
             }
         }
         function resetUI() {
             document.querySelectorAll('.person-card').forEach(el => el.classList.remove('correct-card', 'wrong-answer'));
             document.getElementById('quiz-options').innerHTML = '';
             document.getElementById('quiz-feedback').innerHTML = '';
-            document.getElementById('quiz-feedback').className = '';
         }
 
         function cacheAllPeople(node) {
@@ -926,8 +678,7 @@
         function initApp() {
             resetNames(); 
             allPeopleMap.clear(); isQuizActive = false;
-            document.getElementById('quiz-bar').classList.remove('active');
-            
+            document.getElementById('quiz-container').style.display = 'none';
             const rootPerson = new Person(CONFIG.MAIN_DEPTH, true, 'MAIN_TREE');
             cacheAllPeople(rootPerson);
             const container = document.getElementById('main-tree');
@@ -939,10 +690,9 @@
         function renderTreeHTML(person, isModal = false) {
             const li = document.createElement('li'); const card = document.createElement('div');
             let classes = `person-card ${person.gender.toLowerCase()}`;
-            let ringHTML = "";
+            let ringHTML = person.spouse ? `<div class="ring-icon" title="View Spouse Family">💍</div>` : "";
+            if (person.spouse) classes += " has-spouse";
             let iconHTML = person.gender === 'Male' ? ICONS.male : ICONS.female;
-            
-            if (person.spouse) { classes += " has-spouse"; ringHTML = `<div class="ring-icon" title="View Spouse Family">💍</div>`; }
             card.className = classes; card.setAttribute('data-id', person.id);
             card.innerHTML = `${iconHTML}<strong>${person.id}</strong><small>${person.gender}</small>${ringHTML}`;
             card.onclick = (e) => {
@@ -963,17 +713,13 @@
         }
         function openModal(familyRootId, spouseId) {
             const rootNode = allPeopleMap.get(familyRootId);
-            const spouseNode = allPeopleMap.get(spouseId);
             if(!rootNode) return;
-            const modal = document.getElementById('spouseModal');
             const container = document.getElementById('modal-tree');
             container.innerHTML = '';
             const ul = document.createElement('ul');
             ul.appendChild(renderTreeHTML(rootNode, true));
             container.appendChild(ul);
-            modal.style.display = "block";
-            
-            // Highlight the spouse in the modal
+            document.getElementById('spouseModal').style.display = "block";
             setTimeout(() => {
                 const spouseCard = container.querySelector(`.person-card[data-id="${spouseId}"]`);
                 if(spouseCard) spouseCard.classList.add('correct-card');
