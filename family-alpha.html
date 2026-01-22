@@ -235,7 +235,7 @@
             padding: 2px 6px; border-radius: 6px; 
         }
 
-        /* --- 5. MODAL --- */
+        /* --- 5. MODAL & TOAST --- */
         .modal {
             display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%;
             background-color: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
@@ -246,6 +246,31 @@
             overflow-x: auto;
         }
         .close { float: right; font-size: 28px; font-weight: bold; cursor: pointer; color: #999; }
+
+        /* Toast Notification */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 50px;
+            padding: 16px;
+            position: fixed;
+            z-index: 300;
+            left: 50%;
+            top: 30px;
+            transform: translateX(-50%);
+            font-size: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.3s, top 0.3s;
+        }
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            top: 50px;
+        }
 
         /* Helpers */
         .legend-box { background: #fff7ed; border-left: 4px solid #f97316; padding: 10px; margin-bottom: 15px; text-align: left; font-size: 0.9rem; }
@@ -270,10 +295,10 @@
 
     <div class="controls">
         <button class="btn-gen" onclick="initApp()">🔄 New Tree</button>
-        <button class="btn-ask" onclick="generateDirectQuestion()">❓ Path Trace</button>
-        <button class="btn-point" onclick="generatePointingQuestion()">☝️ Pointing</button>
-        <button class="btn-code" onclick="generateCodedQuestion()">🔢 Coded</button>
-        <button class="btn-jumble" onclick="generateJumbledQuestion()">🧩 Jumbled</button>
+        <button class="btn-ask" onclick="handleQuestionRequest('DIRECT')">❓ Path Trace</button>
+        <button class="btn-point" onclick="handleQuestionRequest('POINTING')">☝️ Pointing</button>
+        <button class="btn-code" onclick="handleQuestionRequest('CODED')">🔢 Coded</button>
+        <button class="btn-jumble" onclick="handleQuestionRequest('JUMBLED')">🧩 Jumbled</button>
     </div>
 
     <div id="quiz-container">
@@ -294,8 +319,13 @@
         </div>
     </div>
 
+    <div id="toast">New Family & Legend Generated! 🎲</div>
+
     <script>
         const CONFIG = { MAIN_DEPTH: 3 };
+        const QUESTIONS_PER_RESET = 3; // Auto-reset after this many questions
+        let questionsSinceReset = 0;
+
         let allPeopleMap = new Map(); 
         let currentQuizAnswer = null;
         let isQuizActive = false;
@@ -307,6 +337,10 @@
             female: `<svg class="avatar-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>`
         };
 
+        // Pool of symbols to shuffle
+        const SYMBOL_POOL = ['+', '-', '&', '%', '×', '÷', '@', '$', '#', '!', '*', '?'];
+
+        // Definition structure (Symbol is now dynamic)
         const SYMBOL_DEFS = [
             { id: 'Father', symbol: '+', check: (a, b) => a.gender === 'Male' && b.parents.includes(a) },
             { id: 'Mother', symbol: '-', check: (a, b) => a.gender === 'Female' && b.parents.includes(a) },
@@ -316,6 +350,16 @@
             { id: 'Sister', symbol: '÷', check: (a, b) => a.gender === 'Female' && a.parents.length && b.parents.length && a.parents[0] === b.parents[0] },
             { id: 'Spouse', symbol: '@', check: (a, b) => a.spouse === b }
         ];
+
+        // Function to shuffle legends
+        function shuffleLegends() {
+            const shuffled = [...SYMBOL_POOL].sort(() => 0.5 - Math.random());
+            SYMBOL_DEFS.forEach((def, index) => {
+                if(index < shuffled.length) {
+                    def.symbol = shuffled[index];
+                }
+            });
+        }
 
         const MALE_NAMES = ["Aarav", "Vihaan", "Aditya", "Sai", "Arjun", "Rohan", "Suresh", "Rahul", "Vikram", "Amit", "Karan", "Raj", "Varun", "Anil", "Deepak", "Sunil", "Manish", "Kartik", "Rishi", "Vivek", "Ashish", "Kabir"];
         const FEMALE_NAMES = ["Diya", "Saanvi", "Ananya", "Aadhya", "Pari", "Neha", "Priya", "Pooja", "Sneha", "Anjali", "Rita", "Sushma", "Kavita", "Meena", "Rekha", "Suman", "Anita", "Rani", "Geeta", "Seema", "Riya", "Nisha"];
@@ -433,8 +477,8 @@
         function randomWalk(startNode, steps) {
             let currentNode = startNode;
             let codeString = startNode.id;
-            let textPath = []; // For Direct Quiz (names of relations)
-            let facts = [];    // For Jumbled Quiz
+            let textPath = []; 
+            let facts = [];    
             let visited = new Set([startNode.id]); 
 
             for (let i = 0; i < steps; i++) {
@@ -458,7 +502,7 @@
                 // Build outputs
                 codeString += ` <b>${symbolDef.symbol}</b> ${nextNode.id}`;
                 facts.push(`${currentNode.id} <b>${symbolDef.symbol}</b> ${nextNode.id}`);
-                textPath.push(symbolDef.id); // e.g. "Father", "Wife"
+                textPath.push(symbolDef.id); 
 
                 visited.add(nextNode.id);
                 currentNode = nextNode;
@@ -468,7 +512,6 @@
 
         // --- PUZZLE GENERATORS ---
 
-        // 1. Coded Question (Winded Path -> Simple Relation)
         function generateCodedQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
@@ -494,13 +537,11 @@
             alert("Could not generate a complex path. Try New Tree.");
         }
 
-        // 2. Jumbled Question (Winded Facts -> Simple Relation)
         function generateJumbledQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
             for(let attempt = 0; attempt < 50; attempt++) {
                 const startNode = people[Math.floor(Math.random() * people.length)];
-                // Create a long chain of facts
                 const walkData = randomWalk(startNode, Math.random() > 0.5 ? 4 : 5);
                 if (!walkData) continue;
 
@@ -508,7 +549,6 @@
                 const exactRelation = determineRelationship(startNode, targetNode);
 
                 if (exactRelation && startNode.id !== targetNode.id) {
-                    // Shuffle the facts to make it "Jumbled"
                     facts.sort(() => Math.random() - 0.5);
                     const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> means A is ${d.id} of B`).join('<br>');
                     const question = `
@@ -523,13 +563,11 @@
             alert("No puzzle found. Try New Tree.");
         }
 
-        // 3. Direct/Trace Question (Winded Description -> Find Person)
         function generateDirectQuestion() {
             const people = Array.from(allPeopleMap.values());
             if (people.length < 2) return;
             for(let attempt = 0; attempt < 50; attempt++) {
                 const startNode = people[Math.floor(Math.random() * people.length)];
-                // Walk 3-4 steps (too long is hard to hold in memory for direct selection)
                 const walkData = randomWalk(startNode, Math.random() > 0.5 ? 3 : 4);
                 if (!walkData) continue;
 
@@ -544,13 +582,10 @@
             alert("Try generating a new family!");
         }
 
-        // 4. Pointing Question (RESTORED LHS LOGIC + WINDED RHS)
-        
-        // These templates define "Who" we are talking about relative to the person pointed at.
         const LHS_TEMPLATES = [
-            { find: (p) => [p], text: (t) => `${t.gender==='Male'?'He':'She'}` }, // "He is..."
-            { find: (p) => p.children, text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'father':'mother'}` }, // "His father is..."
-            { find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'brother':'sister'}` } // "Her sister is..."
+            { find: (p) => [p], text: (t) => `${t.gender==='Male'?'He':'She'}` }, 
+            { find: (p) => p.children, text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'father':'mother'}` }, 
+            { find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], text: (t, p) => `${t.gender==='Male'?'His':'Her'} ${p.gender==='Male'?'brother':'sister'}` } 
         ];
 
         const CRAWL_MOVES = [
@@ -566,30 +601,19 @@
             const shuffledPeople = [...people].sort(() => 0.5 - Math.random());
             
             for (const speaker of shuffledPeople) {
-                // 1. Generate the Winded Description (RHS) e.g., "my father's sister's husband"
                 const pathData = generateRandomPath(speaker, Math.random() > 0.5 ? 3 : 4);
                 if (!pathData) continue; 
                 
-                const { pivot, rhsText } = pathData; // pivot is the person described by RHS
-                
-                // 2. Try to match the Pivot to a Subject relative to a Target (LHS)
-                // We want: [Target]'s [Relation] == [Pivot]
+                const { pivot, rhsText } = pathData; 
                 const shuffledLHS = [...LHS_TEMPLATES].sort(() => 0.5 - Math.random());
                 
                 for (const lhsTmpl of shuffledLHS) {
-                    // Find all possible Targets where Target's Relation is the Pivot
-                    // lhsTmpl.find(pivot) returns a list of people for whom 'pivot' is that relation.
-                    // E.g. if template is "His Father", find(pivot) returns children of pivot.
                     const potentialTargets = lhsTmpl.find(pivot).filter(t => t.id !== speaker.id);
-                    
                     for(const target of potentialTargets) {
-                        const lhString = lhsTmpl.text(target, pivot); // "His father"
-                        
-                        // Valid Gender Checks
+                        const lhString = lhsTmpl.text(target, pivot); 
                         if ((lhString.includes("father")||lhString.includes("brother")) && pivot.gender !== 'Male') continue;
                         if ((lhString.includes("mother")||lhString.includes("sister")) && pivot.gender !== 'Female') continue;
                         
-                        // 3. Ensure there is a clean relationship answer
                         const actualRelation = determineRelationship(speaker, target);
                         
                         if (actualRelation) {
@@ -622,6 +646,30 @@
                 }
             }
             return null; 
+        }
+
+        // --- NEW WRAPPER FOR BUTTON CLICKS ---
+        function handleQuestionRequest(type) {
+            questionsSinceReset++;
+            
+            if (questionsSinceReset > QUESTIONS_PER_RESET) {
+                initApp(); // This will generate new tree AND shuffle legends
+                showToast();
+                questionsSinceReset = 1;
+            }
+
+            switch(type) {
+                case 'DIRECT': generateDirectQuestion(); break;
+                case 'POINTING': generatePointingQuestion(); break;
+                case 'CODED': generateCodedQuestion(); break;
+                case 'JUMBLED': generateJumbledQuestion(); break;
+            }
+        }
+
+        function showToast() {
+            const toast = document.getElementById("toast");
+            toast.className = "show";
+            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
         }
 
         // --- UI & QUIZ LOGIC ---
@@ -722,6 +770,7 @@
         }
         function initApp() {
             resetNames(); 
+            shuffleLegends(); // NEW: Shuffle symbols every time tree resets
             allPeopleMap.clear(); isQuizActive = false;
             document.getElementById('quiz-container').style.display = 'none';
             const rootPerson = new Person(CONFIG.MAIN_DEPTH, true, 'MAIN_TREE');
