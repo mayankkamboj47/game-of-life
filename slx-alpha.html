@@ -293,7 +293,6 @@
             if (isLeaf) {
                 return { id, type: 'operand', value: { n: Math.floor(Math.random() * 10) + 1, d: 1 } };
             } else {
-                // Restore all symbols as requested
                 const symbols = ['+', '-', '×', '÷'];
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
                 return { id, type: 'operator', value: symbol, left: generateNumericTree(depth + 1, maxDepth), right: generateNumericTree(depth + 1, maxDepth) };
@@ -382,12 +381,17 @@
             // Can only eliminate if it is the root of the expression tree
             if (node !== treeData) return null;
             
-            // Logic: Root is + or * and one child is a literal
-            // Explicitly excluding - and / for now as requested
+            // Commutative Ops (+, *) - Check both sides
             if (node.value === '+' || node.value === '×') {
                 if (isLiteral(node.left)) return { op: node.value, literal: node.left, keep: node.right };
                 if (isLiteral(node.right)) return { op: node.value, literal: node.right, keep: node.left };
             }
+
+            // Non-Commutative Ops (-, /) - Check ONLY right side
+            if (node.value === '-' || node.value === '÷') {
+                if (isLiteral(node.right)) return { op: node.value, literal: node.right, keep: node.left };
+            }
+
             return null;
         }
 
@@ -462,6 +466,12 @@
             } else if (plan.op === '×') {
                 // Divide RHS by literal
                 rhsValue = fracOps['÷'](rhsValue, plan.literal.value);
+            } else if (plan.op === '-') {
+                // Add literal to RHS (Inverse of - is +)
+                rhsValue = fracOps['+'](rhsValue, plan.literal.value);
+            } else if (plan.op === '÷') {
+                // Multiply RHS by literal (Inverse of / is *)
+                rhsValue = fracOps['×'](rhsValue, plan.literal.value);
             }
 
             // Update Tree to be the remaining child
