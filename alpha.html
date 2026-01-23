@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BODMAS Engine - LaTeX Integration</title>
+    <title>BODMAS Engine - Exponents Visuals</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
@@ -12,6 +12,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
 
+        /* --- Page Layout --- */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #ffffff;
@@ -51,13 +52,14 @@
             padding: 100px;
         }
 
-        /* Nodes (Tree View) */
+        /* --- Node Styles --- */
         .node {
             transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
             background: white;
             user-select: none;
             position: relative;
             z-index: 20;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .node-operator {
@@ -66,86 +68,207 @@
             background-color: #f9fafb;
         }
 
-        /* Interaction Highlighting */
+        /* --- Interactive States --- */
         body.mode-simplify .node-operator.can-evaluate,
-        body.mode-rearrange .node-operator.can-transform { cursor: pointer; }
+        body.mode-rearrange .node-operator.can-transform {
+            cursor: pointer; 
+        }
 
+        /* Simplify Mode - Highlighting */
         body.mode-simplify.hints-active .node-operator.can-evaluate {
-            border-color: #2563eb; color: #2563eb; background-color: #eff6ff;
+            border-color: #2563eb;
+            color: #2563eb;
+            background-color: #eff6ff;
         }
-        body.mode-rearrange.hints-active .node-operator.can-transform {
-            border-color: #9333ea; color: #9333ea; background-color: #f3e8ff;
+        body.mode-simplify .node-operator.can-evaluate:active {
+            background-color: #2563eb;
+            color: #ffffff;
+            transform: scale(0.95);
+            border-color: #2563eb;
         }
 
-        /* Fractions in Tree Nodes (Simple CSS fallback for the bubble view) */
-        .frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: 0.8em; }
+        /* Rearrange Mode - Highlighting */
+        body.mode-rearrange.hints-active .node-operator.can-transform {
+            border-color: #9333ea;
+            color: #9333ea;
+            background-color: #f3e8ff;
+        }
+        body.mode-rearrange .node-operator.can-transform:active {
+            background-color: #9333ea;
+            color: #ffffff;
+            transform: scale(0.95);
+            border-color: #9333ea;
+        }
+
+        /* Active Menu State */
+        .node-operator.menu-open {
+            background-color: #1f2937 !important;
+            border-color: #1f2937 !important;
+            color: white !important;
+            box-shadow: 0 0 0 4px rgba(31, 41, 55, 0.15);
+            transform: scale(1.05);
+        }
+
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            vertical-align: middle;
+            text-align: center;
+            line-height: 1.1;
+            font-size: 0.9em;
+        }
         .frac span.top { border-bottom: 1px solid currentColor; padding: 0 2px; }
 
-        .connector { stroke: #94a3b8; stroke-width: 1.5; fill: none; }
+        .connector {
+            stroke: #94a3b8;
+            stroke-width: 1.5;
+            fill: none;
+        }
 
-        /* Expression View - Now powered by KaTeX */
+        /* --- Expression View --- */
         .expression-view-active #treeContainer { 
-            display: flex; align-items: center; justify-content: center; background: none; 
+            background: none; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
         }
-        
-        /* Interactive LaTeX Wrapper */
-        .latex-interactive {
-            padding: 10px;
-            border-radius: 8px;
-            transition: background 0.2s;
+        .expression-view-active #treeContent {
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 20px;
         }
-        .latex-interactive:hover { background-color: #f3f4f6; }
-        .latex-interactive.can-interact { cursor: pointer; }
-        
-        .can-interact.mode-simplify:hover { color: #2563eb; background-color: #eff6ff; }
-        .can-interact.mode-rearrange:hover { color: #9333ea; background-color: #f3e8ff; }
+        .expression-bracket { font-size: 2rem; color: #94a3b8; font-weight: 300; margin: 0 2px; }
 
-        /* Context Menu */
+        /* --- Exponent Styles --- */
+        .exponent-block {
+            display: inline-flex;
+            align-items: flex-start;
+            vertical-align: middle;
+            margin: 0 2px;
+        }
+        .exponent-base {
+            display: flex;
+            align-items: center;
+        }
+        .exponent-power {
+            font-size: 0.75em;
+            margin-left: 2px;
+            margin-top: -8px; 
+            color: #4b5563;
+            display: flex;
+            align-items: center;
+            transform:scale(0.5);
+        }
+        .exponent-block.node-operator {
+            background: none;
+            border: none;
+            padding: 0;
+            min-width: auto;
+            height: auto;
+        }
+        
+        body.mode-simplify .exponent-block.can-evaluate .exponent-power,
+        body.mode-rearrange .exponent-block.can-transform .exponent-power {
+            color: #2563eb; 
+            font-weight: bold;
+            cursor: pointer;
+        }
+        body.mode-rearrange.hints-active .exponent-block.can-transform .exponent-power {
+            color: #9333ea;
+        }
+
+        /* --- Context Menu --- */
         #contextMenu {
-            position: fixed; z-index: 1000; background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(8px); border: 1px solid #e5e7eb;
-            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15); border-radius: 12px;
-            padding: 6px; display: flex; flex-direction: column; gap: 2px;
-            min-width: 180px; opacity: 0; transform: scale(0.95); pointer-events: none;
+            position: fixed;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 180px;
+            opacity: 0;
+            transform: scale(0.95);
             transition: opacity 0.1s, transform 0.1s;
-        }
-        #contextMenu.active { opacity: 1; transform: scale(1); pointer-events: auto; }
-        
-        .menu-item {
-            display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
-            padding: 10px 12px; font-size: 0.95rem; font-weight: 500; color: #374151;
-            border-radius: 8px; background: transparent; border: none; cursor: pointer;
-        }
-        .menu-item:hover { background-color: #f9fafb; }
-        .menu-item-icon { 
-            width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
-            background: #f3f4f6; border-radius: 6px; color: #4b5563; font-weight: bold;
+            pointer-events: none;
         }
 
-        /* Large Rendered Math at Bottom */
-        #expressionText { font-size: 1.5rem; }
+        #contextMenu.active {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #374151;
+            border-radius: 8px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+        .menu-item:active { background-color: #f3f4f6; }
+        @media (hover: hover) {
+            .menu-item:hover { background-color: #f9fafb; }
+        }
+        .menu-item-icon { 
+            width: 24px; height: 24px; 
+            display: flex; align-items: center; justify-content: center;
+            background: #f3f4f6; 
+            border-radius: 6px;
+            color: #4b5563; font-weight: bold; font-size: 1.1em;
+        }
+
+        /* KaTeX overrides for cleaner footer display */
+        .katex { font-size: 1.5em; }
+
     </style>
 </head>
-<body class="mode-simplify"> 
-    <header class="bg-white border-b border-gray-200 shadow-sm p-3">
+<body class="mode-simplify"> <header class="bg-white border-b border-gray-200 shadow-sm p-3">
         <div class="max-w-4xl mx-auto flex flex-col gap-3">
+
             <div class="flex justify-between items-center gap-2">
                 <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
-                    <button id="modeSimplifyBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation"><span>Simplify</span></button>
-                    <button id="modeRearrangeBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation"><span>Move</span></button>
+                    <button id="modeSimplifyBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation">
+                        <span>Simplify</span>
+                    </button>
+                    <button id="modeRearrangeBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation">
+                        <span>Move</span>
+                    </button>
                 </div>
+
                 <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
                     <button id="viewTreeBtn" class="px-3 py-2 rounded-md transition-all touch-manipulation">Tree</button>
                     <button id="viewExprBtn" class="px-3 py-2 rounded-md transition-all touch-manipulation">Expr</button>
                 </div>
             </div>
+
             <div class="flex justify-between items-center gap-3">
                 <div class="flex gap-3 w-full">
-                    <button id="undoBtn" disabled class="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-gray-50 transition-all disabled:opacity-40 disabled:bg-gray-50 touch-manipulation flex-1">Undo</button>
-                    <button id="regenerateBtn" class="flex items-center justify-center bg-gray-900 text-white px-4 py-2.5 rounded-lg text-sm font-bold active:bg-gray-700 transition-colors touch-manipulation shadow-sm flex-1">New</button>
+                    <button id="undoBtn" disabled class="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-gray-50 transition-all disabled:opacity-40 disabled:bg-gray-50 touch-manipulation flex-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                        Undo
+                    </button>
+                    <button id="regenerateBtn" class="flex items-center justify-center bg-gray-900 text-white px-4 py-2.5 rounded-lg text-sm font-bold active:bg-gray-700 transition-colors touch-manipulation shadow-sm flex-1">
+                        New
+                    </button>
                 </div>
-                <button id="hintsBtn" class="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all touch-manipulation border border-gray-200 text-gray-500 hover:text-gray-900">Hints</button>
+                <button id="hintsBtn" class="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all touch-manipulation border border-gray-200 text-gray-500 hover:text-gray-900">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5A2.5 2.5 0 0 1 11 6"/></svg>
+                    Hints
+                </button>
             </div>
+
         </div>
     </header>
 
@@ -161,9 +284,9 @@
     <div id="contextMenu"></div>
 
     <footer class="absolute bottom-6 left-0 right-0 px-4 flex justify-center z-40 pointer-events-none">
-        <div class="pointer-events-auto bg-white/95 backdrop-blur border border-gray-200 px-6 py-4 rounded-xl shadow-lg max-w-lg w-full text-center">
-            <div class="text-[10px] font-bold uppercase text-gray-400 mb-2 tracking-wider">Current Expression (LaTeX)</div>
-            <div id="expressionText" class="text-gray-800"></div>
+        <div class="pointer-events-auto bg-white/95 backdrop-blur border border-gray-200 px-4 py-3 rounded-xl shadow-lg max-w-lg w-full text-center">
+            <div class="text-[10px] font-bold uppercase text-gray-400 mb-1 tracking-wider">Current Expression</div>
+            <div id="expressionText" class="text-lg font-medium text-gray-800 font-mono flex justify-center"></div>
         </div>
     </footer>
 
@@ -205,15 +328,28 @@
             } else {
                 const symbols = ['+', '-', '×', '÷', '^']; 
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+
                 let rightNode = generateRandomTree(depth + 1, maxDepth);
+
                 if (symbol === '^') {
-                    rightNode = { id: generateId(), type: 'operand', value: { n: Math.floor(Math.random() * 3) + 1, d: 1 } };
+                    rightNode = { 
+                        id: generateId(), 
+                        type: 'operand', 
+                        value: { n: Math.floor(Math.random() * 3) + 1, d: 1 } 
+                    };
                 }
-                return { id, type: 'operator', value: symbol, left: generateRandomTree(depth + 1, maxDepth), right: rightNode };
+
+                return { 
+                    id, 
+                    type: 'operator', 
+                    value: symbol, 
+                    left: generateRandomTree(depth + 1, maxDepth), 
+                    right: rightNode 
+                };
             }
         }
 
-        // --- Logic & Transforms ---
+        // --- Transforms ---
         const canCommute = (node) => node.type === 'operator' && ['+', '×'].includes(node.value);
         function doCommute(node) { return { ...node, left: node.right, right: node.left }; }
 
@@ -222,7 +358,9 @@
             return node.left && node.left.type === 'operator' && node.left.value === node.value;
         };
         function doAssociateRight(node) {
-            const A = node.left.left; const B = node.left.right; const C = node.right;
+            const A = node.left.left;
+            const B = node.left.right;
+            const C = node.right;
             const newRight = { ...node, id: generateId(), left: B, right: C };
             return { ...node.left, id: node.id, left: A, right: newRight };
         }
@@ -232,17 +370,22 @@
             return node.right && node.right.type === 'operator' && node.right.value === node.value;
         };
         function doAssociateLeft(node) {
-            const A = node.left; const B = node.right.left; const C = node.right.right;
+            const A = node.left;
+            const B = node.right.left;
+            const C = node.right.right;
             const newLeft = { ...node, id: generateId(), left: A, right: B };
             return { ...node.right, id: node.id, left: newLeft, right: C };
         }
 
+        // Distributive Law Logic
         const canDistribute = (node) => {
             if (node.type !== 'operator') return false;
+            // Case 1: Multiplication over Addition/Subtraction
             if (node.value === '×') {
                 if (node.right.type === 'operator' && ['+', '-'].includes(node.right.value) && node.left.type==='operand') return 'right';
                 if (node.left.type === 'operator' && ['+', '-'].includes(node.left.value) && node.right.type==='operand') return 'left';
             }
+            // Case 2: Exponentiation over Multiplication
             if (node.value === '^') {
                 if (node.left.type === 'operator' && node.left.value === '×') return 'exponent';
             }
@@ -252,20 +395,31 @@
         function doDistribute(node) {
             const dir = canDistribute(node);
             if (!dir) return node;
+
+            // Exponent Distribution Logic
             if (dir === 'exponent') {
-                const baseGroup = node.left; const exponent = node.right; 
+                // (A × B) ^ n  ->  A^n × B^n
+                const baseGroup = node.left; 
+                const exponent = node.right; 
                 const exp1 = JSON.parse(JSON.stringify(exponent)); exp1.id = generateId();
                 const exp2 = JSON.parse(JSON.stringify(exponent)); exp2.id = generateId();
+
                 const leftPow = { id: generateId(), type: 'operator', value: '^', left: baseGroup.left, right: exp1 };
                 const rightPow = { id: generateId(), type: 'operator', value: '^', left: baseGroup.right, right: exp2 };
+
                 return { id: node.id, type: 'operator', value: baseGroup.value, left: leftPow, right: rightPow };
             }
+
             let scalar, group;
-            if (dir === 'right') { scalar = node.left; group = node.right; } else { scalar = node.right; group = node.left; }
+            if (dir === 'right') { scalar = node.left; group = node.right; }
+            else { scalar = node.right; group = node.left; }
+
             const s1 = JSON.parse(JSON.stringify(scalar)); s1.id = generateId();
             const s2 = JSON.parse(JSON.stringify(scalar)); s2.id = generateId();
+
             const leftMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s1:group.left, right: dir==='right'?group.left:s1 };
             const rightMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s2:group.right, right: dir==='right'?group.right:s2 };
+
             return { id: node.id, type: 'operator', value: group.value, left: leftMult, right: rightMult };
         }
 
@@ -278,43 +432,86 @@
             return moves;
         }
 
-        // --- LaTeX Generation ---
+        // --- Helper: Precedence Logic ---
         const getPrecedence = (op) => {
             if (op === '^') return 3;
             if (op === '×' || op === '÷') return 2;
             return 1;
         };
 
-        // Recursively build a LaTeX string from the tree
-        function toLatex(node) {
-            if (node.type === 'operand') {
-                if (node.value.d === 1) return node.value.n.toString();
-                return `\\frac{${node.value.n}}{${node.value.d}}`;
+        // --- Render Helpers ---
+        function getExpressionString(node) {
+            if (node.type === 'operand') return node.value.d === 1 ? node.value.n : `\\frac{${node.value.n}}{${node.value.d}}`;
+
+            const myPrec = getPrecedence(node.value);
+            let l = getExpressionString(node.left);
+            let r = getExpressionString(node.right);
+
+            if (node.left.type === 'operator') {
+                const lPrec = getPrecedence(node.left.value);
+                if (lPrec < myPrec) l = `\\left(${l}\\right)`;
             }
 
-            const op = node.value;
-            let left = toLatex(node.left);
-            let right = toLatex(node.right);
+            if (node.right.type === 'operator') {
+                const rPrec = getPrecedence(node.right.value);
+                if (rPrec < myPrec) {
+                    r = `\\left(${r}\\right)`;
+                } else if (rPrec === myPrec) {
+                    if (node.value !== '^') r = `\\left(${r}\\right)`;
+                }
+            }
             
-            const myPrec = getPrecedence(op);
-            const lPrec = node.left.type === 'operator' ? getPrecedence(node.left.value) : 99;
-            const rPrec = node.right.type === 'operator' ? getPrecedence(node.right.value) : 99;
+            if (node.value === '^') return `{${l}}^{${r}}`;
 
-            // Grouping logic for precedence
-            if (lPrec < myPrec) left = `\\left(${left}\\right)`;
-            if (rPrec < myPrec || (rPrec === myPrec && op !== '+' && op !== '×')) {
-                 // Right associativity exception could go here, but generally group right if same prec for minus/divide
-                 if(op !== '^') right = `\\left(${right}\\right)`;
-            }
+            const latexOp = {
+                '+': '+',
+                '-': '-',
+                '×': '\\times',
+                '÷': '\\div'
+            }[node.value] || node.value;
 
-            if (op === '÷') return `\\frac{${left}}{${right}}`;
-            if (op === '×') return `${left} \\cdot ${right}`;
-            if (op === '^') return `{${left}}^{${right}}`; // Braces ensure base is grouped
-
-            return `${left} ${op} ${right}`;
+            return `${l} ${latexOp} ${r}`;
         }
 
-        // --- Interaction Handlers ---
+        function getExpressionNodes(node) {
+            if (node.type === 'operand') return [{ type: 'operand', source: node }];
+
+            const myPrec = getPrecedence(node.value);
+
+            if (node.value === '^') {
+                let base = getExpressionNodes(node.left);
+                if (node.left.type === 'operator' && getPrecedence(node.left.value) < myPrec) {
+                    base = [{type:'b',v:'('}, ...base, {type:'b',v:')'}];
+                }
+                const exp = getExpressionNodes(node.right);
+                return [{ 
+                    type: 'exponent-block', 
+                    source: node, 
+                    baseNodes: base, 
+                    expNodes: exp 
+                }];
+            }
+
+            let l = getExpressionNodes(node.left);
+            let r = getExpressionNodes(node.right);
+
+            if (node.left.type === 'operator') {
+                const lPrec = getPrecedence(node.left.value);
+                if (lPrec < myPrec) l = [{type:'b',v:'('}, ...l, {type:'b',v:')'}];
+            }
+
+            if (node.right.type === 'operator') {
+                const rPrec = getPrecedence(node.right.value);
+                if (rPrec < myPrec) {
+                    r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+                } else if (rPrec === myPrec) {
+                    r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+                }
+            }
+            return [...l, { type: 'operator', source: node }, ...r];
+        }
+
+        // --- Logic ---
         function updateTree(actionFn, targetId) {
             saveToHistory();
             const rebuild = (node) => {
@@ -338,6 +535,7 @@
         function handleNodeClick(e, node) {
             e.stopPropagation();
             hideContextMenu();
+
             if (interactionMode === 'simplify') {
                 const canEval = node.left.type === 'operand' && node.right.type === 'operand';
                 if (canEval) updateTree(null, node.id); 
@@ -363,38 +561,54 @@
 
         // --- Context Menu ---
         const ctxMenu = document.getElementById('contextMenu');
+
         const handleGlobalClick = (e) => {
-            if (document.getElementById('contextMenu').contains(e.target)) return;
+            const menu = document.getElementById('contextMenu');
+            if (menu.contains(e.target)) return;
             hideContextMenu();
         };
 
         function showContextMenu(x, y, node, moves) {
+            const el = document.getElementById(node.id);
+            if(el) el.classList.add('menu-open');
+
             ctxMenu.innerHTML = '';
             moves.forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = 'menu-item';
                 btn.innerHTML = `<span class="menu-item-icon">${m.icon}</span> ${m.name}`;
-                btn.onclick = (e) => { e.stopPropagation(); executeTransform(m.action, node.id); hideContextMenu(); };
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    executeTransform(m.action, node.id);
+                    hideContextMenu();
+                };
                 ctxMenu.appendChild(btn);
             });
 
-            let finalX = x; let finalY = y + 10;
+            let finalX = x;
+            let finalY = y + 10;
             const menuRect = { width: 200, height: moves.length * 50 + 20 };
+
             if (finalX + menuRect.width > window.innerWidth) finalX = window.innerWidth - menuRect.width - 16;
             if (finalY + menuRect.height > window.innerHeight) finalY = y - menuRect.height - 10;
             if (finalX < 16) finalX = 16;
 
-            ctxMenu.style.left = finalX + 'px'; ctxMenu.style.top = finalY + 'px';
+            ctxMenu.style.left = finalX + 'px';
+            ctxMenu.style.top = finalY + 'px';
             ctxMenu.classList.add('active');
-            setTimeout(() => document.addEventListener('click', handleGlobalClick), 50);
+
+            setTimeout(() => {
+                document.addEventListener('click', handleGlobalClick);
+            }, 50);
         }
 
         function hideContextMenu() {
             ctxMenu.classList.remove('active');
+            document.querySelectorAll('.menu-open').forEach(el => el.classList.remove('menu-open'));
             document.removeEventListener('click', handleGlobalClick);
         }
 
-        // --- History & UI ---
+        // --- History ---
         function saveToHistory() {
             historyStack.push(JSON.parse(JSON.stringify(treeData)));
             document.getElementById('undoBtn').disabled = false;
@@ -406,9 +620,8 @@
             render();
         }
 
-        // --- Rendering ---
+        // --- DOM Generation ---
         function createNodeDOM(node) {
-            // This is the Tree View Bubble rendering (keeps HTML for easy clicking)
             const div = document.createElement('div');
             const isLeaf = node.type === 'operand';
             const canEval = !isLeaf && node.left.type === 'operand' && node.right.type === 'operand';
@@ -453,11 +666,13 @@
             const p = document.getElementById(node.id);
             const l = document.getElementById(node.left.id);
             const r = document.getElementById(node.right.id);
+
             if (p && l && r) { 
                 const svg = document.getElementById('svgConnectors');
                 const cRect = document.getElementById('treeContainer').getBoundingClientRect();
                 const draw = (e1, e2) => {
-                    const r1 = e1.getBoundingClientRect(); const r2 = e2.getBoundingClientRect();
+                    const r1 = e1.getBoundingClientRect();
+                    const r2 = e2.getBoundingClientRect();
                     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                     line.setAttribute('x1', r1.left + r1.width/2 - cRect.left);
                     line.setAttribute('y1', r1.top + r1.height/2 - cRect.top);
@@ -468,7 +683,8 @@
                 };
                 draw(p, l); draw(p, r);
             }
-            drawConnectors(node.left); drawConnectors(node.right);
+            drawConnectors(node.left);
+            drawConnectors(node.right);
         }
 
         function render() {
@@ -478,83 +694,169 @@
 
             container.innerHTML = '';
             svg.innerHTML = '';
+            
+            // CHANGE 2: Render LaTeX using KaTeX
+            try {
+                katex.render(getExpressionString(treeData), exprText, {
+                    throwOnError: false,
+                    displayMode: true
+                });
+            } catch (e) {
+                exprText.textContent = "Error rendering expression";
+            }
 
-            // 1. Render Bottom Expression (Using KaTeX)
-            const latexStr = toLatex(treeData);
-            katex.render(latexStr, exprText, { throwOnError: false, displayMode: true });
-
-            // 2. Set UI Classes
+            // Add 'hints-active' class to body if enabled
             const hintsClass = showHints ? 'hints-active' : '';
             document.body.className = `mode-${interactionMode} ${currentView === 'tree' ? 'tree-view-active' : 'expression-view-active'} ${hintsClass}`;
 
-            // 3. Render Center View (Tree vs Expression)
+            if (treeData.type === 'operand') {
+                container.innerHTML = `<div class="text-7xl font-bold text-gray-900">${treeData.value.n}${treeData.value.d === 1 ? '' : '/' + treeData.value.d}</div>`;
+                return;
+            }
+
             if (currentView === 'tree') {
                 svg.style.display = 'block';
-                if (treeData.type === 'operand') {
-                     // Single node tree
-                     container.innerHTML = `<div class="text-7xl font-bold text-gray-900">${treeData.value.n}${treeData.value.d === 1 ? '' : '/' + treeData.value.d}</div>`;
-                } else {
-                    container.appendChild(buildTreeDOM(treeData));
-                    setTimeout(() => { requestAnimationFrame(() => { svg.innerHTML = ''; drawConnectors(treeData); }); }, 0);
-                }
+                container.appendChild(buildTreeDOM(treeData));
+                setTimeout(() => { requestAnimationFrame(() => { svg.innerHTML = ''; drawConnectors(treeData); }); }, 0);
             } else {
-                // EXPR VIEW: Now we render clickable Math blocks via LaTeX? 
-                // For now, simpler: Render the whole thing as one big nice LaTeX block in center
                 svg.style.display = 'none';
-                
-                // We create a wrapper div
-                const centerMath = document.createElement('div');
-                centerMath.style.fontSize = "3rem";
-                
-                // Note: Making LaTeX interactive (clickable sub-parts) is very hard.
-                // For this demo, the "Expression View" is read-only beautiful math.
-                // To interact, user switches to "Tree View".
-                katex.render(latexStr, centerMath, { throwOnError: false, displayMode: true });
-                container.appendChild(centerMath);
+
+                const renderNodesToContainer = (nodes, parentEl) => {
+                    nodes.forEach(item => {
+                        if (item.type === 'b') {
+                            const s = document.createElement('span'); 
+                            s.textContent = item.v; 
+                            s.className = 'expression-bracket';
+                            parentEl.appendChild(s);
+                        } 
+                        else if (item.type === 'exponent-block') {
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'exponent-block node-operator'; 
+
+                            const node = item.source;
+                            const isLeaf = false; 
+                            const canEval = node.left.type === 'operand' && node.right.type === 'operand';
+                            const moves = getPossibleTransforms(node);
+                            const canTransform = moves.length > 0;
+
+                            if (interactionMode === 'simplify' && canEval) wrapper.classList.add("can-evaluate");
+                            if (interactionMode === 'rearrange' && canTransform) wrapper.classList.add("can-transform");
+
+                            if ((interactionMode === 'simplify' && canEval) || (interactionMode === 'rearrange' && canTransform)) {
+                                wrapper.onclick = (e) => handleNodeClick(e, node);
+                                wrapper.id = node.id; 
+                            }
+
+                            const baseDiv = document.createElement('div');
+                            baseDiv.className = 'exponent-base';
+                            renderNodesToContainer(item.baseNodes, baseDiv); 
+
+                            const powerDiv = document.createElement('div');
+                            powerDiv.className = 'exponent-power';
+                            renderNodesToContainer(item.expNodes, powerDiv); 
+
+                            wrapper.appendChild(baseDiv);
+                            wrapper.appendChild(powerDiv);
+                            parentEl.appendChild(wrapper);
+                        } 
+                        else {
+                            parentEl.appendChild(createNodeDOM(item.source));
+                        }
+                    });
+                };
+
+                renderNodesToContainer(getExpressionNodes(treeData), container);
             }
         }
 
-        // --- Init ---
+        // --- Initialization ---
         window.onload = () => {
             treeData = generateRandomTree(0, 3);
-            const btns = { 
-                simp: document.getElementById('modeSimplifyBtn'),
-                rear: document.getElementById('modeRearrangeBtn'),
-                tree: document.getElementById('viewTreeBtn'),
-                expr: document.getElementById('viewExprBtn'),
-                hint: document.getElementById('hintsBtn')
+
+            const btnSimp = document.getElementById('modeSimplifyBtn');
+            const btnRear = document.getElementById('modeRearrangeBtn');
+            const btnViewTree = document.getElementById('viewTreeBtn');
+            const btnViewExpr = document.getElementById('viewExprBtn');
+            const btnHints = document.getElementById('hintsBtn');
+            const viewport = document.getElementById('treeViewport');
+
+            viewport.addEventListener('scroll', () => {
+                if (ctxMenu.classList.contains('active')) hideContextMenu();
+            });
+
+            const centerViewport = () => {
+                const ct = document.getElementById('treeContainer');
+                if(viewport && ct) {
+                    viewport.scrollLeft = (ct.offsetWidth - viewport.offsetWidth) / 2;
+                    viewport.scrollTop = (ct.offsetHeight - viewport.offsetHeight) / 2 - 50;
+                }
             };
 
             const updateUI = () => {
-                const active = "bg-white text-blue-600 shadow-sm ring-1 ring-gray-200";
-                const activePurple = "bg-white text-purple-600 shadow-sm ring-1 ring-gray-200";
+                const activeMode = "bg-white text-blue-600 shadow-sm ring-1 ring-gray-200";
+                const activeModePurple = "bg-white text-purple-600 shadow-sm ring-1 ring-gray-200";
                 const inactive = "text-gray-500 hover:text-gray-900 bg-transparent";
 
-                btns.simp.className = interactionMode === 'simplify' ? `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all ${active}` : `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all ${inactive}`;
-                btns.rear.className = interactionMode === 'rearrange' ? `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all ${activePurple}` : `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all ${inactive}`;
-                
-                btns.tree.className = currentView === 'tree' ? `px-3 py-2 rounded-md transition-all bg-white text-gray-900 shadow-sm ring-1 ring-gray-200` : `px-3 py-2 rounded-md transition-all ${inactive}`;
-                btns.expr.className = currentView === 'expression' ? `px-3 py-2 rounded-md transition-all bg-white text-gray-900 shadow-sm ring-1 ring-gray-200` : `px-3 py-2 rounded-md transition-all ${inactive}`;
+                // Mode Buttons
+                if(interactionMode === 'simplify') {
+                    btnSimp.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${activeMode}`;
+                    btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
+                } else {
+                    btnSimp.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
+                    btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${activeModePurple}`;
+                }
 
-                btns.hint.className = showHints 
-                    ? "flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all border border-amber-200 bg-amber-50 text-amber-700 shadow-sm"
-                    : "flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all border border-gray-200 text-gray-500 hover:text-gray-900";
-                
+                // View Buttons
+                if(currentView === 'tree') {
+                    btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation bg-white text-gray-900 shadow-sm ring-1 ring-gray-200`;
+                    btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
+                } else {
+                    btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
+                    btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation bg-white text-gray-900 shadow-sm ring-1 ring-gray-200`;
+                }
+
+                // Hints Button
+                if(showHints) {
+                    btnHints.className = "flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all touch-manipulation border border-amber-200 bg-amber-50 text-amber-700 shadow-sm";
+                } else {
+                    btnHints.className = "flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all touch-manipulation border border-gray-200 text-gray-500 hover:text-gray-900";
+                }
+
                 hideContextMenu();
                 render();
+            }
+
+            btnSimp.onclick = () => { interactionMode = 'simplify'; updateUI(); };
+            btnRear.onclick = () => { interactionMode = 'rearrange'; updateUI(); };
+
+            btnViewTree.onclick = () => { 
+                currentView = 'tree'; 
+                updateUI(); 
+                setTimeout(centerViewport, 10);
+            };
+            btnViewExpr.onclick = () => { 
+                currentView = 'expression'; 
+                updateUI(); 
+                setTimeout(centerViewport, 10);
             };
 
-            btns.simp.onclick = () => { interactionMode = 'simplify'; updateUI(); };
-            btns.rear.onclick = () => { interactionMode = 'rearrange'; updateUI(); };
-            btns.tree.onclick = () => { currentView = 'tree'; updateUI(); };
-            btns.expr.onclick = () => { currentView = 'expression'; updateUI(); };
-            btns.hint.onclick = () => { showHints = !showHints; updateUI(); };
+            btnHints.onclick = () => {
+                showHints = !showHints;
+                updateUI();
+            };
 
-            document.getElementById('regenerateBtn').onclick = () => { historyStack = []; treeData = generateRandomTree(0, 3); render(); };
+            document.getElementById('regenerateBtn').onclick = () => { 
+                historyStack = []; treeData = generateRandomTree(0, 3); render(); 
+                centerViewport();
+            };
+
             document.getElementById('undoBtn').onclick = undo;
-            window.addEventListener('resize', () => { if(currentView==='tree') { document.getElementById('svgConnectors').innerHTML=''; drawConnectors(treeData); } });
+            window.addEventListener('resize', () => { 
+                if(currentView==='tree') { document.getElementById('svgConnectors').innerHTML=''; drawConnectors(treeData); } 
+            });
 
             updateUI();
+            setTimeout(centerViewport, 100);
         };
     </script>
 </body>
