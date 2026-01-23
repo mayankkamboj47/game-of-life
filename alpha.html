@@ -315,13 +315,13 @@
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = generateId();
             const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
-            
+
             if (isLeaf) {
                 return { id, type: 'operand', value: { n: Math.floor(Math.random() * 10) + 1, d: 1 } };
             } else {
                 const symbols = ['+', '-', '×', '÷', '^']; 
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
-                
+
                 let rightNode = generateRandomTree(depth + 1, maxDepth);
 
                 if (symbol === '^') {
@@ -373,18 +373,18 @@
         // UPDATED: Distributive Law Logic
         const canDistribute = (node) => {
             if (node.type !== 'operator') return false;
-            
+
             // Case 1: Multiplication over Addition/Subtraction
             if (node.value === '×') {
                 if (node.right.type === 'operator' && ['+', '-'].includes(node.right.value) && node.left.type==='operand') return 'right';
                 if (node.left.type === 'operator' && ['+', '-'].includes(node.left.value) && node.right.type==='operand') return 'left';
             }
-            
+
             // Case 2: Exponentiation over Multiplication
             if (node.value === '^') {
                 if (node.left.type === 'operator' && node.left.value === '×') return 'exponent';
             }
-            
+
             return false;
         }
 
@@ -410,13 +410,13 @@
             let scalar, group;
             if (dir === 'right') { scalar = node.left; group = node.right; }
             else { scalar = node.right; group = node.left; }
-            
+
             const s1 = JSON.parse(JSON.stringify(scalar)); s1.id = generateId();
             const s2 = JSON.parse(JSON.stringify(scalar)); s2.id = generateId();
-            
+
             const leftMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s1:group.left, right: dir==='right'?group.left:s1 };
             const rightMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s2:group.right, right: dir==='right'?group.right:s2 };
-            
+
             return { id: node.id, type: 'operator', value: group.value, left: leftMult, right: rightMult };
         }
 
@@ -439,7 +439,7 @@
         // --- Render Helpers ---
         function getExpressionString(node) {
             if (node.type === 'operand') return node.value.d === 1 ? node.value.n : `${node.value.n}/${node.value.d}`;
-            
+
             const myPrec = getPrecedence(node.value);
             let l = getExpressionString(node.left);
             let r = getExpressionString(node.right);
@@ -457,12 +457,13 @@
                     if (node.value !== '^') r = `(${r})`;
                 }
             }
+            if (node.value === '^') return `${l}<sup>${r}</sup>`;
             return `${l} ${node.value} ${r}`;
         }
 
         function getExpressionNodes(node) {
             if (node.type === 'operand') return [{ type: 'operand', source: node }];
-            
+
             const myPrec = getPrecedence(node.value);
 
             // UPDATED: Logic for Superscripts
@@ -684,7 +685,7 @@
 
             container.innerHTML = '';
             svg.innerHTML = '';
-            exprText.textContent = getExpressionString(treeData);
+            exprText.innerHTML = getExpressionString(treeData);
 
             // Add 'hints-active' class to body if enabled
             const hintsClass = showHints ? 'hints-active' : '';
@@ -701,7 +702,7 @@
                 setTimeout(() => { requestAnimationFrame(() => { svg.innerHTML = ''; drawConnectors(treeData); }); }, 0);
             } else {
                 svg.style.display = 'none';
-                
+
                 // UPDATED: Recursive Renderer for Superscripts
                 const renderNodesToContainer = (nodes, parentEl) => {
                     nodes.forEach(item => {
@@ -714,16 +715,16 @@
                         else if (item.type === 'exponent-block') {
                             const wrapper = document.createElement('div');
                             wrapper.className = 'exponent-block node-operator'; 
-                            
+
                             const node = item.source;
                             const isLeaf = false; 
                             const canEval = node.left.type === 'operand' && node.right.type === 'operand';
                             const moves = getPossibleTransforms(node);
                             const canTransform = moves.length > 0;
-                            
+
                             if (interactionMode === 'simplify' && canEval) wrapper.classList.add("can-evaluate");
                             if (interactionMode === 'rearrange' && canTransform) wrapper.classList.add("can-transform");
-                            
+
                             if ((interactionMode === 'simplify' && canEval) || (interactionMode === 'rearrange' && canTransform)) {
                                 wrapper.onclick = (e) => handleNodeClick(e, node);
                                 wrapper.id = node.id; 
