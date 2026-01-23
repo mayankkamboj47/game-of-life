@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BODMAS Engine - Division Added</title>
+    <title>BODMAS Engine - Exponents Added</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -64,9 +64,7 @@
             background-color: #f9fafb;
         }
 
-        /* --- Interactive States (Only active when hints are ON) --- */
-
-        /* Base pointer for interactive elements regardless of hints */
+        /* --- Interactive States --- */
         body.mode-simplify .node-operator.can-evaluate,
         body.mode-rearrange .node-operator.can-transform {
             cursor: pointer; 
@@ -78,7 +76,6 @@
             color: #2563eb;
             background-color: #eff6ff;
         }
-        /* Active click state works regardless of hints for feedback */
         body.mode-simplify .node-operator.can-evaluate:active {
             background-color: #2563eb;
             color: #ffffff;
@@ -262,7 +259,13 @@
             '+': (a, b) => simplify(a.n * b.d + b.n * a.d, a.d * b.d),
             '-': (a, b) => simplify(a.n * b.d - b.n * a.d, a.d * b.d),
             '×': (a, b) => simplify(a.n * b.n, a.d * b.d),
-            '÷': (a, b) => simplify(a.n * b.d, a.d * b.n)
+            '÷': (a, b) => simplify(a.n * b.d, a.d * b.n),
+            // Updated: Add Exponentiation Logic
+            '^': (a, b) => {
+                // To keep numbers rational and clean for this demo, we assume small integer exponents
+                const exponent = b.n / b.d;
+                return simplify(Math.pow(a.n, exponent), Math.pow(a.d, exponent));
+            }
         };
 
         // --- State ---
@@ -270,18 +273,41 @@
         let historyStack = []; 
         let currentView = 'expression'; 
         let interactionMode = 'simplify'; 
-        let showHints = false; // Default OFF
+        let showHints = false;
 
         // --- Tree Generation ---
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = generateId();
+            // Increase chance of operators slightly
             const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
+            
             if (isLeaf) {
-                return { id, type: 'operand', value: { n: Math.floor(Math.random() * 12) + 1, d: 1 } };
+                return { id, type: 'operand', value: { n: Math.floor(Math.random() * 10) + 1, d: 1 } };
             } else {
-                const symbols = ['+', '-', '×', '÷'];
+                // Updated: Symbols list includes '^'
+                const symbols = ['+', '-', '×', '÷', '^']; 
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
-                return { id, type: 'operator', value: symbol, left: generateRandomTree(depth + 1, maxDepth), right: generateRandomTree(depth + 1, maxDepth) };
+                
+                let rightNode = generateRandomTree(depth + 1, maxDepth);
+
+                // Updated: Constraint for Exponents
+                // If the operator is exponentiation, force the exponent (right child) to be a small integer (1, 2, or 3)
+                // This prevents massive numbers or messy irrational fractions.
+                if (symbol === '^') {
+                    rightNode = { 
+                        id: generateId(), 
+                        type: 'operand', 
+                        value: { n: Math.floor(Math.random() * 3) + 1, d: 1 } 
+                    };
+                }
+
+                return { 
+                    id, 
+                    type: 'operator', 
+                    value: symbol, 
+                    left: generateRandomTree(depth + 1, maxDepth), 
+                    right: rightNode 
+                };
             }
         }
 
@@ -341,24 +367,74 @@
             return moves;
         }
 
+        // --- Helper: Precedence Logic ---
+        // Updated: Includes '^' with higher precedence (3)
+        const getPrecedence = (op) => {
+            if (op === '^') return 3;
+            if (op === '×' || op === '÷') return 2;
+            return 1;
+        };
+
         // --- Render Helpers ---
         function getExpressionString(node) {
             if (node.type === 'operand') return node.value.d === 1 ? node.value.n : `${node.value.n}/${node.value.d}`;
-            const prec = (op) => op === '×' || op === '÷' ? 2 : 1;
+            
+            const myPrec = getPrecedence(node.value);
             let l = getExpressionString(node.left);
             let r = getExpressionString(node.right);
-            if (node.left.type === 'operator' && prec(node.left.value) < prec(node.value)) l = `(${l})`;
-            if (node.right.type === 'operator' && prec(node.right.value) <= prec(node.value)) r = `(${r})`;
+
+            // Left Child Bracket Logic
+            if (node.left.type === 'operator') {
+                const lPrec = getPrecedence(node.left.value);
+                if (lPrec < myPrec) {
+                    l = `(${l})`;
+                }
+            }
+
+            // Right Child Bracket Logic
+            // Note: Exponentiation is Right-Associative, others are Left-Associative.
+            if (node.right.type === 'operator') {
+                const rPrec = getPrecedence(node.right.value);
+                if (rPrec < myPrec) {
+                    r = `(${r})`;
+                } else if (rPrec === myPrec) {
+                    // If equal precedence:
+                    // For Left Assoc (+, -, *, /): (a+b)+c -> we bracket right side if it was calculated last? 
+                    // Standard display: a+b+c implies (a+b)+c. If right child is same op, we usually group.
+                    // But if it's Minus or Divide, order matters strictly.
+                    // For Exponent (^): a^b^c implies a^(b^c). We do NOT bracket right child.
+                    if (node.value !== '^') {
+                         r = `(${r})`; // Standard left-assoc operators need brackets on right if equal precedence (e.g., 8 / (4 / 2))
+                    }
+                }
+            }
             return `${l} ${node.value} ${r}`;
         }
 
         function getExpressionNodes(node) {
             if (node.type === 'operand') return [{ type: 'operand', source: node }];
-            const prec = (op) => op === '×' || op === '÷' ? 2 : 1;
+            
+            const myPrec = getPrecedence(node.value);
             let l = getExpressionNodes(node.left);
             let r = getExpressionNodes(node.right);
-            if (node.left.type === 'operator' && prec(node.left.value) < prec(node.value)) l = [{type:'b',v:'('}, ...l, {type:'b',v:')'}];
-            if (node.right.type === 'operator' && prec(node.right.value) <= prec(node.value)) r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+
+            // Left Child Logic (Same as string version)
+            if (node.left.type === 'operator') {
+                const lPrec = getPrecedence(node.left.value);
+                if (lPrec < myPrec) l = [{type:'b',v:'('}, ...l, {type:'b',v:')'}];
+            }
+
+            // Right Child Logic (Same as string version)
+            if (node.right.type === 'operator') {
+                const rPrec = getPrecedence(node.right.value);
+                if (rPrec < myPrec) {
+                    r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+                } else if (rPrec === myPrec) {
+                    if (node.value !== '^') {
+                         r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+                    }
+                }
+            }
             return [...l, { type: 'operator', source: node }, ...r];
         }
 
