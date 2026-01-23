@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BODMAS Engine - Division Added</title>
+    <title>BODMAS Engine - Exponents Visuals</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -64,9 +64,7 @@
             background-color: #f9fafb;
         }
 
-        /* --- Interactive States (Only active when hints are ON) --- */
-
-        /* Base pointer for interactive elements regardless of hints */
+        /* --- Interactive States --- */
         body.mode-simplify .node-operator.can-evaluate,
         body.mode-rearrange .node-operator.can-transform {
             cursor: pointer; 
@@ -78,7 +76,6 @@
             color: #2563eb;
             background-color: #eff6ff;
         }
-        /* Active click state works regardless of hints for feedback */
         body.mode-simplify .node-operator.can-evaluate:active {
             background-color: #2563eb;
             color: #ffffff;
@@ -135,6 +132,44 @@
             display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 20px;
         }
         .expression-bracket { font-size: 2rem; color: #94a3b8; font-weight: 300; margin: 0 2px; }
+
+        /* --- Exponent Styles (NEW) --- */
+        .exponent-block {
+            display: inline-flex;
+            align-items: flex-start;
+            vertical-align: middle;
+            margin: 0 2px;
+        }
+        .exponent-base {
+            display: flex;
+            align-items: center;
+        }
+        .exponent-power {
+            font-size: 0.75em;
+            margin-left: 2px;
+            margin-top: -8px; 
+            color: #4b5563;
+            display: flex;
+            align-items: center;
+            transform:scale(0.5);
+        }
+        .exponent-block.node-operator {
+            background: none;
+            border: none;
+            padding: 0;
+            min-width: auto;
+            height: auto;
+        }
+        /* Highlight the exponent power when interactive */
+        body.mode-simplify .exponent-block.can-evaluate .exponent-power,
+        body.mode-rearrange .exponent-block.can-transform .exponent-power {
+            color: #2563eb; 
+            font-weight: bold;
+            cursor: pointer;
+        }
+        body.mode-rearrange.hints-active .exponent-block.can-transform .exponent-power {
+            color: #9333ea;
+        }
 
         /* --- Context Menu --- */
         #contextMenu {
@@ -262,27 +297,48 @@
             '+': (a, b) => simplify(a.n * b.d + b.n * a.d, a.d * b.d),
             '-': (a, b) => simplify(a.n * b.d - b.n * a.d, a.d * b.d),
             '×': (a, b) => simplify(a.n * b.n, a.d * b.d),
-            '÷': (a, b) => simplify(a.n * b.d, a.d * b.n)
+            '÷': (a, b) => simplify(a.n * b.d, a.d * b.n),
+            '^': (a, b) => {
+                const exponent = b.n / b.d;
+                return simplify(Math.pow(a.n, exponent), Math.pow(a.d, exponent));
+            }
         };
 
         // --- State ---
         let treeData = null;
         let historyStack = []; 
-        let currentView = 'tree'; 
+        let currentView = 'expression'; 
         let interactionMode = 'simplify'; 
-        let showHints = false; // Default OFF
+        let showHints = false;
 
         // --- Tree Generation ---
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = generateId();
             const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
+
             if (isLeaf) {
-                return { id, type: 'operand', value: { n: Math.floor(Math.random() * 12) + 1, d: 1 } };
+                return { id, type: 'operand', value: { n: Math.floor(Math.random() * 10) + 1, d: 1 } };
             } else {
-                // MODIFIED: Added '÷' to the symbols array
-                const symbols = ['+', '-', '×', '÷'];
+                const symbols = ['+', '-', '×', '÷', '^']; 
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
-                return { id, type: 'operator', value: symbol, left: generateRandomTree(depth + 1, maxDepth), right: generateRandomTree(depth + 1, maxDepth) };
+
+                let rightNode = generateRandomTree(depth + 1, maxDepth);
+
+                if (symbol === '^') {
+                    rightNode = { 
+                        id: generateId(), 
+                        type: 'operand', 
+                        value: { n: Math.floor(Math.random() * 3) + 1, d: 1 } 
+                    };
+                }
+
+                return { 
+                    id, 
+                    type: 'operator', 
+                    value: symbol, 
+                    left: generateRandomTree(depth + 1, maxDepth), 
+                    right: rightNode 
+                };
             }
         }
 
@@ -314,22 +370,53 @@
             return { ...node.right, id: node.id, left: newLeft, right: C };
         }
 
+        // UPDATED: Distributive Law Logic
         const canDistribute = (node) => {
-            if (node.type !== 'operator' || node.value !== '×') return false;
-            if (node.right.type === 'operator' && ['+', '-'].includes(node.right.value) && node.left.type==='operand') return 'right';
-            if (node.left.type === 'operator' && ['+', '-'].includes(node.left.value) && node.right.type==='operand') return 'left';
+            if (node.type !== 'operator') return false;
+
+            // Case 1: Multiplication over Addition/Subtraction
+            if (node.value === '×') {
+                if (node.right.type === 'operator' && ['+', '-'].includes(node.right.value) && node.left.type==='operand') return 'right';
+                if (node.left.type === 'operator' && ['+', '-'].includes(node.left.value) && node.right.type==='operand') return 'left';
+            }
+
+            // Case 2: Exponentiation over Multiplication
+            if (node.value === '^') {
+                if (node.left.type === 'operator' && node.left.value === '×') return 'exponent';
+            }
+
             return false;
         }
+
         function doDistribute(node) {
             const dir = canDistribute(node);
             if (!dir) return node;
+
+            // UPDATED: Exponent Distribution Logic
+            if (dir === 'exponent') {
+                // (A × B) ^ n  ->  A^n × B^n
+                const baseGroup = node.left; 
+                const exponent = node.right; 
+                const exp1 = JSON.parse(JSON.stringify(exponent)); exp1.id = generateId();
+                const exp2 = JSON.parse(JSON.stringify(exponent)); exp2.id = generateId();
+
+                const leftPow = { id: generateId(), type: 'operator', value: '^', left: baseGroup.left, right: exp1 };
+                const rightPow = { id: generateId(), type: 'operator', value: '^', left: baseGroup.right, right: exp2 };
+
+                return { id: node.id, type: 'operator', value: baseGroup.value, left: leftPow, right: rightPow };
+            }
+
+            // Existing Logic
             let scalar, group;
             if (dir === 'right') { scalar = node.left; group = node.right; }
             else { scalar = node.right; group = node.left; }
+
             const s1 = JSON.parse(JSON.stringify(scalar)); s1.id = generateId();
             const s2 = JSON.parse(JSON.stringify(scalar)); s2.id = generateId();
+
             const leftMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s1:group.left, right: dir==='right'?group.left:s1 };
             const rightMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s2:group.right, right: dir==='right'?group.right:s2 };
+
             return { id: node.id, type: 'operator', value: group.value, left: leftMult, right: rightMult };
         }
 
@@ -342,24 +429,75 @@
             return moves;
         }
 
+        // --- Helper: Precedence Logic ---
+        const getPrecedence = (op) => {
+            if (op === '^') return 3;
+            if (op === '×' || op === '÷') return 2;
+            return 1;
+        };
+
         // --- Render Helpers ---
         function getExpressionString(node) {
             if (node.type === 'operand') return node.value.d === 1 ? node.value.n : `${node.value.n}/${node.value.d}`;
-            const prec = (op) => op === '×' || op === '÷' ? 2 : 1;
+
+            const myPrec = getPrecedence(node.value);
             let l = getExpressionString(node.left);
             let r = getExpressionString(node.right);
-            if (node.left.type === 'operator' && prec(node.left.value) < prec(node.value)) l = `(${l})`;
-            if (node.right.type === 'operator' && prec(node.right.value) <= prec(node.value)) r = `(${r})`;
+
+            if (node.left.type === 'operator') {
+                const lPrec = getPrecedence(node.left.value);
+                if (lPrec < myPrec) l = `(${l})`;
+            }
+
+            if (node.right.type === 'operator') {
+                const rPrec = getPrecedence(node.right.value);
+                if (rPrec < myPrec) {
+                    r = `(${r})`;
+                } else if (rPrec === myPrec) {
+                    if (node.value !== '^') r = `(${r})`;
+                }
+            }
             return `${l} ${node.value} ${r}`;
         }
 
         function getExpressionNodes(node) {
             if (node.type === 'operand') return [{ type: 'operand', source: node }];
-            const prec = (op) => op === '×' || op === '÷' ? 2 : 1;
+
+            const myPrec = getPrecedence(node.value);
+
+            // UPDATED: Logic for Superscripts
+            // For ^, return a grouped object instead of flat list
+            if (node.value === '^') {
+                let base = getExpressionNodes(node.left);
+                // Respect precedence for base
+                if (node.left.type === 'operator' && getPrecedence(node.left.value) < myPrec) {
+                    base = [{type:'b',v:'('}, ...base, {type:'b',v:')'}];
+                }
+                const exp = getExpressionNodes(node.right);
+                return [{ 
+                    type: 'exponent-block', 
+                    source: node, 
+                    baseNodes: base, 
+                    expNodes: exp 
+                }];
+            }
+
             let l = getExpressionNodes(node.left);
             let r = getExpressionNodes(node.right);
-            if (node.left.type === 'operator' && prec(node.left.value) < prec(node.value)) l = [{type:'b',v:'('}, ...l, {type:'b',v:')'}];
-            if (node.right.type === 'operator' && prec(node.right.value) <= prec(node.value)) r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+
+            if (node.left.type === 'operator') {
+                const lPrec = getPrecedence(node.left.value);
+                if (lPrec < myPrec) l = [{type:'b',v:'('}, ...l, {type:'b',v:')'}];
+            }
+
+            if (node.right.type === 'operator') {
+                const rPrec = getPrecedence(node.right.value);
+                if (rPrec < myPrec) {
+                    r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+                } else if (rPrec === myPrec) {
+                    r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+                }
+            }
             return [...l, { type: 'operator', source: node }, ...r];
         }
 
@@ -563,14 +701,53 @@
                 setTimeout(() => { requestAnimationFrame(() => { svg.innerHTML = ''; drawConnectors(treeData); }); }, 0);
             } else {
                 svg.style.display = 'none';
-                getExpressionNodes(treeData).forEach(item => {
-                    if (item.type === 'b') {
-                        const s = document.createElement('span'); s.textContent = item.v; s.className = 'expression-bracket';
-                        container.appendChild(s);
-                    } else {
-                        container.appendChild(createNodeDOM(item.source));
-                    }
-                });
+
+                // UPDATED: Recursive Renderer for Superscripts
+                const renderNodesToContainer = (nodes, parentEl) => {
+                    nodes.forEach(item => {
+                        if (item.type === 'b') {
+                            const s = document.createElement('span'); 
+                            s.textContent = item.v; 
+                            s.className = 'expression-bracket';
+                            parentEl.appendChild(s);
+                        } 
+                        else if (item.type === 'exponent-block') {
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'exponent-block node-operator'; 
+
+                            const node = item.source;
+                            const isLeaf = false; 
+                            const canEval = node.left.type === 'operand' && node.right.type === 'operand';
+                            const moves = getPossibleTransforms(node);
+                            const canTransform = moves.length > 0;
+
+                            if (interactionMode === 'simplify' && canEval) wrapper.classList.add("can-evaluate");
+                            if (interactionMode === 'rearrange' && canTransform) wrapper.classList.add("can-transform");
+
+                            if ((interactionMode === 'simplify' && canEval) || (interactionMode === 'rearrange' && canTransform)) {
+                                wrapper.onclick = (e) => handleNodeClick(e, node);
+                                wrapper.id = node.id; 
+                            }
+
+                            const baseDiv = document.createElement('div');
+                            baseDiv.className = 'exponent-base';
+                            renderNodesToContainer(item.baseNodes, baseDiv); 
+
+                            const powerDiv = document.createElement('div');
+                            powerDiv.className = 'exponent-power';
+                            renderNodesToContainer(item.expNodes, powerDiv); 
+
+                            wrapper.appendChild(baseDiv);
+                            wrapper.appendChild(powerDiv);
+                            parentEl.appendChild(wrapper);
+                        } 
+                        else {
+                            parentEl.appendChild(createNodeDOM(item.source));
+                        }
+                    });
+                };
+
+                renderNodesToContainer(getExpressionNodes(treeData), container);
             }
         }
 
