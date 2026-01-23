@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BODMAS Engine - Hints Toggle</title>
+    <title>BODMAS Engine - Exponents Added</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -64,9 +64,7 @@
             background-color: #f9fafb;
         }
 
-        /* --- Interactive States (Only active when hints are ON) --- */
-        
-        /* Base pointer for interactive elements regardless of hints */
+        /* --- Interactive States --- */
         body.mode-simplify .node-operator.can-evaluate,
         body.mode-rearrange .node-operator.can-transform {
             cursor: pointer; 
@@ -78,7 +76,6 @@
             color: #2563eb;
             background-color: #eff6ff;
         }
-        /* Active click state works regardless of hints for feedback */
         body.mode-simplify .node-operator.can-evaluate:active {
             background-color: #2563eb;
             color: #ffffff;
@@ -99,12 +96,10 @@
             border-color: #9333ea;
         }
 
-        /* Active Menu State */
         .node-operator.menu-open {
             background-color: #1f2937 !important;
             border-color: #1f2937 !important;
             color: white !important;
-            box-shadow: 0 0 0 4px rgba(31, 41, 55, 0.15);
             transform: scale(1.05);
         }
 
@@ -130,11 +125,27 @@
             display: flex; 
             align-items: center; 
             justify-content: center;
+            min-width: auto; /* Reset for flex centering */
+            min-height: auto;
+            width: 100%;
+            height: 100%;
         }
         .expression-view-active #treeContent {
             display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 20px;
         }
         .expression-bracket { font-size: 2rem; color: #94a3b8; font-weight: 300; margin: 0 2px; }
+        
+        /* Specific styling for the exponent operator in expression view */
+        .expression-view-active .node-operator[data-op="^"] {
+            transform: translateY(-5px) scale(0.9);
+            border: none;
+            background: transparent;
+            box-shadow: none;
+            width: auto;
+            height: auto;
+            color: #64748b;
+            font-weight: bold;
+        }
 
         /* --- Context Menu --- */
         #contextMenu {
@@ -143,7 +154,7 @@
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(8px);
             border: 1px solid #e5e7eb;
-            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15);
             border-radius: 12px;
             padding: 6px;
             display: flex;
@@ -152,65 +163,39 @@
             min-width: 180px;
             opacity: 0;
             transform: scale(0.95);
-            transition: opacity 0.1s, transform 0.1s;
             pointer-events: none;
-        }
-        
-        #contextMenu.active {
-            opacity: 1;
-            transform: scale(1);
-            pointer-events: auto;
+            transition: opacity 0.1s, transform 0.1s;
         }
 
+        #contextMenu.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+
         .menu-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            width: 100%;
-            text-align: left;
-            padding: 10px 12px;
-            font-size: 0.95rem;
-            font-weight: 500;
-            color: #374151;
-            border-radius: 8px;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.1s;
+            display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+            padding: 10px 12px; font-size: 0.95rem; font-weight: 500; color: #374151;
+            border-radius: 8px; background: transparent; border: none; cursor: pointer;
         }
         .menu-item:active { background-color: #f3f4f6; }
-        @media (hover: hover) {
-            .menu-item:hover { background-color: #f9fafb; }
-        }
+        @media (hover: hover) { .menu-item:hover { background-color: #f9fafb; } }
         .menu-item-icon { 
-            width: 24px; height: 24px; 
-            display: flex; align-items: center; justify-content: center;
-            background: #f3f4f6; 
-            border-radius: 6px;
-            color: #4b5563; font-weight: bold; font-size: 1.1em;
+            width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+            background: #f3f4f6; border-radius: 6px; color: #4b5563; font-weight: bold;
         }
 
     </style>
 </head>
-<body class="mode-simplify"> <header class="bg-white border-b border-gray-200 shadow-sm p-3">
+<body class="mode-simplify"> 
+    <header class="bg-white border-b border-gray-200 shadow-sm p-3">
         <div class="max-w-4xl mx-auto flex flex-col gap-3">
-
             <div class="flex justify-between items-center gap-2">
                 <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
-                    <button id="modeSimplifyBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation">
-                        <span>Simplify</span>
-                    </button>
-                    <button id="modeRearrangeBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation">
-                        <span>Move</span>
-                    </button>
+                    <button id="modeSimplifyBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation">Simplify</button>
+                    <button id="modeRearrangeBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation">Move</button>
                 </div>
-
                 <div class="bg-gray-100 p-1 rounded-lg flex text-xs font-medium border border-gray-200 shrink-0">
                     <button id="viewTreeBtn" class="px-3 py-2 rounded-md transition-all touch-manipulation">Tree</button>
                     <button id="viewExprBtn" class="px-3 py-2 rounded-md transition-all touch-manipulation">Expr</button>
                 </div>
             </div>
-
             <div class="flex justify-between items-center gap-3">
                 <div class="flex gap-3 w-full">
                     <button id="undoBtn" disabled class="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-gray-50 transition-all disabled:opacity-40 disabled:bg-gray-50 touch-manipulation flex-1">
@@ -226,7 +211,6 @@
                     Hints
                 </button>
             </div>
-
         </div>
     </header>
 
@@ -262,32 +246,56 @@
             '+': (a, b) => simplify(a.n * b.d + b.n * a.d, a.d * b.d),
             '-': (a, b) => simplify(a.n * b.d - b.n * a.d, a.d * b.d),
             '×': (a, b) => simplify(a.n * b.n, a.d * b.d),
-            '÷': (a, b) => simplify(a.n * b.d, a.d * b.n)
+            '÷': (a, b) => simplify(a.n * b.d, a.d * b.n),
+            '^': (a, b) => {
+                // Integer exponent logic
+                let exp = b.n / b.d;
+                // Safety: if exp is not integer or too large, return identity/safe value
+                if (Math.abs(exp) > 10) return { n: 1, d: 1 };
+                
+                let num = a.n, den = a.d;
+                if (exp < 0) {
+                    [num, den] = [den, num];
+                    exp = -exp;
+                }
+                // We use standard Math.pow but since generation forces small integers, it should stay clean
+                return simplify(Math.pow(num, exp), Math.pow(den, exp));
+            }
         };
 
         // --- State ---
         let treeData = null;
         let historyStack = []; 
-        let currentView = 'tree'; 
+        let currentView = 'expression'; // DEFAULT CHANGED TO EXPRESSION
         let interactionMode = 'simplify'; 
-        let showHints = false; // Default OFF
+        let showHints = false;
 
         // --- Tree Generation ---
         function generateRandomTree(depth = 0, maxDepth = 3) {
             const id = generateId();
             const isLeaf = depth >= maxDepth || (depth > 0 && Math.random() > 0.4);
-            let node;
             
             if (isLeaf) {
-                node = { id, type: 'operand', value: { n: Math.floor(Math.random() * 12) + 1, d: 1 } };
+                return { id, type: 'operand', value: { n: Math.floor(Math.random() * 12) + 1, d: 1 } };
             } else {
-                const symbols = ['+', '-', '×'];
+                const symbols = ['+', '-', '×', '÷', '^'];
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
-                node = { id, type: 'operator', value: symbol, left: generateRandomTree(depth + 1, maxDepth), right: generateRandomTree(depth + 1, maxDepth) };
-            }
+                
+                let left = generateRandomTree(depth + 1, maxDepth);
+                let right = generateRandomTree(depth + 1, maxDepth);
 
-            // Apply auto-left association logic on generation
-            return applyAutoLeftAssociativity(node);
+                // CONSTRAINT: If exponentiation, force right child to be a small integer (0-4)
+                // This keeps the math playable mentally.
+                if (symbol === '^') {
+                    right = { 
+                        id: generateId(), 
+                        type: 'operand', 
+                        value: { n: Math.floor(Math.random() * 4), d: 1 } // 0, 1, 2, 3
+                    };
+                }
+
+                return { id, type: 'operator', value: symbol, left, right };
+            }
         }
 
         // --- Transforms ---
@@ -318,6 +326,7 @@
             return { ...node.right, id: node.id, left: newLeft, right: C };
         }
 
+        // Distributive Prop: a × (b + c)
         const canDistribute = (node) => {
             if (node.type !== 'operator' || node.value !== '×') return false;
             if (node.right.type === 'operator' && ['+', '-'].includes(node.right.value) && node.left.type==='operand') return 'right';
@@ -330,29 +339,14 @@
             let scalar, group;
             if (dir === 'right') { scalar = node.left; group = node.right; }
             else { scalar = node.right; group = node.left; }
+            
             const s1 = JSON.parse(JSON.stringify(scalar)); s1.id = generateId();
             const s2 = JSON.parse(JSON.stringify(scalar)); s2.id = generateId();
+            
             const leftMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s1:group.left, right: dir==='right'?group.left:s1 };
             const rightMult = { id: generateId(), type: 'operator', value: '×', left: dir==='right'?s2:group.right, right: dir==='right'?group.right:s2 };
+            
             return { id: node.id, type: 'operator', value: group.value, left: leftMult, right: rightMult };
-        }
-
-        /* --- Auto Association Logic --- */
-        function applyAutoLeftAssociativity(node) {
-            if (node.type === 'operand') return node;
-
-            // Recursively process children first (Post-order traversal)
-            // This ensures we fix issues deep in the tree before fixing the top level
-            node.left = applyAutoLeftAssociativity(node.left);
-            node.right = applyAutoLeftAssociativity(node.right);
-
-            // While this node can associate left (e.g., A + (B + C)), automatically do it
-            while (canAssociateLeft(node)) {
-                node = doAssociateLeft(node);
-                // Note: We continue the loop because the rotation might bring up 
-                // another operator that also needs to be associated left.
-            }
-            return node;
         }
 
         function getPossibleTransforms(node) {
@@ -365,23 +359,52 @@
         }
 
         // --- Render Helpers ---
+        // Helper to determine operator precedence
+        const getPrecedence = (op) => {
+            if (op === '^') return 3;
+            if (op === '×' || op === '÷') return 2;
+            return 1;
+        };
+
         function getExpressionString(node) {
             if (node.type === 'operand') return node.value.d === 1 ? node.value.n : `${node.value.n}/${node.value.d}`;
-            const prec = (op) => op === '×' || op === '÷' ? 2 : 1;
+            
+            const pCurrent = getPrecedence(node.value);
+            
             let l = getExpressionString(node.left);
             let r = getExpressionString(node.right);
-            if (node.left.type === 'operator' && prec(node.left.value) < prec(node.value)) l = `(${l})`;
-            if (node.right.type === 'operator' && prec(node.right.value) <= prec(node.value)) r = `(${r})`;
+            
+            const pLeft = node.left.type === 'operator' ? getPrecedence(node.left.value) : 99;
+            const pRight = node.right.type === 'operator' ? getPrecedence(node.right.value) : 99;
+
+            if (pLeft < pCurrent) l = `(${l})`;
+            if (pRight <= pCurrent && node.value !== '^') r = `(${r})`; // Standard left-associative
+            if (pRight < pCurrent && node.value === '^') r = `(${r})`; // Right-associative logic for power
+
             return `${l} ${node.value} ${r}`;
         }
 
         function getExpressionNodes(node) {
             if (node.type === 'operand') return [{ type: 'operand', source: node }];
-            const prec = (op) => op === '×' || op === '÷' ? 2 : 1;
+            
+            const pCurrent = getPrecedence(node.value);
+            
             let l = getExpressionNodes(node.left);
             let r = getExpressionNodes(node.right);
-            if (node.left.type === 'operator' && prec(node.left.value) < prec(node.value)) l = [{type:'b',v:'('}, ...l, {type:'b',v:')'}];
-            if (node.right.type === 'operator' && prec(node.right.value) <= prec(node.value)) r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+            
+            const pLeft = node.left.type === 'operator' ? getPrecedence(node.left.value) : 99;
+            const pRight = node.right.type === 'operator' ? getPrecedence(node.right.value) : 99;
+
+            if (pLeft < pCurrent) l = [{type:'b',v:'('}, ...l, {type:'b',v:')'}];
+            
+            // Bracket logic for right side
+            if (node.value !== '^') {
+                if (pRight <= pCurrent) r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+            } else {
+                // For exponents, we only bracket if right is strictly lower (right associative)
+                if (pRight < pCurrent) r = [{type:'b',v:'('}, ...r, {type:'b',v:')'}];
+            }
+
             return [...l, { type: 'operator', source: node }, ...r];
         }
 
@@ -402,13 +425,7 @@
                 }
                 return node;
             };
-            
-            let newTree = rebuild(treeData);
-            
-            // Enforce automatic left associativity on the updated tree
-            newTree = applyAutoLeftAssociativity(newTree);
-
-            treeData = newTree;
+            treeData = rebuild(treeData);
             render();
         }
 
@@ -441,7 +458,7 @@
 
         // --- Context Menu ---
         const ctxMenu = document.getElementById('contextMenu');
-        
+
         const handleGlobalClick = (e) => {
             const menu = document.getElementById('contextMenu');
             if (menu.contains(e.target)) return;
@@ -468,7 +485,7 @@
             let finalX = x;
             let finalY = y + 10;
             const menuRect = { width: 200, height: moves.length * 50 + 20 };
-            
+
             if (finalX + menuRect.width > window.innerWidth) finalX = window.innerWidth - menuRect.width - 16;
             if (finalY + menuRect.height > window.innerHeight) finalY = y - menuRect.height - 10;
             if (finalX < 16) finalX = 16;
@@ -517,9 +534,13 @@
                 div.innerHTML = val.d === 1 ? `<span>${val.n}</span>` : `<div class="frac"><span class="top">${val.n}</span><span class="bottom">${val.d}</span></div>`;
             } else {
                 div.className += "node-operator ";
+                div.setAttribute('data-op', node.value); // Used for specific styling (like ^)
+                
                 if (interactionMode === 'simplify' && canEval) div.className += "can-evaluate";
                 if (interactionMode === 'rearrange' && canTransform) div.className += "can-transform";
+                
                 div.textContent = node.value;
+                
                 if ((interactionMode === 'simplify' && canEval) || (interactionMode === 'rearrange' && canTransform)) {
                     div.onclick = (e) => handleNodeClick(e, node);
                 }
@@ -576,12 +597,11 @@
             svg.innerHTML = '';
             exprText.textContent = getExpressionString(treeData);
 
-            // Add 'hints-active' class to body if enabled
             const hintsClass = showHints ? 'hints-active' : '';
             document.body.className = `mode-${interactionMode} ${currentView === 'tree' ? 'tree-view-active' : 'expression-view-active'} ${hintsClass}`;
 
             if (treeData.type === 'operand') {
-                container.innerHTML = `<div class="text-7xl font-bold text-gray-900">${treeData.value.n}</div>`;
+                container.innerHTML = `<div class="text-7xl font-bold text-gray-900">${treeData.value.n}${treeData.value.d === 1 ? '' : '/' + treeData.value.d}</div>`;
                 return;
             }
 
@@ -620,6 +640,9 @@
             const centerViewport = () => {
                 const ct = document.getElementById('treeContainer');
                 if(viewport && ct) {
+                    // Reset scroll for expression view centering (handled by flexbox)
+                    if(currentView === 'expression') return;
+                    
                     viewport.scrollLeft = (ct.offsetWidth - viewport.offsetWidth) / 2;
                     viewport.scrollTop = (ct.offsetHeight - viewport.offsetHeight) / 2 - 50;
                 }
@@ -630,7 +653,6 @@
                 const activeModePurple = "bg-white text-purple-600 shadow-sm ring-1 ring-gray-200";
                 const inactive = "text-gray-500 hover:text-gray-900 bg-transparent";
 
-                // Mode Buttons
                 if(interactionMode === 'simplify') {
                     btnSimp.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${activeMode}`;
                     btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
@@ -639,7 +661,6 @@
                     btnRear.className = `flex items-center gap-1.5 px-3 py-2 rounded-md transition-all touch-manipulation ${activeModePurple}`;
                 }
 
-                // View Buttons
                 if(currentView === 'tree') {
                     btnViewTree.className = `px-3 py-2 rounded-md transition-all touch-manipulation bg-white text-gray-900 shadow-sm ring-1 ring-gray-200`;
                     btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation ${inactive}`;
@@ -648,20 +669,19 @@
                     btnViewExpr.className = `px-3 py-2 rounded-md transition-all touch-manipulation bg-white text-gray-900 shadow-sm ring-1 ring-gray-200`;
                 }
 
-                // Hints Button
                 if(showHints) {
                     btnHints.className = "flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all touch-manipulation border border-amber-200 bg-amber-50 text-amber-700 shadow-sm";
                 } else {
                     btnHints.className = "flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all touch-manipulation border border-gray-200 text-gray-500 hover:text-gray-900";
                 }
-                
+
                 hideContextMenu();
                 render();
             }
 
             btnSimp.onclick = () => { interactionMode = 'simplify'; updateUI(); };
             btnRear.onclick = () => { interactionMode = 'rearrange'; updateUI(); };
-            
+
             btnViewTree.onclick = () => { 
                 currentView = 'tree'; 
                 updateUI(); 
