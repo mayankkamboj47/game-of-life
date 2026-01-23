@@ -457,6 +457,7 @@
                     if (node.value !== '^') r = `(${r})`;
                 }
             }
+            if (node.value === '^') return `${l}<sup>${r}</sup>`;
             return `${l} ${node.value} ${r}`;
         }
 
@@ -684,7 +685,7 @@
 
             container.innerHTML = '';
             svg.innerHTML = '';
-            exprText.textContent = getExpressionString(treeData);
+            exprText.innerHTML = getExpressionString(treeData);
 
             // Add 'hints-active' class to body if enabled
             const hintsClass = showHints ? 'hints-active' : '';
