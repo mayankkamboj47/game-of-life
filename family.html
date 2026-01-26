@@ -34,7 +34,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: 'Hind', sans-serif; /* Changed font */
+            font-family: 'Hind', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
             padding: 20px;
@@ -103,7 +103,7 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             border-top: 6px solid #ccc;
             animation: fadeIn 0.4s ease-out;
-            text-align: left; /* Better for reading Hindi questions */
+            text-align: left;
         }
 
         #quiz-text { 
@@ -325,35 +325,35 @@
 
         // --- HINDI TRANSLATION MAPS ---
 
-        // Relationship Translations
+        // Relationship Translations with GENDER (g: 'M' for Male/Masculine, 'F' for Female/Feminine)
         const REL_TO_HINDI = {
-            'Father': 'पिता',
-            'Mother': 'माता',
-            'Son': 'पुत्र',
-            'Daughter': 'पुत्री',
-            'Brother': 'भाई',
-            'Sister': 'बहन',
-            'Spouse': 'जीवनसाथी',
-            'Husband': 'पति',
-            'Wife': 'पत्नी',
-            'Paternal Grandfather': 'दादा',
-            'Maternal Grandfather': 'नाना',
-            'Paternal Grandmother': 'दादी',
-            'Maternal Grandmother': 'नानी',
-            'Paternal Uncle': 'चाचा/ताऊ',
-            'Maternal Uncle': 'मामा',
-            'Paternal Aunt': 'बुआ',
-            'Maternal Aunt': 'मौसी',
-            'Nephew': 'भतीजा/भांजा',
-            'Niece': 'भतीजी/भांजी',
-            'Father-in-law': 'ससुर',
-            'Mother-in-law': 'सास',
-            'Brother-in-law': 'जीजा/साला/देवर',
-            'Sister-in-law': 'भाभी/ननद/ साली',
-            'Grandson': 'पोता/नाती',
-            'Granddaughter': 'पोती/नातिन',
-            'Uncle': 'अंकल (चाचा/मामा)',
-            'Aunt': 'आंटी (बुआ/मौसी)'
+            'Father': { word: 'पिता', g: 'M' },
+            'Mother': { word: 'माता', g: 'F' },
+            'Son': { word: 'पुत्र', g: 'M' },
+            'Daughter': { word: 'पुत्री', g: 'F' },
+            'Brother': { word: 'भाई', g: 'M' },
+            'Sister': { word: 'बहन', g: 'F' },
+            'Spouse': { word: 'जीवनसाथी', g: 'M' }, // Default masculine for neutral
+            'Husband': { word: 'पति', g: 'M' },
+            'Wife': { word: 'पत्नी', g: 'F' },
+            'Paternal Grandfather': { word: 'दादा', g: 'M' },
+            'Maternal Grandfather': { word: 'नाना', g: 'M' },
+            'Paternal Grandmother': { word: 'दादी', g: 'F' },
+            'Maternal Grandmother': { word: 'नानी', g: 'F' },
+            'Paternal Uncle': { word: 'चाचा/ताऊ', g: 'M' },
+            'Maternal Uncle': { word: 'मामा', g: 'M' },
+            'Paternal Aunt': { word: 'बुआ', g: 'F' },
+            'Maternal Aunt': { word: 'मौसी', g: 'F' },
+            'Nephew': { word: 'भतीजा/भांजा', g: 'M' },
+            'Niece': { word: 'भतीजी/भांजी', g: 'F' },
+            'Father-in-law': { word: 'ससुर', g: 'M' },
+            'Mother-in-law': { word: 'सास', g: 'F' },
+            'Brother-in-law': { word: 'जीजा/साला/देवर', g: 'M' },
+            'Sister-in-law': { word: 'भाभी/ननद/साली', g: 'F' },
+            'Grandson': { word: 'पोता/नाती', g: 'M' },
+            'Granddaughter': { word: 'पोती/नातिन', g: 'F' },
+            'Uncle': { word: 'अंकल (चाचा/मामा)', g: 'M' },
+            'Aunt': { word: 'आंटी (बुआ/मौसी)', g: 'F' }
         };
 
         const ICONS = {
@@ -497,7 +497,7 @@
             let currentNode = startNode;
             let codeString = startNode.id;
             let textPath = []; 
-            let facts = [];    
+            let facts = [];     
             let visited = new Set([startNode.id]); 
 
             for (let i = 0; i < steps; i++) {
@@ -519,9 +519,10 @@
                 // Build outputs
                 codeString += ` <b>${symbolDef.symbol}</b> ${nextNode.id}`;
 
-                // HINDI FACT CONSTRUCTION
-                const hindiRel = REL_TO_HINDI[symbolDef.id];
-                facts.push(`${currentNode.id}, ${nextNode.id} का/की <b>${hindiRel}</b> है`); // Note: In symbols A+B, usually A is the relation OF B.
+                // HINDI FACT CONSTRUCTION with gender check
+                const relData = REL_TO_HINDI[symbolDef.id];
+                const suffix = relData.g === 'M' ? 'का' : 'की';
+                facts.push(`${currentNode.id}, ${nextNode.id} <b>${suffix}</b> <b>${relData.word}</b> है`);
 
                 textPath.push(symbolDef.id); 
                 visited.add(nextNode.id);
@@ -544,23 +545,17 @@
                 const exactRelation = determineRelationship(startNode, targetNode);
 
                 if (exactRelation && startNode.id !== targetNode.id) {
-                    // Coded logic usually works in pairs: A+B means A is father of B. 
-                    // But random walk is A -> B. So A is father of B.
-                    const legendItems = SYMBOL_DEFS.map(d => `<b>A ${d.symbol} B</b> का अर्थ है A, B का/की ${REL_TO_HINDI[d.id]} है`).join('<br>');
+                    const legendItems = SYMBOL_DEFS.map(d => {
+                        const r = REL_TO_HINDI[d.id];
+                        return `<b>A ${d.symbol} B</b> का अर्थ है A, B <b>${r.g === 'M' ? 'का' : 'की'}</b> ${r.word} है`;
+                    }).join('<br>');
+
                     const question = `
                         <div class="legend-box">${legendItems}</div>
                         इस क्रम के आधार पर: <span style="background:#fef3c7; padding:4px 8px; font-weight:bold; letter-spacing:1px; border-radius:4px;">${codeString}</span><br><br>
                         बताइए कि <span class="highlight-name">${startNode.id}</span>, <span class="highlight-name">${targetNode.id}</span> से किस प्रकार संबंधित है?
                         <br><small>(ध्यान दें: संबंध उल्टे क्रम में पूछा गया है)</small>
                     `;
-                    // Note: randomWalk goes A -> B -> C. "A+B" means A is father of B.
-                    // The path is A -> B. So A is father of B.
-                    // Question asks: How is START (A) related to TARGET (B)?
-                    // determineRelationship(startNode, targetNode) returns how TARGET is related to START usually? 
-                    // No, determineRelationship(A, B) checks path A to B.
-                    // If path is A(father)->B(son). determineRel returns 'Son'.
-                    // So B is Son of A.
-                    // If we ask "How is A related to B?", we need determineRel(B, A).
 
                     const reverseRel = determineRelationship(targetNode, startNode);
                     if(reverseRel) {
@@ -607,14 +602,17 @@
 
                 const { targetNode, textPath } = walkData;
 
-                // Constructing Hindi instruction path
-                // "Go to Father, then Sister" -> "पिता के पास जाएं, फिर उनकी बहन के पास..."
-                let hindiSteps = textPath.map(eng => REL_TO_HINDI[eng]);
                 let instruction = `<span class="highlight-name">${startNode.id}</span> से शुरू करें।<br>`;
 
-                instruction += `पहले उनके <b>${hindiSteps[0]}</b> के पास जाएं।<br>`;
-                for(let i=1; i<hindiSteps.length; i++) {
-                    instruction += `फिर उस व्यक्ति के/की <b>${hindiSteps[i]}</b> के पास जाएं।<br>`;
+                // Use 'ke' for oblique masculine (uske pita ke pass) and 'ki' for feminine (uski mata ke pass)
+                const firstRel = REL_TO_HINDI[textPath[0]];
+                const firstPronoun = firstRel.g === 'M' ? 'उनके' : 'उनकी'; 
+                instruction += `पहले ${firstPronoun} <b>${firstRel.word}</b> के पास जाएं।<br>`;
+
+                for(let i=1; i<textPath.length; i++) {
+                    const rel = REL_TO_HINDI[textPath[i]];
+                    const suffix = rel.g === 'M' ? 'के' : 'की';
+                    instruction += `फिर उस व्यक्ति ${suffix} <b>${rel.word}</b> के पास जाएं।<br>`;
                 }
                 instruction += `<br>अंत में आप किसके पास पहुँचते हैं?`;
 
@@ -626,15 +624,30 @@
 
         const LHS_TEMPLATES = [
             { find: (p) => [p], text: (t) => `वह` }, 
-            { find: (p) => p.children, text: (t, p) => `उसका/उसकी ${REL_TO_HINDI[p.gender==='Male'?'Father':'Mother']}` }, 
-            { find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], text: (t, p) => `उसका/उसकी ${REL_TO_HINDI[p.gender==='Male'?'Brother':'Sister']}` } 
+            { 
+                find: (p) => p.children, 
+                text: (t, p) => {
+                    const rel = REL_TO_HINDI[p.gender==='Male'?'Father':'Mother'];
+                    return `उसका/उसकी ${rel.word}`;
+                }
+            }, 
+            { 
+                find: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], 
+                text: (t, p) => {
+                    // "Uska Bhai" / "Uski Behan"
+                    const relKey = p.gender === 'Male' ? 'Brother' : 'Sister';
+                    const rel = REL_TO_HINDI[relKey];
+                    const pronoun = rel.g === 'M' ? 'उसका' : 'उसकी';
+                    return `${pronoun} ${rel.word}`;
+                } 
+            } 
         ];
 
         const CRAWL_MOVES = [
-            { type: 'Parent',  get: (p) => p.parents, label: (p) => p.gender==='Male'?'पिता':'माता' },
-            { type: 'Child',   get: (p) => p.children, label: (p) => p.gender==='Male'?'पुत्र':'पुत्री' },
-            { type: 'Spouse',  get: (p) => p.spouse ? [p.spouse] : [], label: (p) => p.gender==='Male'?'पति':'पत्नी' },
-            { type: 'Sibling', get: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], label: (p) => p.gender==='Male'?'भाई':'बहन' }
+            { type: 'Parent',  get: (p) => p.parents, relKey: (p) => p.gender==='Male'?'Father':'Mother' },
+            { type: 'Child',   get: (p) => p.children, relKey: (p) => p.gender==='Male'?'Son':'Daughter' },
+            { type: 'Spouse',  get: (p) => p.spouse ? [p.spouse] : [], relKey: (p) => p.gender==='Male'?'Husband':'Wife' },
+            { type: 'Sibling', get: (p) => p.parents.length ? p.parents[0].children.filter(c=>c.id!==p.id) : [], relKey: (p) => p.gender==='Male'?'Brother':'Sister' }
         ];
 
         function generatePointingQuestion() {
@@ -654,8 +667,8 @@
                     for(const target of potentialTargets) {
                         const lhString = lhsTmpl.text(target, pivot); 
                         // Simplified Grammar Check
-                        if ((lhString.includes("पिता")||lhString.includes("भाई")) && pivot.gender !== 'Male') continue;
-                        if ((lhString.includes("माता")||lhString.includes("बहन")) && pivot.gender !== 'Female') continue;
+                        if ((lhString.includes("पिता")||lhString.includes("भाई")||lhString.includes("पति")) && pivot.gender !== 'Male') continue;
+                        if ((lhString.includes("माता")||lhString.includes("बहन")||lhString.includes("पत्नी")) && pivot.gender !== 'Female') continue;
 
                         const actualRelation = determineRelationship(speaker, target);
 
@@ -678,15 +691,16 @@
                 const neighbors = move.get(currentNode).filter(n => !newHistory.includes(n.id));
                 if (neighbors.length > 0) {
                     const nextNode = neighbors[Math.floor(Math.random() * neighbors.length)];
-                    let label = move.label(nextNode);
 
-                    // Simple Hindi Possessive Logic
-                    // If previous word ends in 'mere' or 'ke' -> next is 'ke/ki'
-                    // Keeping it generic: "Mere [Label] ke [Label]"
-                    let connector = " के ";
-                    if (label === 'पत्नी' || label === 'माता' || label === 'बहन' || label === 'पुत्री') connector = " की ";
+                    const relKey = move.relKey(nextNode); // Get key 'Father', 'Mother' etc.
+                    const relData = REL_TO_HINDI[relKey]; // Get { word: '...', g: 'M/F' }
 
-                    const newText = currentText === "मेरे" ? `मेरे ${label}` : `${currentText}${connector}${label}`;
+                    // Possessive logic:
+                    // If label is M -> "ke" (oblique case usually fits pathing "mere pita ke bhai")
+                    // If label is F -> "ki"
+                    const connector = relData.g === 'M' ? " के " : " की ";
+
+                    const newText = currentText === "मेरे" ? `मेरे ${relData.word}` : `${currentText}${connector}${relData.word}`;
 
                     const result = generateRandomPath(nextNode, steps - 1, newText, newHistory);
                     if (result) return result;
@@ -740,14 +754,16 @@
             document.getElementById('quiz-text').innerHTML = htmlText;
             document.getElementById('quiz-feedback').innerHTML = "सही संबंध चुनें:";
 
-            const correctHindi = REL_TO_HINDI[correctAnswerStr] || correctAnswerStr;
+            const correctRelObj = REL_TO_HINDI[correctAnswerStr];
+            const correctHindi = correctRelObj ? correctRelObj.word : correctAnswerStr;
+
             const options = new Set([correctHindi]);
             const relationPool = (targetGender === 'Male') ? MALE_RELATIONS : FEMALE_RELATIONS;
 
             while(options.size < 4) {
                 const randomKey = relationPool[Math.floor(Math.random() * relationPool.length)];
-                const randomHindi = REL_TO_HINDI[randomKey];
-                options.add(randomHindi);
+                const randomRelObj = REL_TO_HINDI[randomKey];
+                if (randomRelObj) options.add(randomRelObj.word);
             }
 
             const container = document.getElementById('quiz-options');
